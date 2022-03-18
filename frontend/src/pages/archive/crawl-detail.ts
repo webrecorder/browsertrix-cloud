@@ -597,7 +597,24 @@ export class CrawlDetail extends LiteElement {
   }
 
   private renderLogs() {
-    return html`TODO`;
+    const logs: string[] = ["test log 1", "test log 2"];
+
+    return html`
+      <header class="flex items-end justify-between my-2">
+        <h3 class="text-lg font-medium">${msg("Logs")}</h3>
+
+        <sl-select value="1" size="small">
+          <sl-menu-item value="1">Instance 1</sl-menu-item>
+          <sl-menu-item value="2">Instance 2</sl-menu-item>
+        </sl-select>
+      </header>
+
+      <figure
+        class="h-80 overflow-auto p-4 rounded bg-neutral-800 text-neutral-100"
+      >
+        <pre class="text-sm">${logs.join("\n")}</pre>
+      </figure>
+    `;
   }
 
   private renderEditScale() {
