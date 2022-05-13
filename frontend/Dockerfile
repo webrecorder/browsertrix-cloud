@@ -33,7 +33,7 @@ ENV RWP_BASE_URL=${RWP_BASE_URL}
 COPY --from=build /app/dist /usr/share/nginx/html
 
 COPY ./nginx.conf /etc/nginx/nginx.conf
-COPY ./frontend.template /etc/nginx/templates/
+COPY ./frontend.template /etc/nginx/templates/frontend.conf.template
 
 RUN rm /etc/nginx/conf.d/*
 

@@ -11,8 +11,10 @@ class EmailSender:
 
     def __init__(self):
         self.sender = os.environ.get("EMAIL_SENDER")
-        self.password = os.environ.get("EMAIL_PASSWORD")
+        self.password = os.environ.get("EMAIL_PASSWORD", None)
         self.smtp_server = os.environ.get("EMAIL_SMTP_HOST")
+        self.smtp_port = os.environ.get("EMAIL_SMTP_PORT", 587)
+        self.smtp_starttls = os.environ.get("EMAIL_SMTP_STARTTLS", "true")
 
         self.default_origin = os.environ.get("APP_ORIGIN")
 
@@ -25,11 +27,13 @@ class EmailSender:
             return
 
         context = ssl.create_default_context()
-        with smtplib.SMTP(self.smtp_server, 587) as server:
+        with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
             server.ehlo()  # Can be omitted
-            server.starttls(context=context)
+            if self.smtp_starttls.lower() == "true":
+                server.starttls(context=context)
             server.ehlo()  # Can be omitted
-            server.login(self.sender, self.password)
+            if self.password != None:
+                server.login(self.sender, self.password)
             server.sendmail(self.sender, receiver, message)
 
     def get_origin(self, headers):
