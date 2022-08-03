@@ -33,16 +33,16 @@ export class BrowserProfilesDetail extends LiteElement {
   private profile?: Profile;
 
   @state()
-  private isLoading = false;
+  private isBrowserLoading = false;
+
+  @state()
+  private isBrowserLoaded = false;
 
   @state()
   private isSubmittingBrowserChange = false;
 
   @state()
   private isSubmittingProfileChange = false;
-
-  @state()
-  private showSaveButton = false;
 
   @state()
   private browserId?: string;
@@ -53,10 +53,13 @@ export class BrowserProfilesDetail extends LiteElement {
   @state()
   private isEditDialogContentVisible = false;
 
-  private showSaveButtonTimerId?: number;
+  @state()
+  private isEditingBrowser = false;
 
   disconnectedCallback() {
-    window.clearTimeout(this.showSaveButtonTimerId);
+    if (this.browserId) {
+      this.deleteBrowser(this.browserId);
+    }
   }
 
   firstUpdated() {
@@ -172,72 +175,86 @@ export class BrowserProfilesDetail extends LiteElement {
 
       <section>
         <header>
-          <h3 class="text-lg font-medium mb-2">
-            ${msg("Browser Profile Editor")}
-          </h3>
+          <h3 class="text-lg font-medium">${msg("Browser Profile")}</h3>
         </header>
 
-        <main class="relative">
-          <btrix-profile-browser
-            .authState=${this.authState}
-            archiveId=${this.archiveId}
-            browserId=${ifDefined(this.browserId)}
-            .origins=${this.profile?.origins}
-          ></btrix-profile-browser>
-
-          ${this.browserId && !this.isLoading
-            ? html`
-                <!-- Hide browser area with overlay -->
-                <!-- TODO remove when browser no longer shows dev tools -->
-                ${this.isSubmittingBrowserChange
-                  ? html`<div
-                      class="absolute top-0 left-0 h-full flex items-center justify-center text-4xl bg-slate-50 lg:rounded-l-lg border border-r-0"
-                      style="right: ${ProfileBrowser.SIDE_BAR_WIDTH}px;"
-                    >
-                      <sl-spinner></sl-spinner>
-                    </div>`
-                  : ""}
-                ${this.showSaveButton
-                  ? html`<div
-                      class="absolute top-0 p-2"
-                      style="right: ${ProfileBrowser.SIDE_BAR_WIDTH}px;"
-                    >
-                      <sl-button
-                        class="shadow"
-                        type="primary"
-                        size="small"
-                        @click=${this.saveBrowser}
-                        >${msg("Done Editing")}</sl-button
-                      >
-                    </div>`
-                  : ""}
-              `
-            : html`
-                <div
-                  class="absolute top-0 left-0 h-full flex flex-col items-center justify-center"
-                  style="right: ${ProfileBrowser.SIDE_BAR_WIDTH}px;"
-                >
-                  <p class="mb-4 text-neutral-600 max-w-prose">
+        <div class="rounded p-2 bg-slate-50">
+          <div class="mb-2 flex justify-between items-center">
+            <div class="text-sm text-neutral-500 mx-1">
+              ${this.browserId && this.isEditingBrowser
+                ? html`
                     ${msg(
-                      "Load browser to view or edit websites in the profile."
+                      "Interact with the browsing tool to make changes to your browser profile."
                     )}
-                  </p>
-                  <sl-button
-                    type="primary"
-                    outline
-                    ?disabled=${this.isLoading ||
-                    !ProfileBrowser.isBrowserCompatible}
-                    ?loading=${this.isLoading}
-                    @click=${this.startBrowserPreview}
-                    ><sl-icon
-                      slot="prefix"
-                      name="collection-play-fill"
-                    ></sl-icon>
-                    ${msg("Load Browser")}</sl-button
+                  `
+                : ""}
+            </div>
+
+            <div>
+              ${this.isEditingBrowser && !this.isBrowserLoading
+                ? html`
+                    <sl-button size="small" @click=${this.cancelEditBrowser}
+                      >${msg("Cancel")}</sl-button
+                    >
+                    <sl-button size="small" @click=${this.startEditBrowser}
+                      >${msg("Reset")}</sl-button
+                    >
+                    <sl-button
+                      type="primary"
+                      size="small"
+                      ?loading=${this.isSubmittingBrowserChange}
+                      ?disabled=${this.isSubmittingBrowserChange ||
+                      !this.isBrowserLoaded}
+                      @click=${this.saveBrowser}
+                      >${msg("Save Changes")}</sl-button
+                    >
+                  `
+                : html`
+                    <sl-button
+                      size="small"
+                      ?loading=${this.isBrowserLoading}
+                      ?disabled=${this.isBrowserLoading}
+                      @click=${this.startEditBrowser}
+                      >${msg("Edit Browser Profile")}</sl-button
+                    >
+                  `}
+            </div>
+          </div>
+
+          <main class="relative">
+            <btrix-profile-browser
+              .authState=${this.authState}
+              archiveId=${this.archiveId}
+              browserId=${ifDefined(this.browserId)}
+              .origins=${this.profile?.origins}
+              @load=${() => (this.isBrowserLoaded = true)}
+            ></btrix-profile-browser>
+
+            ${this.browserId || this.isBrowserLoading
+              ? ""
+              : html`
+                  <div
+                    class="absolute top-0 left-0 h-full flex flex-col items-center justify-center"
+                    style="right: ${ProfileBrowser.SIDE_BAR_WIDTH}px;"
                   >
-                </div>
-              `}
-        </main>
+                    <p class="mb-4 text-neutral-600 max-w-prose">
+                      ${msg("Load browser to view websites in the profile.")}
+                    </p>
+                    <sl-button
+                      type="primary"
+                      outline
+                      ?disabled=${!ProfileBrowser.isBrowserCompatible}
+                      @click=${this.startBrowserPreview}
+                      ><sl-icon
+                        slot="prefix"
+                        name="collection-play-fill"
+                      ></sl-icon>
+                      ${msg("Load Browser")}</sl-button
+                    >
+                  </div>
+                `}
+          </main>
+        </div>
       </section>
 
       <sl-dialog
@@ -254,7 +271,7 @@ export class BrowserProfilesDetail extends LiteElement {
   private renderMenu() {
     return html`
       <sl-dropdown placement="bottom-end" distance="4">
-        <sl-button slot="trigger" type="primary" size="small" caret
+        <sl-button slot="trigger" size="small" caret
           >${msg("Actions")}</sl-button
         >
 
@@ -351,27 +368,17 @@ export class BrowserProfilesDetail extends LiteElement {
   private async startBrowserPreview() {
     if (!this.profile) return;
 
-    this.isLoading = true;
+    this.isBrowserLoading = true;
 
     const url = this.profile.origins[0];
 
     try {
       const data = await this.createBrowser({ url });
 
-      this.notify({
-        message: msg("Starting up browser..."),
-        type: "success",
-        icon: "check2-circle",
-      });
-
       this.browserId = data.browserid;
-
-      // Slightly delay showing the save button while browser loads
-      this.showSaveButtonTimerId = window.setTimeout(() => {
-        this.showSaveButton = true;
-      }, 3 * 1000);
+      this.isBrowserLoading = false;
     } catch (e) {
-      this.isLoading = false;
+      this.isBrowserLoading = false;
 
       this.notify({
         message: msg("Sorry, couldn't preview browser profile at this time."),
@@ -379,14 +386,47 @@ export class BrowserProfilesDetail extends LiteElement {
         icon: "exclamation-octagon",
       });
     }
+  }
 
-    this.isLoading = false;
+  private async startEditBrowser() {
+    const prevBrowserId = this.browserId;
+
+    this.isEditingBrowser = true;
+
+    this.startBrowserPreview();
+
+    if (prevBrowserId) {
+      try {
+        await this.deleteBrowser(prevBrowserId);
+      } catch (e) {
+        // TODO Investigate DELETE is returning 404
+        console.debug(e);
+      }
+    }
+  }
+
+  private async cancelEditBrowser() {
+    const prevBrowserId = this.browserId;
+
+    this.isEditingBrowser = false;
+    this.isBrowserLoaded = false;
+
+    this.startBrowserPreview();
+
+    if (prevBrowserId) {
+      try {
+        await this.deleteBrowser(prevBrowserId);
+      } catch (e) {
+        // TODO Investigate DELETE is returning 404
+        console.debug(e);
+      }
+    }
   }
 
   private async duplicateProfile() {
     if (!this.profile) return;
 
-    this.isLoading = true;
+    this.isBrowserLoading = true;
 
     const url = this.profile.origins[0];
 
@@ -409,7 +449,7 @@ export class BrowserProfilesDetail extends LiteElement {
         )}&profileId=${window.encodeURIComponent(this.profile.id)}&navigateUrl=`
       );
     } catch (e) {
-      this.isLoading = false;
+      this.isBrowserLoading = false;
 
       this.notify({
         message: msg("Sorry, couldn't create browser profile at this time."),
@@ -479,6 +519,16 @@ export class BrowserProfilesDetail extends LiteElement {
     );
   }
 
+  private deleteBrowser(id: string) {
+    return this.apiFetch(
+      `/archives/${this.archiveId}/profiles/browser/${id}`,
+      this.authState!,
+      {
+        method: "DELETE",
+      }
+    );
+  }
+
   /**
    * Fetch browser profile and update internal state
    */
@@ -511,7 +561,7 @@ export class BrowserProfilesDetail extends LiteElement {
     if (
       !window.confirm(
         msg(
-          "Save browser changes to profile? You will need to reload the editor to make additional changes."
+          "Save browser changes to profile? You will need to re-load the browsing tool to make additional changes."
         )
       )
     ) {
@@ -519,7 +569,6 @@ export class BrowserProfilesDetail extends LiteElement {
     }
 
     this.isSubmittingBrowserChange = true;
-    this.showSaveButton = false;
 
     const params = {
       name: this.profile!.name,
@@ -543,6 +592,7 @@ export class BrowserProfilesDetail extends LiteElement {
           icon: "check2-circle",
         });
 
+        this.isEditingBrowser = false;
         this.browserId = undefined;
       } else {
         throw data;
@@ -553,8 +603,6 @@ export class BrowserProfilesDetail extends LiteElement {
         type: "danger",
         icon: "exclamation-octagon",
       });
-
-      this.showSaveButton = true;
     }
 
     this.isSubmittingBrowserChange = false;

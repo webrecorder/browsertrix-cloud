@@ -21,6 +21,8 @@ const POLL_INTERVAL_SECONDS = 2;
  *   origins=${origins}
  * ></btrix-profile-browser>
  * ```
+ *
+ * @event load Event on iframe load, with src URL
  */
 @localized()
 export class ProfileBrowser extends LiteElement {
@@ -50,6 +52,9 @@ export class ProfileBrowser extends LiteElement {
   private iframeSrc?: string;
 
   @state()
+  private isIframeLoaded = false;
+
+  @state()
   private hasFetchError = false;
 
   @state()
@@ -74,9 +79,11 @@ export class ProfileBrowser extends LiteElement {
   updated(changedProperties: Map<string, any>) {
     if (changedProperties.has("browserId")) {
       if (this.browserId) {
+        window.clearTimeout(this.pollTimerId);
         this.fetchBrowser();
       } else if (changedProperties.get("browserId")) {
         this.iframeSrc = undefined;
+        this.isIframeLoaded = false;
 
         window.clearTimeout(this.pollTimerId);
       }
@@ -96,8 +103,8 @@ export class ProfileBrowser extends LiteElement {
           <div
             class="rounded-b lg:rounded-b-none lg:rounded-r border w-72  bg-white absolute h-full top-0 right-0"
           >
-            ${this.renderFullscreenButton()} ${this.renderOrigins()}
-            ${this.renderNewOrigins()}
+            ${document.fullscreenEnabled ? this.renderFullscreenButton() : ""}
+            ${this.renderOrigins()} ${this.renderNewOrigins()}
           </div>
         </div>
       </div>
@@ -135,11 +142,12 @@ export class ProfileBrowser extends LiteElement {
         class="w-full h-full"
         title=${msg("Interactive browser for creating browser profile")}
         src=${this.iframeSrc}
+        @load=${this.onIframeLoad}
         ${ref((el) => this.onIframeRef(el as HTMLIFrameElement))}
       ></iframe>`;
     }
 
-    if (this.browserId && !this.iframeSrc) {
+    if (this.browserId && !this.isIframeLoaded) {
       return html`
         <div
           class="w-full h-full flex items-center justify-center text-4xl"
@@ -154,37 +162,37 @@ export class ProfileBrowser extends LiteElement {
   }
 
   private renderFullscreenButton() {
-    return html`${document.fullscreenEnabled
-      ? html`
-          <div class="p-2 text-right">
-            <sl-button
-              size="small"
-              @click=${() =>
-                this.isFullscreen
-                  ? document.exitFullscreen()
-                  : this.enterFullscreen("interactive-browser")}
-            >
-              ${this.isFullscreen
-                ? html`
-                    <sl-icon
-                      slot="prefix"
-                      name="fullscreen-exit"
-                      label=${msg("Exit fullscreen")}
-                    ></sl-icon>
-                    ${msg("Exit")}
-                  `
-                : html`
-                    <sl-icon
-                      slot="prefix"
-                      name="arrows-fullscreen"
-                      label=${msg("Enter fullscreen")}
-                    ></sl-icon>
-                    ${msg("Fullscreen")}
-                  `}
-            </sl-button>
-          </div>
-        `
-      : ""}`;
+    if (!this.browserId) return;
+
+    return html`
+      <div class="p-2 text-right">
+        <sl-button
+          size="small"
+          @click=${() =>
+            this.isFullscreen
+              ? document.exitFullscreen()
+              : this.enterFullscreen("interactive-browser")}
+        >
+          ${this.isFullscreen
+            ? html`
+                <sl-icon
+                  slot="prefix"
+                  name="fullscreen-exit"
+                  label=${msg("Exit fullscreen")}
+                ></sl-icon>
+                ${msg("Exit")}
+              `
+            : html`
+                <sl-icon
+                  slot="prefix"
+                  name="arrows-fullscreen"
+                  label=${msg("Enter fullscreen")}
+                ></sl-icon>
+                ${msg("Fullscreen")}
+              `}
+        </sl-button>
+      </div>
+    `;
   }
 
   private renderOrigins() {
@@ -244,9 +252,14 @@ export class ProfileBrowser extends LiteElement {
   }
 
   /**
-   * Fetch browser profiles and update internal state
+   * Fetch browser profile and update internal state
    */
   private async fetchBrowser(): Promise<void> {
+    await this.updateComplete;
+
+    this.iframeSrc = undefined;
+    this.isIframeLoaded = false;
+
     try {
       await this.checkBrowserStatus();
     } catch (e) {
@@ -279,6 +292,10 @@ export class ProfileBrowser extends LiteElement {
       }
 
       this.iframeSrc = result.url;
+
+      await this.updateComplete;
+
+      this.dispatchEvent(new CustomEvent("load", { detail: result.url }));
 
       this.pingBrowser();
     } else {
@@ -333,7 +350,7 @@ export class ProfileBrowser extends LiteElement {
     if (!this.origins) {
       this.origins = data.origins;
     } else {
-      this.newOrigins = data.origins.filter(
+      this.newOrigins = data.origins?.filter(
         (url: string) => !this.origins?.includes(url)
       );
     }
@@ -357,6 +374,12 @@ export class ProfileBrowser extends LiteElement {
     } catch (err) {
       console.error(err);
     }
+  }
+
+  private onIframeLoad() {
+    this.isIframeLoaded = true;
+
+    this.dispatchEvent(new CustomEvent("load", { detail: this.iframeSrc }));
   }
 
   private onFullscreenChange = () => {
