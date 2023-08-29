@@ -37,9 +37,11 @@ def main():
 
     invite_ops = InviteOps(mdb, email)
 
+    crawl_manager = CrawlManager()
+
     user_manager = init_user_manager(mdb, email, invite_ops)
 
-    org_ops = OrgOps(mdb, invite_ops)
+    org_ops = OrgOps(mdb, invite_ops, crawl_manager, user_manager)
 
     event_webhook_ops = EventWebhookOps(mdb, org_ops)
 
@@ -50,8 +52,6 @@ def main():
              Kubernetes not detected (KUBERNETES_SERVICE_HOST is not set), Exiting"
         )
         sys.exit(1)
-
-    crawl_manager = CrawlManager()
 
     storage_ops = init_storages_api(org_ops, crawl_manager)
 

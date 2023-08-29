@@ -5,12 +5,13 @@ Organization API handling
 # pylint: disable=too-many-lines
 import math
 import os
+import secrets
 import time
 import urllib.parse
 from uuid import UUID, uuid4
 from datetime import datetime
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Dict
 
 from pymongo import ReturnDocument
 from pymongo.errors import AutoReconnect, DuplicateKeyError
@@ -38,32 +39,45 @@ from .models import (
     UserRole,
     User,
     PaginatedResponse,
+    OrgImportExport,
+    CrawlConfig,
+    Crawl,
+    UploadedCrawl,
+    ConfigRevision,
+    Profile,
+    Collection,
+    OrgOutExport,
 )
 from .pagination import DEFAULT_PAGE_SIZE, paginated_format
 from .utils import slug_from_name
 
 if TYPE_CHECKING:
     from .invites import InviteOps
+    from .users import UserManager
 else:
-    InviteOps = object
+    InviteOps = UserManager = object
 
 
 DEFAULT_ORG = os.environ.get("DEFAULT_ORG", "My Organization")
 
 
 # ============================================================================
-# pylint: disable=too-many-public-methods, too-many-instance-attributes
+# pylint: disable=too-many-public-methods, too-many-instance-attributes, too-many-locals
 class OrgOps:
     """Organization API operations"""
 
     invites: InviteOps
     default_primary: Optional[StorageRef]
 
-    def __init__(self, mdb, invites):
+    def __init__(self, mdb, invites, crawl_manager, user_manager):
         self.orgs = mdb["organizations"]
         self.crawls_db = mdb["crawls"]
+        self.crawl_configs_db = mdb["crawl_configs"]
+        self.configs_revs_db = mdb["configs_revs"]
         self.profiles_db = mdb["profiles"]
         self.colls_db = mdb["collections"]
+        self.users_db = mdb["users"]
+        self.version_db = mdb["version"]
 
         self.router = None
         self.org_viewer_dep = None
@@ -74,6 +88,8 @@ class OrgOps:
         self.default_primary = None
 
         self.invites = invites
+        self.crawl_manager = crawl_manager
+        self.user_manager = user_manager
 
     def set_default_primary_storage(self, storage: StorageRef):
         """set default primary storage"""
@@ -671,14 +687,165 @@ class OrgOps:
             slug_id_map[org["_id"]] = org["slug"]
         return slug_id_map
 
+    async def export_org(
+        self, org: Organization, user_manager: UserManager
+    ) -> Dict[str, object]:
+        """Export all data related to org as JSON"""
+        org_out_export = OrgOutExport.from_dict(org.to_dict())
+        org_serialized = await org_out_export.serialize_for_export(user_manager)
+
+        cursor = self.crawl_configs_db.find({"oid": org.id})
+        workflows = await cursor.to_list(length=100_000)
+
+        workflow_ids = [workflow["_id"] for workflow in workflows]
+
+        cursor = self.configs_revs_db.find({"cid": {"$in": workflow_ids}})
+        workflow_revs = await cursor.to_list(length=100_000)
+
+        cursor = self.crawls_db.find({"oid": org.id})
+        items = await cursor.to_list(length=100_000)
+
+        cursor = self.profiles_db.find({"oid": org.id})
+        profiles = await cursor.to_list(length=100_000)
+
+        cursor = self.colls_db.find({"oid": org.id})
+        collections = await cursor.to_list(length=100_000)
+
+        version = await self.version_db.find_one()
+
+        return {
+            "org": org_serialized.to_dict(),
+            "workflows": workflows,
+            "workflowRevisions": workflow_revs,
+            "archivedItems": items,
+            "profiles": profiles,
+            "collections": collections,
+            "dbVersion": version.get("version"),
+        }
+
+    async def import_org(self, org_data: OrgImportExport) -> Dict[str, bool]:
+        """Import org from exported org JSON"""
+        # pylint: disable=too-many-branches, too-many-statements
+        oid = UUID(org_data.org.get("_id"))  # type: ignore
+
+        if await self.get_org_by_id(oid):
+            print(f"Org {oid} already exists, quitting", flush=True)
+            raise HTTPException(status_code=400, detail="org_already_exists")
+
+        version_res = await self.version_db.find_one()
+        version = version_res["version"]
+        if version != org_data.dbVersion:
+            print(
+                f"Export db version: {org_data.dbVersion} doesn't match db: {version}, quitting",
+                flush=True,
+            )
+            raise HTTPException(status_code=400, detail="db_version_mismatch")
+
+        org = Organization.from_dict(org_data.org)
+        await self.orgs.insert_one(org.to_dict())
+
+        # Track old->new userids so that we can update as necessary in db docs
+        user_id_map = {}
+
+        # Users are imported with a random password and will need to go through
+        # the reset password workflow using their email address after import.
+        for user in org_data.org.get("userDetails", []):  # type: ignore
+            try:
+                user_res = await self.user_manager.create_non_super_user(
+                    email=user["email"],
+                    password=secrets.token_hex(12),
+                    name=user["name"],
+                    add_to_org=False,
+                )
+                new_user = User(**user_res)
+                user_id_map[user.get("id")] = new_user.id
+            # pylint: disable=broad-exception-caught
+            except Exception:
+                new_user = await self.user_manager.get_by_email(user["email"])
+
+            await self.add_user_to_org(
+                org=org, userid=new_user.id, role=UserRole(int(user.get("role", 10)))
+            )
+
+        for profile in org_data.profiles:
+            # Update userid if necessary
+            old_userid = profile.get("userid")
+            if old_userid and old_userid in user_id_map:
+                profile["userid"] = user_id_map[old_userid]
+
+            await self.profiles_db.insert_one(Profile.from_dict(profile).to_dict())
+
+        workflow_userid_fields = ["createdBy", "modifiedBy", "lastStartedBy"]
+        for workflow in org_data.workflows:
+            # Update userid fields if necessary
+            for userid_field in workflow_userid_fields:
+                old_userid = workflow.get(userid_field)
+                if old_userid and old_userid in user_id_map:
+                    workflow[userid_field] = user_id_map[old_userid]
+
+            crawl_config = CrawlConfig.from_dict(workflow)
+            await self.crawl_configs_db.insert_one(crawl_config.to_dict())
+
+            # Create configmap
+            profile_filename = ""
+            if crawl_config.profileid:
+                profile_res = await self.profiles_db.find_one(
+                    {"_id": crawl_config.profileid}
+                )
+                if profile_res:
+                    profile = Profile.from_dict(profile_res)
+                    profile_filename = profile.resource.filename  # type: ignore
+
+            await self.crawl_manager.add_crawl_config(
+                crawl_config,
+                storage=org.storage,
+                run_now=False,
+                out_filename=os.environ.get("DEFAULT_CRAWL_FILENAME_TEMPLATE", ""),
+                profile_filename=profile_filename,
+            )
+
+        for rev in org_data.workflowRevisions:
+            # Update userid if necessary
+            old_userid = rev.get("modifiedBy")
+            if old_userid and old_userid in user_id_map:
+                rev["modifiedBy"] = user_id_map[old_userid]
+
+            await self.configs_revs_db.insert_one(
+                ConfigRevision.from_dict(rev).to_dict()
+            )
+
+        for item in org_data.archivedItems:
+            item_id = item.get("_id")
+
+            # Update userid if necessary
+            old_userid = item.get("modifiedBy")
+            if old_userid and old_userid in user_id_map:
+                item["userid"] = user_id_map[old_userid]
+
+            item_instance = None
+            if item["type"] == "crawl":
+                item_instance = Crawl.from_dict(item)
+            if item["type"] == "upload":
+                item_instance = UploadedCrawl.from_dict(item)
+            if not item_instance:
+                print(f"Archived item {item_id} has no type, skipping", flush=True)
+                continue
+
+            await self.crawls_db.insert_one(item_instance.to_dict())
+
+        for collection in org_data.collections:
+            await self.colls_db.insert_one(Collection.from_dict(collection).to_dict())
+
+        return {"imported": True}
+
 
 # ============================================================================
-# pylint: disable=too-many-statements
-def init_orgs_api(app, mdb, user_manager, invites, user_dep):
+# pylint: disable=too-many-statements, too-many-arguments
+def init_orgs_api(app, mdb, user_manager, invites, crawl_manager, user_dep):
     """Init organizations api router for /orgs"""
     # pylint: disable=too-many-locals,invalid-name
 
-    ops = OrgOps(mdb, invites)
+    ops = OrgOps(mdb, invites, crawl_manager, user_manager)
 
     async def org_dep(oid: UUID, user: User = Depends(user_dep)):
         org = await ops.get_org_for_user_by_id(oid, user)
@@ -945,5 +1112,25 @@ def init_orgs_api(app, mdb, user_manager, invites, user_dep):
         if not user.is_superuser:
             raise HTTPException(status_code=403, detail="Not Allowed")
         return await ops.get_org_slugs_by_ids()
+
+    @router.get("/export", tags=["organizations"], response_model=OrgImportExport)
+    async def export_org(
+        org: Organization = Depends(org_owner_dep),
+        user: User = Depends(user_dep),
+    ):
+        if not user.is_superuser:
+            raise HTTPException(status_code=403, detail="Not Allowed")
+
+        return await ops.export_org(org, user_manager)
+
+    @app.post("/orgs/import", tags=["organizations"])
+    async def import_org(
+        org_data: OrgImportExport,
+        user: User = Depends(user_dep),
+    ):
+        if not user.is_superuser:
+            raise HTTPException(status_code=403, detail="Not Allowed")
+
+        return await ops.import_org(org_data)
 
     return ops
