@@ -43,6 +43,8 @@ data:
 
   FAST_RETRY_SECS: "{{ .Values.operator_fast_resync_secs | default 3 }}"
 
+  INDEX_DEV_LOGGING: "{{ .Values.index_dev_logging }}"
+
 
 ---
 apiVersion: v1

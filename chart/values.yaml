@@ -111,6 +111,11 @@ job_memory: "70Mi"
 
 profile_browser_idle_seconds: 60
 
+# Enable pipeline explanation for crawlconfigs
+# This will temporarily help us debug what indices are
+# being used in the list /crawlconfigs endpoint
+index_dev_logging: false
+
 
 # Nginx Image
 # =========================================
