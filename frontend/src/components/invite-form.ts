@@ -5,6 +5,7 @@ import sortBy from "lodash/fp/sortBy";
 import type { AuthState } from "../utils/AuthService";
 import LiteElement, { html } from "../utils/LiteElement";
 import { OrgData } from "../types/org";
+import { isAdmin, isCrawler, AccessCode } from "../utils/orgs";
 
 const sortByName = sortBy("name");
 
@@ -55,6 +56,7 @@ export class InviteForm extends LiteElement {
     }
 
     const sortedOrgs = sortByName(this.orgs) as any as OrgData[];
+    const defaultUserRole = AccessCode.crawler;
 
     return html`
       <form
@@ -80,10 +82,22 @@ export class InviteForm extends LiteElement {
           </sl-select>
         </div>
         <div class="mb-5">
+          <sl-select
+            label=${msg("Role")}
+            value=${defaultUserRole}
+            name="inviteRole"
+          >
+            <sl-option value=${AccessCode.owner}>${"Admin"}</sl-option>
+            <sl-option value=${AccessCode.crawler}>${"Crawler"}</sl-option>
+            <sl-option value=${AccessCode.viewer}>${"Viewer"}</sl-option>
+          </sl-select>
+        </div>
+
+        <div class="mb-5">
           <sl-input
             id="inviteEmail"
             name="inviteEmail"
-            type="email"
+            type="text"
             label=${msg("Email")}
             placeholder=${msg("person@email.com", {
               desc: "Placeholder text for email to invite",
@@ -120,6 +134,7 @@ export class InviteForm extends LiteElement {
     this.isSubmitting = true;
 
     const formData = new FormData(event.target as HTMLFormElement);
+    const inviteRole = formData.get("inviteRole") as string;
     const inviteEmail = formData.get("inviteEmail") as string;
 
     try {
@@ -130,7 +145,7 @@ export class InviteForm extends LiteElement {
           method: "POST",
           body: JSON.stringify({
             email: inviteEmail,
-            role: 10,
+            role: +inviteRole,
           }),
         }
       );
@@ -159,3 +174,4 @@ export class InviteForm extends LiteElement {
     return !formEl.querySelector("[data-invalid]");
   }
 }
+

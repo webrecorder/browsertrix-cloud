@@ -1,6 +1,6 @@
-import { Home } from "./home";
-customElements.define("btrix-home", Home);
-
+import(/* webpackChunkName: "home" */ "./home").then(({ Home }) => {
+  customElements.define("btrix-home", Home);
+});
 import(/* webpackChunkName: "sign-up" */ "./sign-up").then(({ SignUp }) => {
   customElements.define("btrix-sign-up", SignUp);
 });

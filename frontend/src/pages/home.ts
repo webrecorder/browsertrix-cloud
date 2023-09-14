@@ -1,329 +1,172 @@
 import { state, property } from "lit/decorators.js";
-import { ifDefined } from "lit/directives/if-defined.js";
-import { msg, localized, str } from "@lit/localize";
-import { serialize } from "@shoelace-style/shoelace/dist/utilities/form.js";
+import { msg, localized } from "@lit/localize";
+import sortBy from "lodash/fp/sortBy";
 
 import type { AuthState } from "../utils/AuthService";
-import type { CurrentUser } from "../types/user";
-import type { OrgData } from "../utils/orgs";
 import LiteElement, { html } from "../utils/LiteElement";
-import type { APIPaginatedList } from "../types/api";
-import { maxLengthValidator } from "../utils/form";
+import { OrgData } from "../types/org";
+import { isAdmin, isCrawler, AccessCode } from "../utils/orgs";
 
+const sortByName = sortBy("name");
+
+/**
+ * @event success
+ */
 @localized()
 export class Home extends LiteElement {
   @property({ type: Object })
   authState?: AuthState;
 
+  @property({ type: Array })
+  orgs: OrgData[] = [];
+
   @property({ type: Object })
-  userInfo?: CurrentUser;
-
-  @property({ type: String })
-  orgId?: string;
+  defaultOrg: OrgData | null = null;
 
   @state()
-  private isInviteComplete?: boolean;
+  private isSubmitting: boolean = false;
 
   @state()
-  private orgList?: OrgData[];
+  private serverError?: string;
 
   @state()
-  private isAddingOrg = false;
-
-  @state()
-  private isAddOrgFormVisible = false;
-
-  @state()
-  private isSubmittingNewOrg = false;
-
-  private validateOrgNameMax = maxLengthValidator(50);
-
-  connectedCallback() {
-    if (this.authState) {
-      super.connectedCallback();
-    } else {
-      this.navTo("/log-in");
-    }
-  }
+  private selectedOrgId?: string;
 
   willUpdate(changedProperties: Map<string, any>) {
-    if (changedProperties.has("orgId") && this.orgId) {
-      this.navTo(`/orgs/${this.orgId}/workflows/crawls`);
-    } else if (changedProperties.has("authState") && this.authState) {
-      this.fetchOrgs();
-    }
-  }
-
-  async updated(changedProperties: Map<string, any>) {
-    const orgListUpdated = changedProperties.has("orgList") && this.orgList;
-    const userInfoUpdated = changedProperties.has("userInfo") && this.userInfo;
-    if (orgListUpdated || userInfoUpdated) {
-      if (this.userInfo?.isAdmin && this.orgList && !this.orgList.length) {
-        this.isAddingOrg = true;
-      }
+    if (
+      changedProperties.has("defaultOrg") &&
+      this.defaultOrg &&
+      !this.selectedOrgId
+    ) {
+      this.selectedOrgId = this.defaultOrg.id;
     }
   }
 
   render() {
-    if (!this.userInfo || !this.orgList) {
-      return html`
-        <div class="flex items-center justify-center my-24 text-3xl">
-          <sl-spinner></sl-spinner>
+    let formError;
+
+    if (this.serverError) {
+      formError = html`
+        <div class="mb-5">
+          <btrix-alert id="formError" variant="danger"
+            >${this.serverError}</btrix-alert
+          >
         </div>
       `;
     }
 
-    let title: any;
-    let content: any;
-
-    if (this.userInfo.isAdmin === true) {
-      title = msg("Welcome");
-      content = this.renderAdminOrgs();
-    }
-
-    if (this.userInfo.isAdmin === false) {
-      title = msg("Organizations");
-      content = this.renderLoggedInNonAdmin();
-    }
+    const sortedOrgs = sortByName(this.orgs) as any as OrgData[];
+    const defaultUserRole = AccessCode.crawler;
 
     return html`
-      <div class="bg-white">
-        <header
-          class="w-full max-w-screen-lg mx-auto px-3 py-4 box-border md:py-8"
-        >
-          <h1 class="text-xl font-medium">${title}</h1>
-        </header>
-        <hr />
-      </div>
-      <main class="w-full max-w-screen-lg mx-auto px-3 py-4 box-border">
-        ${content}
-      </main>
-    `;
-  }
-
-  private renderAdminOrgs() {
-    return html`
-      <section class="border rounded-lg bg-white p-4 md:p-6 mb-5">
-        <form
-          @submit=${(e: SubmitEvent) => {
-            const formData = new FormData(e.target as HTMLFormElement);
-            const id = formData.get("crawlId");
-            this.navTo(`/crawls/crawl/${id}`);
-          }}
-        >
-          <div class="flex flex-wrap items-center">
-            <div
-              class="w-full md:w-min grow-0 mr-8 text-lg font-medium whitespace-nowrap"
-            >
-              ${msg("Go to Crawl")}
-            </div>
-            <div class="grow mt-2 md:mt-0 md:mr-2">
-              <sl-input
-                name="crawlId"
-                placeholder=${msg("Enter Crawl ID")}
-                required
-              ></sl-input>
-            </div>
-            <div class="grow-0 mt-2 md:mt-0 text-right">
-              <sl-button variant="neutral" type="submit">
-                <sl-icon slot="suffix" name="arrow-right"></sl-icon>
-                ${msg("Go")}</sl-button
-              >
-            </div>
-          </div>
-        </form>
-      </section>
-
-      <div class="grid grid-cols-5 gap-8">
-        <div class="col-span-5 md:col-span-3">
-          <section>
-            <header class="flex items-start justify-between items-center">
-              <h2 class="text-lg font-medium mb-3 mt-2">
-                ${msg("All Organizations")}
-              </h2>
-              <sl-button
-                variant="primary"
-                size="small"
-                @click=${() => (this.isAddingOrg = true)}
-              >
-                <sl-icon slot="prefix" name="plus-lg"></sl-icon>
-                ${msg("New Organization")}
-              </sl-button>
-            </header>
-            <btrix-orgs-list
-              .userInfo=${this.userInfo}
-              .orgList=${this.orgList}
-              .defaultOrg=${ifDefined(
-                this.userInfo?.orgs.find((org) => org.default === true)
-              )}
-              @update-quotas=${this.onUpdateOrgQuotas}
-            ></btrix-orgs-list>
-          </section>
-        </div>
-        <div class="col-span-5 md:col-span-2">
-          <section class="md:border md:rounded-lg md:bg-white p-3 md:p-8">
-            <h2 class="text-lg font-medium mb-3">
-              ${msg("Invite User to Org")}
-            </h2>
-            ${this.renderInvite()}
-          </section>
-        </div>
-      </div>
-
-      <btrix-dialog
-        label=${msg("New Organization")}
-        ?open=${this.isAddingOrg}
-        @sl-request-close=${(e: CustomEvent) => {
-          // Disable closing if there are no orgs
-          if (this.orgList?.length) {
-            this.isAddingOrg = false;
-          } else {
-            e.preventDefault();
-          }
-        }}
-        @sl-show=${() => (this.isAddOrgFormVisible = true)}
-        @sl-after-hide=${() => (this.isAddOrgFormVisible = false)}
+      <form
+        class="max-w-md"
+        @submit=${this.onSubmit}
+        aria-describedby="formError"
       >
-        ${this.isAddOrgFormVisible
-          ? html`
-              <form
-                id="newOrgForm"
-                @reset=${() => (this.isAddingOrg = false)}
-                @submit=${this.onSubmitNewOrg}
-              >
-                <div class="mb-5">
-                  <sl-input
-                    class="with-max-help-text"
-                    name="name"
-                    label=${msg("Org Name")}
-                    placeholder=${msg("My Organization")}
-                    autocomplete="off"
-                    required
-                    help-text=${this.validateOrgNameMax.helpText}
-                    @sl-input=${this.validateOrgNameMax.validate}
-                  >
-                  </sl-input>
-                </div>
-              </form>
-              <div slot="footer" class="flex justify-between">
-                ${this.orgList?.length
-                  ? html`<sl-button form="newOrgForm" type="reset" size="small">
-                      ${msg("Cancel")}
-                    </sl-button>`
-                  : ""}
+        <div class="mb-5">
+          <sl-select
+            label=${msg("Organization")}
+            value=${this.defaultOrg ? this.defaultOrg.id : sortedOrgs[0]?.id}
+            @sl-change=${(e: Event) => {
+              this.selectedOrgId = (e.target as HTMLSelectElement).value;
+            }}
+            ?disabled=${sortedOrgs.length === 1}
+            required
+          >
+            ${sortedOrgs.map(
+              (org) => html`
+                <sl-option value=${org.id}>${org.name}</sl-option>
+              `
+            )}
+          </sl-select>
+        </div>
+        <div class="mb-5">
+          <sl-select
+            label=${msg("Role")}
+            value=${defaultUserRole}
+            name="inviteRole"
+          >
+            <sl-option value=${AccessCode.owner}>${"Admin"}</sl-option>
+            <sl-option value=${AccessCode.crawler}>${"Crawler"}</sl-option>
+            <sl-option value=${AccessCode.viewer}>${"Viewer"}</sl-option>
+          </sl-select>
+        </div>
 
-                <sl-button
-                  form="newOrgForm"
-                  variant="primary"
-                  type="submit"
-                  size="small"
-                  ?loading=${this.isSubmittingNewOrg}
-                  ?disabled=${this.isSubmittingNewOrg}
-                  >${msg("Create Org")}</sl-button
-                >
-              </div>
-            `
-          : ""}
-      </btrix-dialog>
+        <div class="mb-5">
+          <sl-input
+            id="inviteEmail"
+            name="inviteEmail"
+            type="text"
+            label=${msg("Email")}
+            placeholder=${msg("person@email.com", {
+              desc: "Placeholder text for email to invite",
+            })}
+            required
+          >
+          </sl-input>
+        </div>
+
+        ${formError}
+
+        <div class="text-right">
+          <sl-button
+            variant="primary"
+            size="small"
+            type="submit"
+            ?loading=${this.isSubmitting}
+            ?disabled=${!this.selectedOrgId || this.isSubmitting}
+            >${msg("Invite")}</sl-button
+          >
+        </div>
+      </form>
     `;
   }
 
-  private renderLoggedInNonAdmin() {
-    if (this.orgList && !this.orgList.length) {
-      return html`<div class="border rounded-lg bg-white p-4 md:p-8">
-        <p class="text-neutral-400 text-center">
-          ${msg("You don't have any organizations.")}
-        </p>
-      </div>`;
-    }
+  async onSubmit(event: SubmitEvent) {
+    event.preventDefault();
+    if (!this.authState || !this.selectedOrgId) return;
 
-    return html`
-      <btrix-orgs-list
-        .userInfo=${this.userInfo}
-        .orgList=${this.orgList}
-        ?skeleton=${!this.orgList}
-      ></btrix-orgs-list>
-    `;
-  }
-
-  private renderInvite() {
-    if (this.isInviteComplete) {
-      return html`
-        <sl-button @click=${() => (this.isInviteComplete = false)}
-          >${msg("Send another invite")}</sl-button
-        >
-      `;
-    }
-
-    const defaultOrg = this.userInfo?.orgs.find(
-      (org) => org.default === true
-    ) || { name: "" };
-    return html`
-      <btrix-invite-form
-        .authState=${this.authState}
-        .orgs=${this.orgList}
-        .defaultOrg=${defaultOrg || null}
-        @success=${() => (this.isInviteComplete = true)}
-      ></btrix-invite-form>
-    `;
-  }
-
-  private async fetchOrgs() {
-    this.orgList = await this.getOrgs();
-  }
-
-  private async getOrgs(): Promise<OrgData[]> {
-    const data: APIPaginatedList = await this.apiFetch(
-      "/orgs",
-      this.authState!
-    );
-
-    return data.items;
-  }
-
-  private async onSubmitNewOrg(e: SubmitEvent) {
-    e.preventDefault();
-
-    const formEl = e.target as HTMLFormElement;
+    const formEl = event.target as HTMLFormElement;
     if (!(await this.checkFormValidity(formEl))) return;
 
-    const params = serialize(formEl);
-    this.isSubmittingNewOrg = true;
+    this.serverError = undefined;
+    this.isSubmitting = true;
+
+    const formData = new FormData(event.target as HTMLFormElement);
+    const inviteRole = formData.get("inviteRole") as string;
+    const inviteEmail = formData.get("inviteEmail") as string;
 
     try {
-      await this.apiFetch(`/orgs/create`, this.authState!, {
-        method: "POST",
-        body: JSON.stringify(params),
-      });
+      const data = await this.apiFetch(
+        `/orgs/${this.selectedOrgId}/invite`,
+        this.authState,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            email: inviteEmail,
+            role: +inviteRole,
+          }),
+        }
+      );
 
-      this.fetchOrgs();
-      this.notify({
-        message: msg(str`Created new org named "${params.name}".`),
-        variant: "success",
-        icon: "check2-circle",
-        duration: 8000,
-      });
-      this.isAddingOrg = false;
+      this.dispatchEvent(
+        new CustomEvent("success", {
+          detail: {
+            inviteEmail,
+            isExistingUser: data.invited === "existing_user",
+          },
+        })
+      );
     } catch (e: any) {
-      this.notify({
-        message: e.isApiError
-          ? e.message
-          : msg("Sorry, couldn't create organization at this time."),
-        variant: "danger",
-        icon: "exclamation-octagon",
-      });
+      if (e?.isApiError) {
+        this.serverError = e?.message;
+      } else {
+        this.serverError = msg("Something unexpected went wrong");
+      }
     }
 
-    this.isSubmittingNewOrg = false;
-  }
-
-  async onUpdateOrgQuotas(e: CustomEvent) {
-    const org = e.detail as OrgData;
-
-    await this.apiFetch(`/orgs/${org.id}/quotas`, this.authState!, {
-      method: "POST",
-      body: JSON.stringify(org.quotas),
-    });
+    this.isSubmitting = false;
   }
 
   async checkFormValidity(formEl: HTMLFormElement) {
