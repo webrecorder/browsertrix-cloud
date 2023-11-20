@@ -723,7 +723,9 @@ class OrgOps:
             "dbVersion": version.get("version"),
         }
 
-    async def import_org(self, org_data: OrgImportExport) -> Dict[str, bool]:
+    async def import_org(
+        self, org_data: OrgImportExport, ignore_version: bool = False
+    ) -> Dict[str, bool]:
         """Import org from exported org JSON"""
         # pylint: disable=too-many-branches, too-many-statements
         oid = UUID(org_data.org.get("_id"))  # type: ignore
@@ -734,7 +736,7 @@ class OrgOps:
 
         version_res = await self.version_db.find_one()
         version = version_res["version"]
-        if version != org_data.dbVersion:
+        if version != org_data.dbVersion and not ignore_version:
             print(
                 f"Export db version: {org_data.dbVersion} doesn't match db: {version}, quitting",
                 flush=True,
@@ -1126,11 +1128,12 @@ def init_orgs_api(app, mdb, user_manager, invites, crawl_manager, user_dep):
     @app.post("/orgs/import", tags=["organizations"])
     async def import_org(
         org_data: OrgImportExport,
+        ignoreVersion: bool = False,
         user: User = Depends(user_dep),
     ):
         if not user.is_superuser:
             raise HTTPException(status_code=403, detail="Not Allowed")
 
-        return await ops.import_org(org_data)
+        return await ops.import_org(org_data, ignore_version=ignoreVersion)
 
     return ops
