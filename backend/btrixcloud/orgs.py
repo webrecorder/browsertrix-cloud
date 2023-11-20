@@ -755,7 +755,7 @@ class OrgOps:
             try:
                 user_res = await self.user_manager.create_non_super_user(
                     email=user["email"],
-                    password=secrets.token_hex(12),
+                    password=secrets.token_hex(20),
                     name=user["name"],
                     add_to_org=False,
                 )
