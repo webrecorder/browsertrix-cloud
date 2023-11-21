@@ -27,7 +27,7 @@ import "./settings";
 import "./dashboard";
 import "./components/file-uploader";
 import "./components/new-browser-profile-dialog";
-import "./components/new-collection-dialog";
+import "@/components/collections/new-collection-dialog";
 import "./components/new-workflow-dialog";
 import type {
   Member,
