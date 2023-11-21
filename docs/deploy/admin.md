@@ -53,7 +53,7 @@ aws s3 cp /path/to/local/directory/<org-id> s3://new-bucket/<org-id> --recursive
 
 #### Import database information
 
-To import an organization from a JSON export, use the `POST /api/orgs/import` API endpoint, e.g.:
+To import an organization from a JSON export, use the `POST /api/orgs/import` API endpoint, passing in the contents of the JSON file as the POST data, e.g.:
 
 ```
 curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import
@@ -61,7 +61,7 @@ curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt 
 
 This endpoint is available to superusers only.
 
-In addition to importing the organization and its constituent parts such as workflows, crawls, uploads, profiles, and collections, the import process will also recreate any users from the original organization that do not exist on the new cluster. These users are given the same roles in the imported organization and retain their names and email addresses. If a user account already exists on the new cluster with the same email address, that user will be given the appropriate role in the imported organization. References to user IDs throughout the organization are updated on import for any newly created users.
+In addition to importing the organization and its constituent parts such as workflows, crawls, uploads, profiles, and collections, the import process will also recreate any users from the original organization that do not exist on the new cluster. These users are given the same roles in the imported organization and retain their names and email addresses. If a user account already exists on the new cluster with the same email address, that user is given their original role in the imported organization. References to user IDs throughout the organization are updated on import for any newly created users.
 
-Newly created imported users are given a new secure random password. Prior to logging in on the new cluster for the first times, users will need to request a password reset from the main login screen and follow the directions in the resulting email to create a new password.
+Newly created imported users are given a new secure random password. Prior to logging in on the new cluster for the first times, users will need to request a password reset from the login screen and follow the directions in the resulting email to create a new password.
 
