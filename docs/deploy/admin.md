@@ -61,7 +61,31 @@ curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt 
 
 This endpoint is available to superusers only.
 
+The organization name must not already exist in the new cluster or the import API endpoint will fail and return a `400` status code.
+
 In addition to importing the organization and its constituent parts such as workflows, crawls, uploads, profiles, and collections, the import process will also recreate any users from the original organization that do not exist on the new cluster. These users are given the same roles in the imported organization and retain their names and email addresses. If a user account already exists on the new cluster with the same email address, that user is given their original role in the imported organization. References to user IDs throughout the organization are updated on import for any newly created users.
 
 Newly created imported users are given a new secure random password. Prior to logging in on the new cluster for the first times, users will need to request a password reset from the login screen and follow the directions in the resulting email to create a new password.
+
+##### Storage configuration
+
+The storage name referenced in the organization and files to be imported must match the storage configuration name for primary storage in the newly created cluster.
+
+If the storage name and configuration details are identical in the original and new clusters, no additional steps need to be taken.
+
+If the primary storage for the new cluster uses a different name than the original cluster, storage references can be updated during import by passing the `storageName` query parameter to the import API endpont, e.g.:
+
+```
+curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import?storageName=newname
+```
+
+##### Database versions
+
+By default, the import API endpoint will fail and return a `400` status code if the database version in the imported JSON differs from the database version of the new cluster.
+
+To ignore this check, pass the `ignoreVersion` query parameter with a true value to the import API endpoint, e.g.:
+
+```
+curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import?ignoreVersion=true
+```
 
