@@ -36,7 +36,7 @@ If you are moving an organization from one Browsertrix Cloud cluster to another,
 To generate a portable JSON representation of an org's database information, use the `GET /api/orgs/<org-id>/export` API endpoint and save the returned JSON to a file, e.g.:
 
 ```
-curl -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" http://localhost:30870/api/orgs/<org-id>/export > org-export.json
+curl -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" https://browsertrix.cloud/api/orgs/<org-id>/export > org-export.json
 ```
 
 This endpoint is available to superusers only.
@@ -56,8 +56,7 @@ aws s3 cp /path/to/local/directory/<org-id> s3://new-bucket/<org-id> --recursive
 To import an organization from a JSON export, use the `POST /api/orgs/import` API endpoint, e.g.:
 
 ```
-curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" http://localhost:30870/api/orgs/import
-
+curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import
 ```
 
 This endpoint is available to superusers only.
