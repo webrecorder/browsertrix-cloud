@@ -43,7 +43,7 @@ import("./combobox");
 import("./markdown-editor");
 import("./markdown-viewer");
 import("./file-list");
-import("./collections-add");
+import("./collections/collections-add");
 import("./code");
 import("./pw-strength-alert");
 import("./search-combobox");

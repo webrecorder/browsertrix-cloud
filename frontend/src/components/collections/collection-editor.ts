@@ -19,8 +19,8 @@ import queryString from "query-string";
 import { serialize } from "@shoelace-style/shoelace/dist/utilities/form.js";
 import type { SlInput, SlMenuItem } from "@shoelace-style/shoelace";
 
-import type { CheckboxChangeEvent, CheckboxGroupList } from "./checkbox-list";
-import type { MarkdownChangeEvent } from "./markdown-editor";
+import type { CheckboxChangeEvent, CheckboxGroupList } from "../checkbox-list";
+import type { MarkdownChangeEvent } from "../markdown-editor";
 import type { AuthState } from "@/utils/AuthService";
 import LiteElement, { html } from "@/utils/LiteElement";
 import { maxLengthValidator } from "@/utils/form";
@@ -31,7 +31,7 @@ import type {
 } from "@/types/api";
 import type { Collection } from "@/types/collection";
 import type { Crawl, CrawlState, Upload, Workflow } from "@/types/crawler";
-import type { PageChangeEvent } from "./pagination";
+import type { PageChangeEvent } from "../pagination";
 import { finishedCrawlStates } from "@/utils/crawler";
 
 const TABS = ["crawls", "uploads", "metadata"] as const;

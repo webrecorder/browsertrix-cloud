@@ -5,14 +5,14 @@ import debounce from "lodash/fp/debounce";
 import type { SlMenuItem, SlIconButton } from "@shoelace-style/shoelace";
 import queryString from "query-string";
 
-import type { AuthState } from "../utils/AuthService";
-import type { Collection, CollectionList } from "../types/collection";
-import LiteElement, { html } from "../utils/LiteElement";
+import type { AuthState } from "../../utils/AuthService";
+import type { Collection, CollectionList } from "../../types/collection";
+import LiteElement, { html } from "../../utils/LiteElement";
 import type {
   APIPaginatedList,
   APIPaginationQuery,
   APISortQuery,
-} from "../types/api";
+} from "../../types/api";
 
 const INITIAL_PAGE_SIZE = 10;
 const MIN_SEARCH_LENGTH = 2;

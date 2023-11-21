@@ -1,11 +1,11 @@
 import { state, property, customElement } from "lit/decorators.js";
 import { msg, localized, str } from "@lit/localize";
 
-import type { CollectionSubmitEvent } from "@/components/collection-editor";
+import type { CollectionSubmitEvent } from "@/components/collections/collection-editor";
 import type { AuthState } from "@/utils/AuthService";
 import LiteElement, { html } from "@/utils/LiteElement";
 import type { Collection } from "@/types/collection";
-import "@/components/collection-editor";
+import "@/components/collections/collection-editor";
 
 @localized()
 @customElement("btrix-collections-new")
