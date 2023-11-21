@@ -429,7 +429,9 @@ class BaseCrawlOps:
         org: Organization,
         crawl_id: Optional[str] = None,
         qa_run_id: Optional[str] = None,
+        update_presigned_url: bool = False,
     ) -> List[CrawlFileOut]:
+        """Resolve presigned URLs"""
         if not files:
             print("no files")
             return []
@@ -442,7 +444,7 @@ class BaseCrawlOps:
             presigned_url = file_.presignedUrl
             now = dt_now()
 
-            if not presigned_url or now >= file_.expireAt:
+            if update_presigned_url or not presigned_url or now >= file_.expireAt:
                 exp = now + delta
                 presigned_url = await self.storage_ops.get_presigned_url(
                     org, file_, self.presign_duration_seconds

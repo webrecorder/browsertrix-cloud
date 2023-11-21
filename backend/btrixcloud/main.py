@@ -158,6 +158,8 @@ def main():
 
     init_uploads_api(*base_crawl_init)
 
+    org_ops.set_base_crawl_ops(base_crawl_ops)
+
     user_manager.set_ops(org_ops, crawl_config_ops, base_crawl_ops)
 
     background_job_ops.set_ops(base_crawl_ops, profiles)
