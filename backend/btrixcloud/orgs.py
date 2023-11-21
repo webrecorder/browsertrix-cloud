@@ -724,9 +724,17 @@ class OrgOps:
         }
 
     async def import_org(
-        self, org_data: OrgImportExport, ignore_version: bool = False
+        self,
+        org_data: OrgImportExport,
+        ignore_version: bool = False,
+        storage_name: Optional[str] = None,
     ) -> Dict[str, bool]:
-        """Import org from exported org JSON"""
+        """Import org from exported org JSON
+
+        :param org_data: Organization data exported as JSON from /export endpoint
+        :param ignore_version: Ignore db version mismatch between JSON and db
+        :param storage_name: Update storage refs to use new name if provided
+        """
         # pylint: disable=too-many-branches, too-many-statements
         oid = UUID(org_data.org.get("_id"))  # type: ignore
 
@@ -743,7 +751,13 @@ class OrgOps:
             )
             raise HTTPException(status_code=400, detail="db_version_mismatch")
 
+        new_storage_ref = None
+        if storage_name:
+            new_storage_ref = StorageRef(name=storage_name, custom=False)
+
         org = Organization.from_dict(org_data.org)
+        if storage_name and new_storage_ref:
+            org.storage = new_storage_ref
         await self.orgs.insert_one(org.to_dict())
 
         # Track old->new userids so that we can update as necessary in db docs
@@ -770,12 +784,18 @@ class OrgOps:
             )
 
         for profile in org_data.profiles:
+            profile_obj = Profile.from_dict(profile)
+
             # Update userid if necessary
             old_userid = profile.get("userid")
             if old_userid and old_userid in user_id_map:
-                profile["userid"] = user_id_map[old_userid]
+                profile_obj.userid = user_id_map[old_userid]
 
-            await self.profiles_db.insert_one(Profile.from_dict(profile).to_dict())
+            # Update storage ref if necessary
+            if storage_name and new_storage_ref:
+                profile_obj.resource.storage = new_storage_ref
+
+            await self.profiles_db.insert_one(profile_obj.to_dict())
 
         workflow_userid_fields = ["createdBy", "modifiedBy", "lastStartedBy"]
         for workflow in org_data.workflows:
@@ -819,21 +839,26 @@ class OrgOps:
         for item in org_data.archivedItems:
             item_id = item.get("_id")
 
-            # Update userid if necessary
-            old_userid = item.get("modifiedBy")
-            if old_userid and old_userid in user_id_map:
-                item["userid"] = user_id_map[old_userid]
-
-            item_instance = None
+            item_obj = None
             if item["type"] == "crawl":
-                item_instance = Crawl.from_dict(item)
+                item_obj = Crawl.from_dict(item)
             if item["type"] == "upload":
-                item_instance = UploadedCrawl.from_dict(item)
-            if not item_instance:
+                item_obj = UploadedCrawl.from_dict(item)
+            if not item_obj:
                 print(f"Archived item {item_id} has no type, skipping", flush=True)
                 continue
 
-            await self.crawls_db.insert_one(item_instance.to_dict())
+            # Update userid if necessary
+            old_userid = item.get("modifiedBy")
+            if old_userid and old_userid in user_id_map:
+                item_obj.userid = user_id_map[old_userid]
+
+            # Update storage refs if necessary
+            if storage_name and new_storage_ref:
+                for file_ in item_obj.files:
+                    file_.storage = new_storage_ref
+
+            await self.crawls_db.insert_one(item_obj.to_dict())
 
         for collection in org_data.collections:
             await self.colls_db.insert_one(Collection.from_dict(collection).to_dict())
@@ -1128,12 +1153,15 @@ def init_orgs_api(app, mdb, user_manager, invites, crawl_manager, user_dep):
     @app.post("/orgs/import", tags=["organizations"])
     async def import_org(
         org_data: OrgImportExport,
-        ignoreVersion: bool = False,
         user: User = Depends(user_dep),
+        ignoreVersion: bool = False,
+        storageName: Optional[str] = None,
     ):
         if not user.is_superuser:
             raise HTTPException(status_code=403, detail="Not Allowed")
 
-        return await ops.import_org(org_data, ignore_version=ignoreVersion)
+        return await ops.import_org(
+            org_data, ignore_version=ignoreVersion, storage_name=storageName
+        )
 
     return ops
