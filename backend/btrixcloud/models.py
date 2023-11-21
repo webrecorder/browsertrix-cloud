@@ -1182,12 +1182,12 @@ class OrgMetrics(BaseModel):
 class OrgImportExport(BaseModel):
     """Model for org import/export"""
 
-    org: Dict[str, object]
-    workflows: List[Dict[str, object]]
-    workflowRevisions: List[Dict[str, object]]
-    archivedItems: List[Dict[str, object]]
-    profiles: List[Dict[str, object]]
-    collections: List[Dict[str, object]]
+    org: Dict[str, Any]
+    workflows: List[Dict[str, Any]]
+    workflowRevisions: List[Dict[str, Any]]
+    archivedItems: List[Dict[str, Any]]
+    profiles: List[Dict[str, Any]]
+    collections: List[Dict[str, Any]]
     dbVersion: str
 
 
