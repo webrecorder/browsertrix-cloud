@@ -133,7 +133,7 @@ class BaseCrawlOps:
             return []
 
         crawl_files = [CrawlFile(**data) for data in files]
-        return await self._resolve_signed_urls(crawl_files, org, crawlid, qa_run_id)
+        return await self.resolve_signed_urls(crawl_files, org, crawlid, qa_run_id)
 
     async def get_wacz_files(self, crawl_id: str, org: Organization):
         """Return list of WACZ files associated with crawl."""
@@ -423,7 +423,7 @@ class BaseCrawlOps:
 
         return crawl
 
-    async def _resolve_signed_urls(
+    async def resolve_signed_urls(
         self,
         files: List[CrawlFile],
         org: Organization,
