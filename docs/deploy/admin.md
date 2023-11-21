@@ -16,10 +16,10 @@ Both export and import are two-step processes, which involve:
 An organization's files are co-located within a "directory" in the S3 bucket being used for storage. This makes it possible to recursively copy all of the files in their original logical structure using tools such as the `aws s3` command-line interface or `rclone`, e.g.:
 
 ```
-aws s3 cp s3://current-bucket/<org-id> /path/to/local/directory --recursive --endpoint=https://ams3.digitaloceanspaces.com
+aws s3 cp s3://current-bucket/<org-id> /path/to/local/directory/<org-id> --recursive --endpoint=https://ams3.digitaloceanspaces.com
 ```
 
-It is important to retain the directory structure if you wish to re-import this data into another Browsertrix Cloud cluster later, as some assets such as browser profile files have "subdirectory" prefixes.
+It is important to retain the directory structure if you wish to re-import your files into another Browsertrix Cloud cluster later, as some assets such as browser profiles and uploads  have "subdirectory" prefixes.
 
 ??? info "Object storage"
 
