@@ -23,7 +23,7 @@ It is important to retain the directory structure if you wish to re-import this 
 
 ??? info "Object storage"
 
-    Browsertrix Cloud uses S3-comptaible object storage to manage files. In object storage systems, all files are stored flat in the underlying system but presented in logical "directories" based on file prefixes for user convenience.
+    Browsertrix Cloud uses S3-compatible object storage to manage files. In object storage systems, all files are stored flat in the underlying system but presented in logical "directories" based on file prefixes for user convenience.
 
     When we speak of a "directory" in an S3 bucket in this guide, we are referring to a consistent file prefix, in this case an organization's ID.
 
