@@ -844,7 +844,7 @@ class OrgOps:
             )
 
         for item in org_data.archivedItems:
-            item_id = item.get("_id")
+            item_id = str(item["_id"])
 
             item_obj = None
             if item["type"] == "crawl":
