@@ -21,7 +21,7 @@ aws s3 cp s3://current-bucket/<org-id> /path/to/local/directory/<org-id> --recur
 
 It is important to retain the directory structure if you wish to re-import your files into another Browsertrix Cloud cluster later, as some assets such as browser profiles and uploads  have "subdirectory" prefixes.
 
-??? info "Object storage"
+!!! note
 
     Browsertrix Cloud uses S3-compatible object storage to manage files. In object storage systems, all files are stored flat in the underlying system but presented in logical "directories" based on file prefixes for user convenience.
 
