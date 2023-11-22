@@ -15,7 +15,7 @@ Both export and import are two-step processes, which involve:
 
 An organization's files are co-located within a "directory" in the S3 bucket being used for storage. This makes it possible to recursively copy all of the files in their original logical structure using tools such as the `aws s3` command-line interface or `rclone`, e.g.:
 
-```
+```sh
 aws s3 cp s3://current-bucket/<org-id> /path/to/local/directory/<org-id> --recursive --endpoint=https://ams3.digitaloceanspaces.com
 ```
 
@@ -35,7 +35,7 @@ If you are moving an organization from one Browsertrix Cloud cluster to another,
 
 To generate a portable JSON representation of an org's database information, use the `GET /api/orgs/<org-id>/export` API endpoint and save the returned JSON to a file, e.g.:
 
-```
+```sh
 curl -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" https://browsertrix.cloud/api/orgs/<org-id>/export > org-export.json
 ```
 
@@ -47,7 +47,7 @@ This endpoint is available to superusers only.
 
 If you already copied an organization's files to the S3 bucket being used in the new cluster, then you can skip this step. Otherwise, use a tool such as the `aws s3` command-line interface or `rclone` to sync the local directory of your files to the new bucket, being careful to retain the org ID "directory" and logical structure within, e.g.:
 
-```
+```sh
 aws s3 cp /path/to/local/directory/<org-id> s3://new-bucket/<org-id> --recursive
 ```
 
@@ -55,7 +55,7 @@ aws s3 cp /path/to/local/directory/<org-id> s3://new-bucket/<org-id> --recursive
 
 To import an organization from a JSON export, use the `POST /api/orgs/import` API endpoint, passing in the contents of the JSON file as the POST data, e.g.:
 
-```
+```sh
 curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import
 ```
 
@@ -75,7 +75,7 @@ If the storage name and configuration details are identical in the original and 
 
 If the primary storage for the new cluster uses a different name than the original cluster, storage references can be updated during import by passing the `storageName` query parameter to the import API endpont, e.g.:
 
-```
+```sh
 curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import?storageName=newname
 ```
 
@@ -85,7 +85,7 @@ By default, the import API endpoint will fail and return a `400` status code if 
 
 To ignore this check, pass the `ignoreVersion` query parameter with a true value to the import API endpoint, e.g.:
 
-```
+```sh
 curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import?ignoreVersion=true
 ```
 
