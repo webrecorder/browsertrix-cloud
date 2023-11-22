@@ -89,3 +89,5 @@ To ignore this check, pass the `ignoreVersion` query parameter with a true value
 curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import?ignoreVersion=true
 ```
 
+If the JSON export is from an earlier database version than the cluster the org is being imported into it, you should re-run migrations from the version in the JSON export after importing the org. To do this, re-install the application with helm, setting `rerun_from_migration` in the helm chart to the database version specified in the JSON export.
+
