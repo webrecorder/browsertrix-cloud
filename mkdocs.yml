@@ -57,7 +57,7 @@ nav:
         - deploy/ansible/microk8s.md
         - deploy/ansible/k3s.md
       - Administration:
-        - deploy/admin.md
+        - deploy/admin/org-import-export.md
   - Develop:
       - develop/index.md
       - develop/local-dev-setup.md
