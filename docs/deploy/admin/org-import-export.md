@@ -17,7 +17,7 @@ An organization's files are co-located within a "directory" in the S3 bucket bei
 aws s3 cp s3://current-bucket/<org-id> /path/to/local/directory/<org-id> --recursive --endpoint=https://ams3.digitaloceanspaces.com
 ```
 
-It is important to retain the directory structure if you wish to re-import your files into another Browsertrix Cloud cluster later, as some assets such as browser profiles and uploads  have "subdirectory" prefixes.
+It is important to retain the directory structure to re-import an organization's files into another Browsertrix Cloud cluster later, as some assets such as browser profiles and uploads  have "subdirectory" prefixes.
 
 !!! note
 
@@ -27,7 +27,7 @@ It is important to retain the directory structure if you wish to re-import your 
 
     When files are exported from an S3 bucket to a local filesystem such as a laptop or desktop computer, these logical "directories" will turn into folders in the local filesystem.
 
-If you are moving an organization from one Browsertrix Cloud cluster to another, you can sync the org id "directory" from one S3 bucket to another directly, skipping the need to download files locally as an intermediary step.
+To move an organization from one Browsertrix Cloud cluster to another, sync the org id "directory" from one S3 bucket to another directly, as there is no need to download files locally as an intermediary step.
 
 ### Export database information
 
@@ -43,7 +43,7 @@ This endpoint is available to superusers only.
 
 ### Import files
 
-If you already copied an organization's files to the S3 bucket being used in the new cluster, then you can skip this step. Otherwise, use a tool such as the `aws s3` command-line interface or `rclone` to sync the local directory of your files to the new bucket, being careful to retain the org ID "directory" and logical structure within, e.g.:
+If an organization's files have already been copied to the S3 bucket configured in the new cluster, skip this step. Otherwise, use a tool such as the `aws s3` command-line interface or `rclone` to sync the local organization directory to the new bucket, being careful to retain the org ID directory and logical structure within, e.g.:
 
 ```sh
 aws s3 cp /path/to/local/directory/<org-id> s3://new-bucket/<org-id> --recursive
@@ -71,7 +71,7 @@ The storage name referenced in the organization and files to be imported must ma
 
 If the storage name and configuration details are identical in the original and new clusters, no additional steps need to be taken.
 
-If the primary storage for the new cluster uses a different name than the original cluster, storage references can be updated during import by passing the `storageName` query parameter to the import API endpont, e.g.:
+If the primary storage for the new cluster uses a different name than the original cluster, update the storage references during import by passing the `storageName` query parameter to the import API endpont, e.g.:
 
 ```sh
 curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import?storageName=newname
@@ -87,5 +87,5 @@ To ignore this check, pass the `ignoreVersion` query parameter with a true value
 curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import?ignoreVersion=true
 ```
 
-If the JSON export is from an earlier database version than the cluster the org is being imported into it, you should re-run migrations from the version in the JSON export after importing the org. To do this, re-install the application with helm, setting `rerun_from_migration` in the helm chart to the database version specified in the JSON export.
+If the JSON export is from an earlier database version than the cluster the org is being imported into, re-run migrations from the version in the JSON export after importing the org. To do this, re-install the application with helm, setting `rerun_from_migration` in the helm chart to the database version specified in the JSON export.
 
