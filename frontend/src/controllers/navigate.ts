@@ -2,14 +2,16 @@ import type { ReactiveController, ReactiveControllerHost } from "lit";
 
 import appState from "@/utils/state";
 
-const NAVIGATE_EVENT_NAME = "navigate";
+export type NavigateEvent = CustomEvent<{
+  url: string;
+  state?: object;
+}>;
 
-export interface NavigateEvent extends CustomEvent {
-  detail: {
-    url: string;
-    state?: object;
-  };
+export interface NavigateEventMap {
+  "btrix-navigate": NavigateEvent;
 }
+
+const NAVIGATE_EVENT_NAME: keyof NavigateEventMap = "btrix-navigate";
 
 /**
  * Manage app navigation

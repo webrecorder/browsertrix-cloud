@@ -5,7 +5,7 @@ import { createMachine, interpret, assign } from "@xstate/fsm";
 
 import type { ViewState } from "@/utils/APIRouter";
 import LiteElement, { html } from "@/utils/LiteElement";
-import type { LoggedInEventDetail } from "@/utils/AuthService";
+import type { LoggedInEvent } from "@/utils/AuthService";
 import AuthService from "@/utils/AuthService";
 import { ROUTES } from "@/routes";
 
@@ -361,7 +361,7 @@ export class LogInPage extends LiteElement {
     try {
       const data = await AuthService.login({ email: username, password });
 
-      (data as LoggedInEventDetail).redirectUrl = this.redirectUrl;
+      (data as LoggedInEvent["detail"]).redirectUrl = this.redirectUrl;
 
       this.dispatchEvent(AuthService.createLoggedInEvent(data));
 

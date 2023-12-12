@@ -18,23 +18,21 @@ type JWT = {
   exp: number;
 };
 
-export type LoggedInEventDetail = Auth & {
-  api?: boolean;
-  firstLogin?: boolean;
-  redirectUrl?: string;
-};
-
-export interface LoggedInEvent<T = LoggedInEventDetail> extends CustomEvent {
-  readonly detail: T;
-}
-
-export interface NeedLoginEvent extends CustomEvent {
-  readonly bubbles: boolean;
-  readonly composed: boolean;
-  readonly detail: {
+export type LoggedInEvent = CustomEvent<
+  Auth & {
+    api?: boolean;
+    firstLogin?: boolean;
     redirectUrl?: string;
-  };
-}
+  }
+>;
+
+export type NeedLoginEvent = CustomEvent<{
+  redirectUrl?: string;
+}>;
+
+export type LogOutEvent = CustomEvent<{
+  redirect?: boolean;
+}>;
 
 type AuthRequestEventData = {
   name: "requesting_auth";
@@ -50,6 +48,12 @@ export type AuthStorageEventData = {
   value: string | null;
 };
 
+export interface AuthEventMap {
+  "need-login": NeedLoginEvent;
+  "logged-in": LoggedInEvent;
+  "log-out": LogOutEvent;
+}
+
 // Check for token freshness every 5 minutes
 const FRESHNESS_TIMER_INTERVAL = 60 * 1000 * 5;
 
@@ -59,8 +63,9 @@ export default class AuthService {
 
   static storageKey = "btrix.auth";
   static unsupportedAuthErrorCode = "UNSUPPORTED_AUTH_TYPE";
-  static loggedInEvent = "logged-in";
-  static needLoginEvent = "need-login";
+  static loggedInEvent: keyof AuthEventMap = "logged-in";
+  static logOutEvent: keyof AuthEventMap = "log-out";
+  static needLoginEvent: keyof AuthEventMap = "need-login";
 
   static broadcastChannel = new BroadcastChannel(AuthService.storageKey);
   static storage = {
@@ -91,17 +96,30 @@ export default class AuthService {
     return this._authState;
   }
 
-  static createLoggedInEvent = (detail: LoggedInEventDetail): LoggedInEvent => {
-    return new CustomEvent(AuthService.loggedInEvent, { detail });
-  };
-
-  static createNeedLoginEvent = (redirectUrl?: string): NeedLoginEvent => {
-    return new CustomEvent(AuthService.needLoginEvent, {
+  static createLoggedInEvent = (
+    detail?: LoggedInEvent["detail"]
+  ): LoggedInEvent =>
+    new CustomEvent(AuthService.loggedInEvent, {
       bubbles: true,
       composed: true,
-      detail: { redirectUrl },
+      detail,
     });
-  };
+
+  static createLogOutEvent = (detail?: LogOutEvent["detail"]): LogOutEvent =>
+    new CustomEvent(AuthService.logOutEvent, {
+      bubbles: true,
+      composed: true,
+      detail,
+    });
+
+  static createNeedLoginEvent = (
+    detail?: NeedLoginEvent["detail"]
+  ): NeedLoginEvent =>
+    new CustomEvent(AuthService.needLoginEvent, {
+      bubbles: true,
+      composed: true,
+      detail,
+    });
 
   static async login({
     email,
@@ -332,7 +350,7 @@ export default class AuthService {
           pathname !== ROUTES.login && pathname !== ROUTES.home
             ? `${pathname}${search}${hash}`
             : "";
-        window.dispatchEvent(AuthService.createNeedLoginEvent(redirectUrl));
+        window.dispatchEvent(AuthService.createNeedLoginEvent({ redirectUrl }));
       }
     }
   }

@@ -21,6 +21,7 @@ import {
 } from "lit/decorators.js";
 import { msg, localized, str } from "@lit/localize";
 
+import { NavigateController } from "@/controllers/navigate";
 import { RelativeDuration } from "@/components/ui/relative-duration";
 import type { ListWorkflow } from "@/types/crawler";
 import { srOnly, truncate } from "@/utils/css";
@@ -210,6 +211,8 @@ export class WorkflowListItem extends LitElement {
   @query("btrix-overflow-dropdown")
   dropdownMenu!: OverflowDropdown;
 
+  private navigate = new NavigateController(this);
+
   private numberFormatter = numberFormatter(undefined, {
     notation: "compact",
   });
@@ -231,13 +234,7 @@ export class WorkflowListItem extends LitElement {
         const href = `/orgs/${this.orgSlug}/workflows/crawl/${
           this.workflow?.id
         }#${this.workflow?.isCrawlRunning ? "watch" : "crawls"}`;
-        // TODO consolidate with LiteElement navTo
-        const evt: NavigateEvent = new CustomEvent("navigate", {
-          detail: { url: href },
-          bubbles: true,
-          composed: true,
-        });
-        this.dispatchEvent(evt);
+        this.navigate.to(href);
       }}
     >
       <div class="col">

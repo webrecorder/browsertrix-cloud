@@ -7,6 +7,13 @@ import appState, { use } from "./state";
 
 export { html };
 
+/**
+ * @fires navigate
+ * @fires notify
+ * @fires need-login
+ * @fires storage-quota-update
+ * @fires execution-minutes-quota-update
+ */
 export default class LiteElement extends LitElement {
   @use()
   appState = appState;
