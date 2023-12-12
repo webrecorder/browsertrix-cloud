@@ -33,7 +33,9 @@ import type {
 } from "./settings";
 import type { Tab as CollectionTab } from "./collection-detail";
 import type { SelectJobTypeEvent } from "@/features/crawl-workflows/new-workflow-dialog";
-import type { APIEventMap, QuotaUpdate } from "@/controllers/api";
+import type { QuotaUpdateDetail } from "@/controllers/api";
+import { type TemplateResult } from "lit";
+import { APIError } from "@/utils/api";
 
 const RESOURCE_NAMES = ["workflow", "collection", "browser-profile", "upload"];
 type ResourceName = (typeof RESOURCE_NAMES)[number];
@@ -59,16 +61,6 @@ type Params = {
   settingsTab?: "information" | "members";
   new?: ResourceName;
 };
-
-type OrgEventMap = APIEventMap;
-
-type OrgEventListener<T extends string> = T extends keyof OrgEventMap
-  ? (this: Org, ev: CustomEvent<OrgEventMap[T]>) => unknown
-  : EventListenerOrEventListenerObject;
-
-// `string & {}` is resolved to `string`, but not by intellisense, so this gives us string suggestions in vscode from OrgEventMap but still allows arbitrary strings
-// eslint-disable-next-line @typescript-eslint/ban-types
-type EventType = keyof OrgEventMap | (string & {});
 
 const defaultTab = "home";
 
@@ -700,7 +692,7 @@ export class Org extends LiteElement {
     this.removeMember(e.detail.member);
   }
 
-  private async onStorageQuotaUpdate(e: CustomEvent<QuotaUpdate>) {
+  private async onStorageQuotaUpdate(e: CustomEvent<QuotaUpdateDetail>) {
     e.stopPropagation();
     const { reached } = e.detail;
     this.orgStorageQuotaReached = reached;
@@ -709,7 +701,9 @@ export class Org extends LiteElement {
     }
   }
 
-  private async onExecutionMinutesQuotaUpdate(e: CustomEvent<QuotaUpdate>) {
+  private async onExecutionMinutesQuotaUpdate(
+    e: CustomEvent<QuotaUpdateDetail>
+  ) {
     e.stopPropagation();
     const { reached } = e.detail;
     this.orgExecutionMinutesQuotaReached = reached;
@@ -817,20 +811,5 @@ export class Org extends LiteElement {
   checkExecutionMinutesQuota() {
     this.orgExecutionMinutesQuotaReached = !!this.org?.execMinutesQuotaReached;
     this.showExecutionMinutesQuotaAlert = this.orgExecutionMinutesQuotaReached;
-  }
-
-  addEventListener<T extends EventType>(
-    type: T,
-    listener: OrgEventListener<T>,
-    options?: boolean | AddEventListenerOptions
-  ): void {
-    super.addEventListener(type, listener as EventListener, options);
-  }
-  removeEventListener<T extends EventType>(
-    type: T,
-    listener: OrgEventListener<T>,
-    options?: boolean | AddEventListenerOptions
-  ): void {
-    super.removeEventListener(type, listener as EventListener, options);
   }
 }

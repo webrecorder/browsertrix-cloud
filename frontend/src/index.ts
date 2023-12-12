@@ -11,8 +11,8 @@ import "tailwindcss/tailwind.css";
 import "./utils/polyfills";
 import appState, { use, AppStateService } from "./utils/state";
 import type { OrgTab } from "./pages/org";
-import type { NavigateEvent, NavigateEventMap } from "@/controllers/navigate";
-import type { NotifyEvent, NotifyEventMap } from "@/controllers/notify";
+import type { NavigateEventDetail } from "@/controllers/navigate";
+import type { NotifyEventDetail } from "@/controllers/notify";
 import LiteElement, { html } from "./utils/LiteElement";
 import APIRouter from "./utils/APIRouter";
 import AuthService from "./utils/AuthService";
@@ -20,7 +20,6 @@ import type {
   LoggedInEvent,
   NeedLoginEvent,
   AuthState,
-  AuthEventMap,
 } from "./utils/AuthService";
 import type { ViewState } from "./utils/APIRouter";
 import type { CurrentUser, UserOrg } from "./types/user";
@@ -784,7 +783,7 @@ export class App extends LiteElement {
     });
   };
 
-  onNavigateTo = (event: NavigateEvent) => {
+  onNavigateTo = (event: CustomEvent<NavigateEventDetail>) => {
     event.stopPropagation();
 
     this.navigate(event.detail.url, event.detail.state);
@@ -803,7 +802,7 @@ export class App extends LiteElement {
   /**
    * Show global toast alert
    */
-  onNotify = (event: NotifyEvent) => {
+  onNotify = (event: CustomEvent<NotifyEventDetail>) => {
     event.stopPropagation();
 
     const {
@@ -911,11 +910,4 @@ export class App extends LiteElement {
   private clearSelectedOrg() {
     AppStateService.updateOrgSlug(null);
   }
-}
-
-declare global {
-  interface GlobalEventHandlersEventMap
-    extends NavigateEventMap,
-      NotifyEventMap,
-      AuthEventMap {}
 }

@@ -5,12 +5,12 @@ import type { Auth } from "@/utils/AuthService";
 import AuthService from "@/utils/AuthService";
 import { APIError } from "@/utils/api";
 
-export type QuotaUpdate = { reached: boolean };
+export type QuotaUpdateDetail = { reached: boolean };
 
-export type APIEventMap = {
-  "btrix-execution-minutes-quota-update": QuotaUpdate;
-  "btrix-storage-quota-update": QuotaUpdate;
-};
+export interface APIEventMap {
+  "btrix-execution-minutes-quota-update": CustomEvent<QuotaUpdateDetail>;
+  "btrix-storage-quota-update": CustomEvent<QuotaUpdateDetail>;
+}
 
 /**
  * Utilities for interacting with the Browsertrix backend API
@@ -58,7 +58,7 @@ export class APIController implements ReactiveController {
       const executionMinutesQuotaReached = body.execMinutesQuotaReached;
       if (typeof storageQuotaReached === "boolean") {
         this.host.dispatchEvent(
-          new CustomEvent<QuotaUpdate>("btrix-storage-quota-update", {
+          new CustomEvent<QuotaUpdateDetail>("btrix-storage-quota-update", {
             detail: { reached: storageQuotaReached },
             bubbles: true,
             composed: true,
@@ -67,11 +67,14 @@ export class APIController implements ReactiveController {
       }
       if (typeof executionMinutesQuotaReached === "boolean") {
         this.host.dispatchEvent(
-          new CustomEvent<QuotaUpdate>("btrix-execution-minutes-quota-update", {
-            detail: { reached: executionMinutesQuotaReached },
-            bubbles: true,
-            composed: true,
-          })
+          new CustomEvent<QuotaUpdateDetail>(
+            "btrix-execution-minutes-quota-update",
+            {
+              detail: { reached: executionMinutesQuotaReached },
+              bubbles: true,
+              composed: true,
+            }
+          )
         );
       }
 
@@ -94,7 +97,7 @@ export class APIController implements ReactiveController {
       case 403: {
         if (errorDetail === "storage_quota_reached") {
           this.host.dispatchEvent(
-            new CustomEvent<QuotaUpdate>("btrix-storage-quota-update", {
+            new CustomEvent<QuotaUpdateDetail>("btrix-storage-quota-update", {
               detail: { reached: true },
               bubbles: true,
               composed: true,
@@ -105,7 +108,7 @@ export class APIController implements ReactiveController {
         }
         if (errorDetail === "exec_minutes_quota_reached") {
           this.host.dispatchEvent(
-            new CustomEvent<QuotaUpdate>(
+            new CustomEvent<QuotaUpdateDetail>(
               "btrix-execution-minutes-quota-update",
               {
                 detail: { reached: true },
@@ -130,7 +133,7 @@ export class APIController implements ReactiveController {
           const { loc, msg } = fieldDetail;
 
           const fieldName = loc
-            .filter((v: any) => v !== "body" && typeof v === "string")
+            .filter((v: unknown) => v !== "body" && typeof v === "string")
             .join(" ");
           errorMessage = `${fieldName} ${msg}`;
         }

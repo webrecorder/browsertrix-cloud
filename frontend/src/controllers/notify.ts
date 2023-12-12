@@ -4,7 +4,7 @@ import type {
   TemplateResult,
 } from "lit";
 
-export type NotifyEvent = CustomEvent<{
+export type NotifyEventDetail = {
   /**
    * Notification message body.
    * Example:
@@ -30,10 +30,10 @@ export type NotifyEvent = CustomEvent<{
   icon?: string;
   variant?: "success" | "warning" | "danger" | "primary" | "info";
   duration?: number;
-}>;
+};
 
 export interface NotifyEventMap {
-  "btrix-notify": NotifyEvent;
+  "btrix-notify": CustomEvent<NotifyEventDetail>;
 }
 
 const NOTIFY_EVENT_NAME: keyof NotifyEventMap = "btrix-notify";
@@ -52,9 +52,9 @@ export class NotifyController implements ReactiveController {
   hostConnected() {}
   hostDisconnected() {}
 
-  toast(detail: NotifyEvent["detail"]) {
+  toast(detail: NotifyEventDetail) {
     this.host.dispatchEvent(
-      <NotifyEvent>new CustomEvent(NOTIFY_EVENT_NAME, {
+      new CustomEvent<NotifyEventDetail>(NOTIFY_EVENT_NAME, {
         bubbles: true,
         composed: true,
         detail,

@@ -26,7 +26,6 @@ import { NavigateController } from "@/controllers/navigate";
 import { RelativeDuration } from "@/components/ui/relative-duration";
 import type { Crawl } from "@/types/crawler";
 import { srOnly, truncate } from "@/utils/css";
-import type { NavigateEvent } from "@/controllers/navigate";
 import type { OverflowDropdown } from "@/components/ui/overflow-dropdown";
 
 const mediumBreakpointCss = css`30rem`;
