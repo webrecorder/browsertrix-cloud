@@ -7,6 +7,11 @@ import { APIError } from "@/utils/api";
 
 export type QuotaUpdate = { reached: boolean };
 
+export type APIEventMap = {
+  "btrix-execution-minutes-quota-update": QuotaUpdate;
+  "btrix-storage-quota-update": QuotaUpdate;
+};
+
 /**
  * Utilities for interacting with the Browsertrix backend API
  *
@@ -53,7 +58,7 @@ export class APIController implements ReactiveController {
       const executionMinutesQuotaReached = body.execMinutesQuotaReached;
       if (typeof storageQuotaReached === "boolean") {
         this.host.dispatchEvent(
-          new CustomEvent<QuotaUpdate>("storage-quota-update", {
+          new CustomEvent<QuotaUpdate>("btrix-storage-quota-update", {
             detail: { reached: storageQuotaReached },
             bubbles: true,
             composed: true,
@@ -62,7 +67,7 @@ export class APIController implements ReactiveController {
       }
       if (typeof executionMinutesQuotaReached === "boolean") {
         this.host.dispatchEvent(
-          new CustomEvent<QuotaUpdate>("execution-minutes-quota-update", {
+          new CustomEvent<QuotaUpdate>("btrix-execution-minutes-quota-update", {
             detail: { reached: executionMinutesQuotaReached },
             bubbles: true,
             composed: true,
@@ -89,7 +94,7 @@ export class APIController implements ReactiveController {
       case 403: {
         if (errorDetail === "storage_quota_reached") {
           this.host.dispatchEvent(
-            new CustomEvent<QuotaUpdate>("storage-quota-update", {
+            new CustomEvent<QuotaUpdate>("btrix-storage-quota-update", {
               detail: { reached: true },
               bubbles: true,
               composed: true,
@@ -100,11 +105,14 @@ export class APIController implements ReactiveController {
         }
         if (errorDetail === "exec_minutes_quota_reached") {
           this.host.dispatchEvent(
-            new CustomEvent<QuotaUpdate>("execution-minutes-quota-update", {
-              detail: { reached: true },
-              bubbles: true,
-              composed: true,
-            })
+            new CustomEvent<QuotaUpdate>(
+              "btrix-execution-minutes-quota-update",
+              {
+                detail: { reached: true },
+                bubbles: true,
+                composed: true,
+              }
+            )
           );
           errorMessage = msg("Monthly execution minutes quota reached");
           break;

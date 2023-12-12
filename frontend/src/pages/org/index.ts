@@ -33,7 +33,7 @@ import type {
 } from "./settings";
 import type { Tab as CollectionTab } from "./collection-detail";
 import type { SelectJobTypeEvent } from "@/features/crawl-workflows/new-workflow-dialog";
-import { type QuotaUpdate } from "@/controllers/api";
+import type { APIEventMap, QuotaUpdate } from "@/controllers/api";
 
 const RESOURCE_NAMES = ["workflow", "collection", "browser-profile", "upload"];
 type ResourceName = (typeof RESOURCE_NAMES)[number];
@@ -60,10 +60,7 @@ type Params = {
   new?: ResourceName;
 };
 
-type OrgEventMap = {
-  "execution-minutes-quota-update": QuotaUpdate;
-  "storage-quota-update": QuotaUpdate;
-};
+type OrgEventMap = APIEventMap;
 
 type OrgEventListener<T extends string> = T extends keyof OrgEventMap
   ? (this: Org, ev: CustomEvent<OrgEventMap[T]>) => unknown
@@ -152,19 +149,25 @@ export class Org extends LiteElement {
   connectedCallback() {
     super.connectedCallback();
     this.addEventListener(
-      "execution-minutes-quota-update",
+      "btrix-execution-minutes-quota-update",
       this.onExecutionMinutesQuotaUpdate
     );
-    this.addEventListener("storage-quota-update", this.onStorageQuotaUpdate);
+    this.addEventListener(
+      "btrix-storage-quota-update",
+      this.onStorageQuotaUpdate
+    );
     this.addEventListener("", () => {});
   }
 
   disconnectedCallback() {
     this.removeEventListener(
-      "execution-minutes-quota-update",
+      "btrix-execution-minutes-quota-update",
       this.onExecutionMinutesQuotaUpdate
     );
-    this.removeEventListener("storage-quota-update", this.onStorageQuotaUpdate);
+    this.removeEventListener(
+      "btrix-storage-quota-update",
+      this.onStorageQuotaUpdate
+    );
     super.disconnectedCallback();
   }
 

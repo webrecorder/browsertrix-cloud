@@ -426,7 +426,7 @@ export class FileUploader extends LiteElement {
       // Dispatch event here because we're not using apiFetch() for uploads
       if (data.storageQuotaReached) {
         this.dispatchEvent(
-          new CustomEvent("storage-quota-update", {
+          new CustomEvent("btrix-storage-quota-update", {
             detail: { reached: true },
             bubbles: true,
           })
@@ -469,7 +469,7 @@ export class FileUploader extends LiteElement {
             "Your org does not have enough storage to upload this file."
           );
           this.dispatchEvent(
-            new CustomEvent("storage-quota-update", {
+            new CustomEvent("btrix-storage-quota-update", {
               detail: { reached: true },
               bubbles: true,
             })
