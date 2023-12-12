@@ -222,11 +222,6 @@ export class App extends LiteElement {
     );
   }
 
-  navLink(event: Event) {
-    event.preventDefault();
-    this.navigate((event.currentTarget as HTMLAnchorElement).href);
-  }
-
   render() {
     return html`
       <style>
@@ -265,7 +260,7 @@ export class App extends LiteElement {
             <a
               class="text-sm hover:text-neutral-400 font-medium"
               href=${homeHref}
-              @click=${(e: Event) => {
+              @click=${(e: MouseEvent) => {
                 if (isAdmin) {
                   this.clearSelectedOrg();
                 }
@@ -284,7 +279,7 @@ export class App extends LiteElement {
                   <a
                     class="text-neutral-500 hover:text-neutral-400 font-medium"
                     href="/"
-                    @click=${(e: Event) => {
+                    @click=${(e: MouseEvent) => {
                       this.clearSelectedOrg();
                       this.navLink(e);
                     }}
