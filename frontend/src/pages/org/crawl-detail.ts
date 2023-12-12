@@ -913,7 +913,8 @@ ${this.crawl?.description}
     try {
       this.logs = await this.getCrawlErrors(params);
     } catch (e: unknown) {
-      console.log(e);
+      console.debug(e);
+
       this.notify({
         message: msg("Sorry, couldn't retrieve crawl logs at this time."),
         variant: "danger",
