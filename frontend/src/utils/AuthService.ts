@@ -220,13 +220,13 @@ export default class AuthService {
    * Retrieve shared session from another tab/window
    **/
   private static async getSharedSessionAuth(): Promise<AuthState> {
-    const broadcastPromise = new Promise((resolve) => {
+    const broadcastPromise = new Promise<AuthState>((resolve) => {
       // Check if there's any authenticated tabs
       AuthService.broadcastChannel.postMessage(<AuthRequestEventData>{
         name: "requesting_auth",
       });
       // Wait for another tab to respond
-      const cb = ({ data }: any) => {
+      const cb = ({ data }: MessageEvent<AuthResponseEventData>) => {
         if (data.name === "responding_auth") {
           AuthService.broadcastChannel.removeEventListener("message", cb);
           resolve(data.auth);
@@ -236,19 +236,17 @@ export default class AuthService {
     });
     // Ensure that `getSharedSessionAuth` is resolved within a reasonable
     // timeframe, even if another window/tab doesn't respond:
-    const timeoutPromise = new Promise((resolve) => {
+    const timeoutPromise = new Promise<null>((resolve) => {
       window.setTimeout(() => {
         resolve(null);
       }, 10);
     });
 
     return Promise.race([broadcastPromise, timeoutPromise]).then(
-      (value: any) => {
-        try {
-          if (value.username && value.headers && value.tokenExpiresAt) {
-            return value;
-          }
-        } catch {
+      (value) => {
+        if (value && value.username && value.headers && value.tokenExpiresAt) {
+          return value;
+        } else {
           return null;
         }
       },

@@ -166,7 +166,7 @@ export class Org extends LiteElement {
     super.disconnectedCallback();
   }
 
-  async willUpdate(changedProperties: Map<string, any>) {
+  async willUpdate(changedProperties: Map<string, unknown>) {
     if (
       (changedProperties.has("userInfo") && this.userInfo) ||
       (changedProperties.has("slug") && this.slug)
@@ -247,7 +247,7 @@ export class Org extends LiteElement {
       return "";
     }
 
-    let tabPanelContent = "" as any;
+    let tabPanelContent: TemplateResult<1> | string | undefined = "";
 
     switch (this.orgTab) {
       case "home":
@@ -675,11 +675,12 @@ export class Org extends LiteElement {
       if (newSlug) {
         this.navTo(`/orgs/${newSlug}${this.orgPath}`);
       }
-    } catch (e: any) {
+    } catch (e) {
       this.notify({
-        message: e.isApiError
-          ? e.message
-          : msg("Sorry, couldn't update organization at this time."),
+        message:
+          e instanceof APIError && e.isApiError
+            ? e.message
+            : msg("Sorry, couldn't update organization at this time."),
         variant: "danger",
         icon: "exclamation-octagon",
       });
@@ -732,17 +733,18 @@ export class Org extends LiteElement {
         icon: "check2-circle",
       });
       this.org = await this.getOrg(this.orgId);
-    } catch (e: any) {
+    } catch (e) {
       console.debug(e);
 
       this.notify({
-        message: e.isApiError
-          ? e.message
-          : msg(
-              str`Sorry, couldn't update role for ${
-                user.name || user.email
-              } at this time.`
-            ),
+        message:
+          e instanceof APIError && e.isApiError
+            ? e.message
+            : msg(
+                str`Sorry, couldn't update role for ${
+                  user.name || user.email
+                } at this time.`
+              ),
         variant: "danger",
         icon: "exclamation-octagon",
       });
@@ -786,17 +788,18 @@ export class Org extends LiteElement {
       } else {
         this.org = await this.getOrg(this.orgId);
       }
-    } catch (e: any) {
+    } catch (e) {
       console.debug(e);
 
       this.notify({
-        message: e.isApiError
-          ? e.message
-          : msg(
-              str`Sorry, couldn't remove ${
-                member.name || member.email
-              } at this time.`
-            ),
+        message:
+          e instanceof APIError && e.isApiError
+            ? e.message
+            : msg(
+                str`Sorry, couldn't remove ${
+                  member.name || member.email
+                } at this time.`
+              ),
         variant: "danger",
         icon: "exclamation-octagon",
       });
