@@ -16,6 +16,9 @@ import PasswordService from "@/utils/PasswordService";
 const { PASSWORD_MINLENGTH, PASSWORD_MAXLENGTH, PASSWORD_MIN_SCORE } =
   PasswordService;
 
+/**
+ * @fires update-user-info
+ */
 @localized()
 @customElement("btrix-request-verify")
 export class RequestVerify extends LitElement {

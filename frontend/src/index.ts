@@ -50,19 +50,6 @@ export type APIUser = {
   orgs: UserOrg[];
 };
 
-interface AppEventMap {
-  "user-info-change": CustomEvent<unknown>;
-  "update-user-info": CustomEvent<unknown>;
-}
-
-declare global {
-  interface GlobalEventHandlersEventMap
-    extends AppEventMap,
-      NavigateEventMap,
-      NotifyEventMap,
-      AuthEventMap {}
-}
-
 @localized()
 @customElement("browsertrix-app")
 export class App extends LiteElement {
@@ -932,4 +919,11 @@ export class App extends LiteElement {
   private clearSelectedOrg() {
     AppStateService.updateOrgSlug(null);
   }
+}
+
+declare global {
+  interface GlobalEventHandlersEventMap
+    extends NavigateEventMap,
+      NotifyEventMap,
+      AuthEventMap {}
 }

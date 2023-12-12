@@ -5,6 +5,9 @@ import type { AuthState } from "@/utils/AuthService";
 import LiteElement, { html } from "@/utils/LiteElement";
 import AuthService from "@/utils/AuthService";
 
+/**
+ * @fires user-info-change
+ */
 @localized()
 @customElement("btrix-verify")
 export class Verify extends LiteElement {
