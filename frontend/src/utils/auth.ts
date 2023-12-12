@@ -11,7 +11,7 @@ import AuthService from "@/utils/AuthService";
  * MyComponent extends LiteElement {}
  * ```
  *
- * @fires need-login
+ * @fires btrix-need-login
  */
 export function needLogin<T extends { new (...args: any[]): LiteElement }>(
   constructor: T

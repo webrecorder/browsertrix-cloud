@@ -49,9 +49,9 @@ export type AuthStorageEventData = {
 };
 
 export interface AuthEventMap {
-  "need-login": NeedLoginEvent;
-  "logged-in": LoggedInEvent;
-  "log-out": LogOutEvent;
+  "btrix-need-login": NeedLoginEvent;
+  "btrix-logged-in": LoggedInEvent;
+  "btrix-log-out": LogOutEvent;
 }
 
 // Check for token freshness every 5 minutes
@@ -63,9 +63,9 @@ export default class AuthService {
 
   static storageKey = "btrix.auth";
   static unsupportedAuthErrorCode = "UNSUPPORTED_AUTH_TYPE";
-  static loggedInEvent: keyof AuthEventMap = "logged-in";
-  static logOutEvent: keyof AuthEventMap = "log-out";
-  static needLoginEvent: keyof AuthEventMap = "need-login";
+  static loggedInEvent: keyof AuthEventMap = "btrix-logged-in";
+  static logOutEvent: keyof AuthEventMap = "btrix-log-out";
+  static needLoginEvent: keyof AuthEventMap = "btrix-need-login";
 
   static broadcastChannel = new BroadcastChannel(AuthService.storageKey);
   static storage = {
