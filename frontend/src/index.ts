@@ -102,6 +102,7 @@ export class App extends LiteElement {
     }
     super.connectedCallback();
 
+    this.addEventListener("navigate", this.onNavigateTo);
     window.addEventListener("need-login", this.onNeedLogin);
     window.addEventListener("popstate", () => {
       this.syncViewState();
@@ -520,7 +521,6 @@ export class App extends LiteElement {
         if (this.isRegistrationEnabled) {
           return html`<btrix-sign-up
             class="w-full md:bg-neutral-50 flex items-center justify-center"
-            @navigate="${this.onNavigateTo}"
             @logged-in="${this.onLoggedIn}"
             @log-out="${this.onLogOut}"
             .authState="${this.authService.authState}"
@@ -534,7 +534,6 @@ export class App extends LiteElement {
         return html`<btrix-verify
           class="w-full md:bg-neutral-50 flex items-center justify-center"
           token="${this.viewState.params.token}"
-          @navigate="${this.onNavigateTo}"
           @notify="${this.onNotify}"
           @log-out="${this.onLogOut}"
           @user-info-change="${this.onUserInfoChange}"
@@ -544,7 +543,6 @@ export class App extends LiteElement {
       case "join":
         return html`<btrix-join
           class="w-full md:bg-neutral-50 flex items-center justify-center"
-          @navigate="${this.onNavigateTo}"
           @logged-in="${this.onLoggedIn}"
           token="${this.viewState.params.token}"
           email="${this.viewState.params.email}"
@@ -553,7 +551,6 @@ export class App extends LiteElement {
       case "acceptInvite":
         return html`<btrix-accept-invite
           class="w-full md:bg-neutral-50 flex items-center justify-center"
-          @navigate="${this.onNavigateTo}"
           @logged-in="${this.onLoggedIn}"
           @notify="${this.onNotify}"
           .authState="${this.authService.authState}"
@@ -599,7 +596,6 @@ export class App extends LiteElement {
       case "orgs":
         return html`<btrix-orgs
           class="w-full md:bg-neutral-50"
-          @navigate="${this.onNavigateTo}"
           .authState="${this.authService.authState}"
           .userInfo="${this.appState.userInfo ?? undefined}"
         ></btrix-orgs>`;
@@ -633,7 +629,6 @@ export class App extends LiteElement {
       case "accountSettings":
         return html`<btrix-account-settings
           class="w-full max-w-screen-lg mx-auto p-2 md:py-8 box-border"
-          @navigate="${this.onNavigateTo}"
           @logged-in=${this.onLoggedIn}
           @update-user-info=${(e: CustomEvent) => {
             e.stopPropagation();
@@ -649,7 +644,6 @@ export class App extends LiteElement {
           if (this.appState.userInfo.isAdmin) {
             return html`<btrix-users-invite
               class="w-full max-w-screen-lg mx-auto p-2 md:py-8 box-border"
-              @navigate="${this.onNavigateTo}"
               @logged-in=${this.onLoggedIn}
               .authState="${this.authService.authState}"
               .userInfo="${this.appState.userInfo}"
@@ -814,14 +808,14 @@ export class App extends LiteElement {
     );
   };
 
-  onNavigateTo(event: NavigateEvent) {
+  onNavigateTo = (event: NavigateEvent) => {
     event.stopPropagation();
 
     this.navigate(event.detail.url, event.detail.state);
 
     // Scroll to top of page
     window.scrollTo({ top: 0 });
-  }
+  };
 
   onUserInfoChange(event: CustomEvent<Partial<CurrentUser>>) {
     AppStateService.updateUserInfo({
