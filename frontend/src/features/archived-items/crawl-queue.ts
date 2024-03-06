@@ -109,7 +109,15 @@ export class CrawlQueue extends LiteElement {
   }
 
   private renderOffsetControl() {
-    if (!this.queue) return;
+    if (!this.queue) {
+      return msg("Queued URLs");
+    }
+    if (this.pageOffset === 0 && this.queue.total <= this.pageSize) {
+      return msg(
+        str`Queued URLs from 1 to ${this.queue.total.toLocaleString()}`,
+      );
+    }
+
     const offsetValue = this.pageOffset + 1;
     const countMax = Math.min(
       this.pageOffset + this.pageSize,
