@@ -90,8 +90,10 @@ export class CrawlQueue extends LiteElement {
       changedProperties.has("orgId") ||
       changedProperties.has("crawlId") ||
       changedProperties.has("pageSize") ||
-      changedProperties.has("pageOffset") ||
-      changedProperties.has("regex")
+      changedProperties.has("regex") ||
+      (changedProperties.has("pageOffset") &&
+        // Prevents double-fetch when offset is programmatically changed according to queue total
+        !changedProperties.has("queue"))
     ) {
       void this.fetchOnUpdate();
     }
@@ -130,14 +132,21 @@ export class CrawlQueue extends LiteElement {
             inputmode="numeric"
             size="small"
             autocomplete="off"
-            min="1"
             @sl-input=${(e: SlInputEvent) => {
               const input = e.target as SlInput;
+
               input.style.width = getInputWIdth(input.value);
             }}
             @sl-change=${(e: SlChangeEvent) => {
-              this.pageOffset =
-                +(e.target as SlInput).value.replace(/\D/g, "") - 1;
+              const input = e.target as SlInput;
+              const int = +input.value.replace(/\D/g, "");
+              const value = Math.max(
+                1,
+                Math.min(int, this.queue!.total - this.pageSize),
+              );
+
+              input.value = value.toString();
+              this.pageOffset = value - 1;
             }}
           ></btrix-inline-input>
           to ${countMax.toLocaleString()} of
@@ -247,6 +256,9 @@ export class CrawlQueue extends LiteElement {
   private async fetchQueue() {
     try {
       this.queue = await this.getQueue();
+      if (this.pageOffset + this.pageSize >= this.queue.total) {
+        this.pageOffset = Math.max(0, this.queue.total - this.pageSize - 1);
+      }
       this.timerId = window.setTimeout(() => {
         void this.fetchQueue();
       }, POLL_INTERVAL_SECONDS * 1000);
