@@ -6,7 +6,7 @@ import RegexColorize from "regex-colorize";
 
 import type { SeedConfig } from "@/pages/org/types";
 import LiteElement, { html } from "@/utils/LiteElement";
-import { regexEscape } from "@/utils/string";
+import { regexEscape, regexUnescape } from "@/utils/string";
 import type { Exclusion } from "./queue-exclusion-form";
 import { type PageChangeEvent } from "@/components/ui/pagination";
 import { type TemplateResult, type PropertyValues } from "lit";
@@ -115,11 +115,12 @@ export class QueueExclusionTable extends LiteElement {
     this.results = this.exclusions
       .slice((this.page - 1) * this.pageSize, this.page * this.pageSize)
       .map((str: string) => {
+        // if escaped version of string, with '\' removed matches string, then consider it
+        // to be matching text, otherwise, regex
+        const isText = regexEscape(str.replace(/\\/g, "")) === str;
         return {
-          // if escaped version of string, with '\' removed matches string, then consider it
-          // to be matching text, otherwise, regex
-          type: regexEscape(str.replace(/\\/g, "")) === str ? "text" : "regex",
-          value: str,
+          type: isText ? "text" : "regex",
+          value: isText ? regexUnescape(str) : str,
         };
       });
   }

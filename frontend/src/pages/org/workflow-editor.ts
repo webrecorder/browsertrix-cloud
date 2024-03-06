@@ -27,7 +27,7 @@ import uniq from "lodash/fp/uniq";
 import Fuse from "fuse.js";
 
 import LiteElement, { html } from "@/utils/LiteElement";
-import { regexEscape } from "@/utils/string";
+import { regexEscape, regexUnescape } from "@/utils/string";
 import type { AuthState } from "@/utils/AuthService";
 import {
   getUTCSchedule,
@@ -495,7 +495,7 @@ export class CrawlConfigEditor extends LiteElement {
       if (primarySeedConfig.include?.length) {
         formState.customIncludeUrlList = primarySeedConfig.include
           // Unescape regex
-          .map((url) => url.replace(/(\\|\/\.\*)/g, ""))
+          .map(regexUnescape)
           .join("\n");
         // if we have additional include URLs, set to "custom" scope here
         // to indicate 'Custom Page Prefix' option
