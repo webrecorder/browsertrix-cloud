@@ -1208,7 +1208,7 @@ export class WorkflowDetail extends LiteElement {
     return html`
       <header class="flex items-center justify-between">
         <h3 class="mb-2 text-base font-semibold leading-none">
-          ${msg("Crawl URLs")}
+          ${msg("Upcoming Pages")}
         </h3>
         <sl-button
           size="small"
