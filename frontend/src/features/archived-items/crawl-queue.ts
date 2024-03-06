@@ -110,8 +110,13 @@ export class CrawlQueue extends LiteElement {
   }
 
   private renderOffsetControl() {
-    const value = this.pageOffset + 1;
-    const getWidth = (v: number | string) =>
+    if (!this.queue) return;
+    const offsetValue = this.pageOffset + 1;
+    const countMax = Math.min(
+      this.pageOffset + this.pageSize,
+      this.queue.total,
+    );
+    const getInputWIdth = (v: number | string) =>
       `${Math.max(v.toString().length, 3) + 2}ch`;
 
     return html`
@@ -120,23 +125,23 @@ export class CrawlQueue extends LiteElement {
           Viewing
           <btrix-inline-input
             class="mx-1 inline-block"
-            style="width: ${Math.max(value.toString().length, 3) + 2}ch"
-            value=${value}
+            style="width: ${Math.max(offsetValue.toString().length, 3) + 2}ch"
+            value=${offsetValue}
             inputmode="numeric"
             size="small"
             autocomplete="off"
             min="1"
             @sl-input=${(e: SlInputEvent) => {
               const input = e.target as SlInput;
-              input.style.width = getWidth(input.value);
+              input.style.width = getInputWIdth(input.value);
             }}
             @sl-change=${(e: SlChangeEvent) => {
               this.pageOffset =
                 +(e.target as SlInput).value.replace(/\D/g, "") - 1;
             }}
           ></btrix-inline-input>
-          to ${(this.pageOffset + this.pageSize).toLocaleString()} of
-          ${this.queue?.total.toLocaleString()}
+          to ${countMax.toLocaleString()} of
+          ${this.queue.total.toLocaleString()}
         `)}
       </div>
     `;
@@ -185,7 +190,7 @@ export class CrawlQueue extends LiteElement {
 
       <footer class="text-center">
         ${when(
-          this.queue.total === this.queue.results.length,
+          this.queue.total <= this.pageOffset + this.pageSize,
           () =>
             html`<div class="py-3 text-xs text-neutral-400">
               ${msg("End of queue")}
