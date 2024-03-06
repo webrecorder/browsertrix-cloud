@@ -33,17 +33,12 @@ export class Pagination extends LitElement {
   static styles = [
     srOnly,
     css`
-      :host {
-        --sl-input-height-small: var(--sl-font-size-x-large);
-        --sl-input-color: var(--sl-color-neutral-500);
-      }
-
       ul {
         align-items: center;
         list-style: none;
         margin: 0;
         padding: 0;
-        color: var(--sl-input-color);
+        color: var(--sl-color-neutral-500);
       }
 
       ul.compact {
@@ -62,11 +57,6 @@ export class Pagination extends LitElement {
         display: flex;
         align-items: center;
         cursor: pointer;
-      }
-
-      sl-input::part(input) {
-        text-align: center;
-        padding: 0 0.5ch;
       }
 
       .currentPage {
@@ -210,7 +200,7 @@ export class Pagination extends LitElement {
     return html`
       <div class="pageInput">
         <div class="totalPages" role="none">${this.pages}</div>
-        <sl-input
+        <btrix-inline-input
           class="input"
           inputmode="numeric"
           size="small"
@@ -255,7 +245,7 @@ export class Pagination extends LitElement {
             // Select text on focus for easy typing
             (e.target as SlInput).select();
           }}
-        ></sl-input>
+        ></btrix-inline-input>
       </div>
     `;
   }
