@@ -57,6 +57,8 @@ export class CopyButton extends LitElement {
             ? this.content
             : msg("Copy")}
         ?hoist=${this.hoist}
+        @sl-hide=${this.stopProp}
+        @sl-after-hide=${this.stopProp}
       >
         <sl-icon-button
           name=${this.isCopied ? "check-lg" : this.name ? this.name : "files"}
@@ -81,5 +83,14 @@ export class CopyButton extends LitElement {
       const button = this.shadowRoot?.querySelector("sl-icon-button");
       button?.blur(); // Remove focus from the button to set it back to its default state
     }, 3000);
+  }
+
+  /**
+   * Stop propgation of sl-tooltip events.
+   * Prevents bug where sl-dialog closes when tooltip closes
+   * https://github.com/shoelace-style/shoelace/issues/170
+   */
+  private stopProp(e: Event) {
+    e.stopPropagation();
   }
 }
