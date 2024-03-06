@@ -102,10 +102,7 @@ export class CrawlQueue extends LiteElement {
   render() {
     return html`
       <btrix-section-heading style="--margin: var(--sl-spacing-small)">
-        <div class="flex w-full items-center justify-between">
-          <div>${msg("Queued URLs")} ${this.renderBadge()}</div>
-          ${this.renderOffsetControl()}
-        </div>
+        ${this.renderOffsetControl()} ${this.renderBadge()}
       </btrix-section-heading>
       ${this.renderContent()}
     `;
@@ -124,10 +121,10 @@ export class CrawlQueue extends LiteElement {
     return html`
       <div class="flex items-center text-neutral-500">
         ${msg(html`
-          Viewing
+          Queued URLs from
           <btrix-inline-input
             class="mx-1 inline-block"
-            style="width: ${Math.max(offsetValue.toString().length, 3) + 2}ch"
+            style="width: ${Math.max(offsetValue.toString().length, 2) + 2}ch"
             value=${offsetValue}
             inputmode="numeric"
             size="small"
