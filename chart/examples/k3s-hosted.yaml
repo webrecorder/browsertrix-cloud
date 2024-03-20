@@ -13,6 +13,11 @@
 # One way to deploy this is with k3s, which will require the following changes:
 #
 # Make sure to disable traefik on your k3s cluster by adding `--no-deploy traefik` to the systemd unit that starts k3s _before_ starting your server. One way to check that traefik is not running your cluster is with `kubectl get deployments -n kube-system` and see if traefik shows up in the output
+# 
+# curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable=traefik" sh -
+# sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+# helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+# helm repo update
 #
 # Once traefik has been disabled, you must install `nginx-ingress` which can be installed by: 
 # helm upgrade --install nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace
