@@ -1203,7 +1203,7 @@ class Profile(BaseMongoModel):
     oid: UUID
 
     origins: List[str]
-    resource: Optional[ProfileFile]
+    resource: ProfileFile
 
     created: Optional[datetime]
     baseid: Optional[UUID] = None

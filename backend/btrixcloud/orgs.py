@@ -818,8 +818,8 @@ class OrgOps:
                     {"_id": crawl_config.profileid}
                 )
                 if profile_res:
-                    profile = Profile.from_dict(profile_res)
-                    profile_filename = profile.resource.filename  # type: ignore
+                    profile_obj = Profile.from_dict(profile_res)
+                    profile_filename = profile_obj.resource.filename
 
             await self.crawl_manager.add_crawl_config(
                 crawl_config,
@@ -842,7 +842,7 @@ class OrgOps:
         for item in org_data.archivedItems:
             item_id = str(item["_id"])
 
-            item_obj = None
+            item_obj: Optional[BaseCrawl] = None
             if item["type"] == "crawl":
                 item_obj = Crawl.from_dict(item)
             if item["type"] == "upload":
@@ -865,7 +865,7 @@ class OrgOps:
 
             # Regenerate presigned URLs
             await self.base_crawl_ops.resolve_signed_urls(
-                item_obj.files, org, update_presigned_url=True, crawl_id=item_id
+                item_obj.files, org, crawl_id=item_id, update_presigned_url=True
             )
 
         for collection in org_data.collections:
