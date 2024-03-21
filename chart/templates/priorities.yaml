@@ -11,13 +11,25 @@ description: "Priority for crawl instance #{{ . }}"
 
 {{- end }}
 
+{{- range untilStep 0 (int .Values.max_crawl_scale) 1 }}
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: qa-crawl-instance-{{ . }}
+value: -{{ add 100 . }}
+globalDefault: false
+description: "Priority for QA crawl instance #{{ . }}"
+
+{{- end }}
+
 # Lower Priority for Background Jobs
 ---
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
-  name: bg-jobs
-value: -100
+  name: bg-job
+value: -1000
 globalDefault: false
 description: "Priority for background jobs"
 

@@ -1,6 +1,7 @@
 """
 Migration 0011 - Remove None CRAWL_TIMEOUT values from configmaps
 """
+
 import os
 
 from btrixcloud.k8sapi import K8sAPI
@@ -14,8 +15,9 @@ MIGRATION_VERSION = "0011"
 class Migration(BaseMigration):
     """Migration class."""
 
-    def __init__(self, mdb, migration_version=MIGRATION_VERSION):
-        super().__init__(mdb, migration_version)
+    # pylint: disable=unused-argument
+    def __init__(self, mdb, **kwargs):
+        super().__init__(mdb, migration_version=MIGRATION_VERSION)
 
     async def migrate_up(self):
         """Perform migration up.

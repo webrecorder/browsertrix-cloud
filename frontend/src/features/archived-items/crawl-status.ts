@@ -1,7 +1,6 @@
-import type { TemplateResult } from "lit";
-import { LitElement, html, css } from "lit";
+import { localized, msg } from "@lit/localize";
+import { css, html, LitElement, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { msg, localized } from "@lit/localize";
 import startCase from "lodash/fp/startCase";
 
 import type { CrawlState } from "@/types/crawler";
@@ -11,7 +10,7 @@ import { animatePulse } from "@/utils/css";
 @customElement("btrix-crawl-status")
 export class CrawlStatus extends LitElement {
   @property({ type: String })
-  state?: CrawlState;
+  state?: CrawlState | AnyString;
 
   @property({ type: Boolean })
   hideLabel = false;
@@ -41,7 +40,7 @@ export class CrawlStatus extends LitElement {
       }
 
       .with-label sl-icon,
-      .icon-only {
+      :host:not(:last-child) .icon-only {
         margin-right: var(--sl-spacing-x-small);
       }
 
@@ -59,8 +58,8 @@ export class CrawlStatus extends LitElement {
   // TODO look into customizing sl-select multi-select
   // instead of separate utility function?
   static getContent(
-    state?: CrawlState,
-    isUpload?: boolean
+    state?: CrawlState | AnyString,
+    isUpload?: boolean,
   ): {
     icon: TemplateResult;
     label: string;
@@ -156,7 +155,7 @@ export class CrawlStatus extends LitElement {
 
       case "complete":
         icon = html`<sl-icon
-          name=${isUpload ? "upload" : "check-circle"}
+          name=${isUpload ? "upload" : "check-circle-fill"}
           slot="prefix"
           style="color: var(--success)"
         ></sl-icon>`;
@@ -165,7 +164,7 @@ export class CrawlStatus extends LitElement {
 
       case "failed":
         icon = html`<sl-icon
-          name=${isUpload ? "upload" : "exclamation-triangle"}
+          name=${isUpload ? "upload" : "exclamation-triangle-fill"}
           slot="prefix"
           style="color: var(--danger)"
         ></sl-icon>`;
@@ -174,7 +173,7 @@ export class CrawlStatus extends LitElement {
 
       case "skipped_quota_reached":
         icon = html`<sl-icon
-          name="exclamation-triangle"
+          name="exclamation-triangle-fill"
           slot="prefix"
           style="color: var(--danger)"
         ></sl-icon>`;
@@ -183,7 +182,7 @@ export class CrawlStatus extends LitElement {
 
       case "stopped_by_user":
         icon = html`<sl-icon
-          name="dash-circle"
+          name="dash-square-fill"
           slot="prefix"
           style="color: var(--warning)"
         ></sl-icon>`;
@@ -192,7 +191,7 @@ export class CrawlStatus extends LitElement {
 
       case "stopped_quota_reached":
         icon = html`<sl-icon
-          name="dash-circle"
+          name="exclamation-square-fill"
           slot="prefix"
           style="color: var(--warning)"
         ></sl-icon>`;
@@ -201,15 +200,15 @@ export class CrawlStatus extends LitElement {
 
       case "canceled":
         icon = html`<sl-icon
-          name="x-octagon"
+          name="x-octagon-fill"
           slot="prefix"
-          style="color: var(--danger)"
+          style="color: var(--sl-color-orange-600)"
         ></sl-icon>`;
         label = msg("Canceled");
         break;
 
       default:
-        if (typeof state === "string" && (state as string).length) {
+        if (typeof state === "string" && state.length) {
           // Handle unknown status
           label = startCase(state);
         }

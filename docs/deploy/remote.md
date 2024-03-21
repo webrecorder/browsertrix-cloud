@@ -2,7 +2,7 @@
 
 For remote and hosted deployments (both on a single machine or in the cloud), the only requirement is to have a designed domain and (strongly recommended, but not required) second domain for signing web archives. 
 
-We are also experimenting with [Ansible playbooks](../deploy/ansible) for cloud deployment setups.
+We are also experimenting with [Ansible playbooks](ansible/digitalocean.md) for cloud deployment setups.
 
 The production deployments also allow using an external mongodb server, and/or external S3-compatible storage instead of the bundled minio.
 
@@ -94,15 +94,15 @@ mongo_auth:
 
 ## Cloud Deployment
 
-There are also many ways to deploy Browsertrix Cloud on various cloud providers.
+There are also many ways to deploy Browsertrix on various cloud providers.
 
-To simplify this process, we are working on Ansible playbooks for setting up Browsertrix Cloud on commonly used infrastructure.
+To simplify this process, we are working on Ansible playbooks for setting up Browsertrix on commonly used infrastructure.
 
 ### Ansible Deployment
 
-[Ansible](https://ansible.com) makes the initial setup and configuration of your Browsertrix Cloud instance automated and repeatable. 
+[Ansible](https://ansible.com) makes the initial setup and configuration of your Browsertrix instance automated and repeatable. 
 
-To use, you will need to [install Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html#control-node-requirements) on your control computer and then you can use these to deploy to Browsertrix Cloud on remote and cloud environments.
+To use, you will need to [install Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html#control-node-requirements) on your control computer and then you can use these to deploy to Browsertrix on remote and cloud environments.
 
 Currently, we provide playbooks for the following tested environments:
 

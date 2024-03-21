@@ -1,0 +1,14 @@
+# -------
+# CONFIGMAP
+# -------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ name }}
+  namespace: {{ namespace }}
+  labels:
+    crawl: {{ id }}
+    role: crawler
+
+data:
+  crawl-config.json: {{ qa_source_replay_json | tojson }}

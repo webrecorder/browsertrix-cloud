@@ -1,13 +1,14 @@
-import { state, property, customElement } from "lit/decorators.js";
-import { msg, str, localized } from "@lit/localize";
-import debounce from "lodash/fp/debounce";
-import { when } from "lit/directives/when.js";
+import { localized, msg, str } from "@lit/localize";
 import type { ZxcvbnResult } from "@zxcvbn-ts/core";
+import { customElement, property, state } from "lit/decorators.js";
+import { when } from "lit/directives/when.js";
+import debounce from "lodash/fp/debounce";
 
-import LiteElement, { html } from "@/utils/LiteElement";
-import AuthService from "@/utils/AuthService";
-import PasswordService from "@/utils/PasswordService";
 import type { Input as BtrixInput } from "@/components/ui/input";
+import type { UnderlyingFunction } from "@/types/utils";
+import AuthService from "@/utils/AuthService";
+import LiteElement, { html } from "@/utils/LiteElement";
+import PasswordService from "@/utils/PasswordService";
 
 const { PASSWORD_MINLENGTH, PASSWORD_MAXLENGTH, PASSWORD_MIN_SCORE } =
   PasswordService;
@@ -38,13 +39,13 @@ export class SignUpForm extends LiteElement {
   private serverError?: string;
 
   @state()
-  private isSubmitting: boolean = false;
+  private isSubmitting = false;
 
   @state()
   private pwStrengthResults: null | ZxcvbnResult = null;
 
   protected firstUpdated() {
-    PasswordService.setOptions();
+    void PasswordService.setOptions();
   }
 
   render() {
@@ -68,7 +69,7 @@ export class SignUpForm extends LiteElement {
                 <div style="font-size: var(--sl-input-label-font-size-medium)">
                   ${msg("Joining as")}
                 </div>
-                <div class="font-medium py-1">${this.email}</div>
+                <div class="py-1 font-medium">${this.email}</div>
                 <input
                   type="hidden"
                   id="email"
@@ -89,7 +90,7 @@ export class SignUpForm extends LiteElement {
                 </btrix-input>
               `}
         </div>
-        <div class="mb-5 list-">
+        <div class="list- mb-5">
           <btrix-input
             id="name"
             name="name"
@@ -104,7 +105,7 @@ export class SignUpForm extends LiteElement {
           </btrix-input>
           <p class="mt-2 text-gray-500">
             ${msg(
-              "Your full name, nickname, or another name that org collaborators can see."
+              "Your full name, nickname, or another name that org collaborators can see.",
             )}
           </p>
         </div>
@@ -118,12 +119,14 @@ export class SignUpForm extends LiteElement {
             autocomplete="new-password"
             passwordToggle
             required
-            @input=${this.onPasswordInput}
+            @input=${this.onPasswordInput as UnderlyingFunction<
+              typeof this.onPasswordInput
+            >}
           >
           </btrix-input>
           <p class="mt-2 text-gray-500">
             ${msg(
-              str`Choose a strong password between ${PASSWORD_MINLENGTH}–${PASSWORD_MAXLENGTH} characters.`
+              str`Choose a strong password between ${PASSWORD_MINLENGTH}–${PASSWORD_MAXLENGTH} characters.`,
             )}
           </p>
           ${when(this.pwStrengthResults, this.renderPasswordStrength)}
@@ -144,7 +147,7 @@ export class SignUpForm extends LiteElement {
     `;
   }
 
-  private renderPasswordStrength = () => html`
+  private readonly renderPasswordStrength = () => html`
     <div class="my-3">
       <btrix-pw-strength-alert
         .result=${this.pwStrengthResults ?? undefined}
@@ -154,7 +157,7 @@ export class SignUpForm extends LiteElement {
     </div>
   `;
 
-  private onPasswordInput = debounce(150)(async (e: InputEvent) => {
+  private readonly onPasswordInput = debounce(150)(async (e: InputEvent) => {
     const { value } = e.target as BtrixInput;
     if (!value || value.length < 4) {
       this.pwStrengthResults = null;
@@ -166,9 +169,9 @@ export class SignUpForm extends LiteElement {
     }
     this.pwStrengthResults = await PasswordService.checkStrength(
       value,
-      userInputs
+      userInputs,
     );
-  }) as (e: InputEvent) => void;
+  });
 
   private async onSubmit(event: SubmitEvent) {
     event.preventDefault();
@@ -212,27 +215,31 @@ export class SignUpForm extends LiteElement {
     let shouldLogIn = false;
 
     switch (resp.status) {
-      case 201:
-        const data = await resp.json();
+      case 201: {
+        const data = (await resp.json()) as { id: unknown };
 
         if (data.id) {
           shouldLogIn = true;
         }
 
         break;
+      }
       case 400:
-      case 422:
-        const { detail } = await resp.json();
+      case 422: {
+        const { detail } = (await resp.json()) as {
+          detail: string & { code: string };
+        };
         if (detail === "user_already_exists") {
           shouldLogIn = true;
         } else if (detail.code && detail.code === "invalid_password") {
           this.serverError = msg(
-            "Invalid password. Must be between 8 and 64 characters"
+            "Invalid password. Must be between 8 and 64 characters",
           );
         } else {
           this.serverError = msg("Invalid email or password");
         }
         break;
+      }
       default:
         this.serverError = msg("Something unexpected went wrong");
         break;
@@ -262,12 +269,8 @@ export class SignUpForm extends LiteElement {
     email: string;
     password: string;
   }) {
-    try {
-      const data = await AuthService.login({ email, password });
+    const data = await AuthService.login({ email, password });
 
-      this.dispatchEvent(new CustomEvent("authenticated", { detail: data }));
-    } catch (e) {
-      throw e;
-    }
+    this.dispatchEvent(new CustomEvent("authenticated", { detail: data }));
   }
 }

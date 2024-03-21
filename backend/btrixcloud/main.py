@@ -2,6 +2,7 @@
 main file for browsertrix-api system
 supports docker and kubernetes based deployments of multiple browsertrix-crawlers
 """
+
 import os
 import asyncio
 import sys
@@ -28,6 +29,7 @@ from .crawls import init_crawls_api
 from .basecrawls import init_base_crawls_api
 from .webhooks import init_event_webhooks_api
 from .background_jobs import init_background_jobs_api
+from .pages import init_pages_api
 
 from .crawlmanager import CrawlManager
 from .utils import run_once_lock, register_exit_handler, is_bool
@@ -65,6 +67,7 @@ def main():
             os.environ.get("DEFAULT_PAGE_LOAD_TIME_SECONDS", 120)
         ),
         "maxPagesPerCrawl": int(os.environ.get("MAX_PAGES_PER_CRAWL", 0)),
+        "maxScale": int(os.environ.get("MAX_CRAWL_SCALE", 3)),
     }
 
     invites = init_invites(mdb, email)
@@ -131,10 +134,10 @@ def main():
     base_crawl_init = (
         app,
         current_active_user,
+        # to basecrawls
         mdb,
         user_manager,
         org_ops,
-        crawl_manager,
         crawl_config_ops,
         coll_ops,
         storage_ops,
@@ -144,7 +147,14 @@ def main():
 
     base_crawl_ops = init_base_crawls_api(*base_crawl_init)
 
-    crawls = init_crawls_api(*base_crawl_init)
+    crawls = init_crawls_api(crawl_manager, *base_crawl_init)
+
+    page_ops = init_pages_api(
+        app, mdb, crawls, org_ops, storage_ops, current_active_user
+    )
+
+    base_crawl_ops.set_page_ops(page_ops)
+    crawls.set_page_ops(page_ops)
 
     init_uploads_api(*base_crawl_init)
 
@@ -168,6 +178,7 @@ def main():
                 coll_ops,
                 invites,
                 storage_ops,
+                page_ops,
                 db_inited,
             )
         )
@@ -188,10 +199,18 @@ def main():
     async def openapi() -> JSONResponse:
         return JSONResponse(app_root.openapi())
 
-    @app_root.get("/healthz", include_in_schema=False)
-    async def healthz():
+    # Used for startup
+    # Returns 200 only when db is available + migrations are done
+    @app_root.get("/healthzStartup", include_in_schema=False)
+    async def healthz_startup():
         if not db_inited.get("inited"):
             raise HTTPException(status_code=503, detail="not_ready_yet")
+        return {}
+
+    # Used for readiness + liveness
+    # Always returns 200 while running
+    @app_root.get("/healthz", include_in_schema=False)
+    async def healthz():
         return {}
 
     app_root.include_router(app, prefix=API_PREFIX)

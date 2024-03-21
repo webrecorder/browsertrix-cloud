@@ -2,10 +2,9 @@
 
 import os
 from datetime import timedelta
-from typing import Optional, List, Union, Type, TYPE_CHECKING
+from typing import Optional, List, Union, Dict, Any, Type, TYPE_CHECKING, cast
 from uuid import UUID
 import urllib.parse
-import contextlib
 
 import asyncio
 from fastapi import HTTPException, Depends
@@ -30,17 +29,17 @@ from .utils import dt_now
 
 if TYPE_CHECKING:
     from .crawlconfigs import CrawlConfigOps
-    from .crawlmanager import CrawlManager
     from .users import UserManager
     from .orgs import OrgOps
     from .colls import CollectionOps
     from .storages import StorageOps
     from .webhooks import EventWebhookOps
     from .background_jobs import BackgroundJobOps
+    from .pages import PageOps
 
 else:
-    CrawlConfigOps = UserManager = OrgOps = CollectionOps = object
-    CrawlManager = StorageOps = EventWebhookOps = BackgroundJobOps = object
+    CrawlConfigOps = UserManager = OrgOps = CollectionOps = PageOps = object
+    StorageOps = EventWebhookOps = BackgroundJobOps = object
 
 # Presign duration must be less than 604800 seconds (one week),
 # so set this one minute short of a week.
@@ -56,20 +55,21 @@ class BaseCrawlOps:
     # pylint: disable=duplicate-code, too-many-arguments, too-many-locals
 
     crawl_configs: CrawlConfigOps
-    crawl_manager: CrawlManager
     user_manager: UserManager
     orgs: OrgOps
     colls: CollectionOps
     storage_ops: StorageOps
     event_webhook_ops: EventWebhookOps
     background_job_ops: BackgroundJobOps
+    page_ops: PageOps
+
+    presign_duration: int
 
     def __init__(
         self,
         mdb,
         users: UserManager,
         orgs: OrgOps,
-        crawl_manager: CrawlManager,
         crawl_configs: CrawlConfigOps,
         colls: CollectionOps,
         storage_ops: StorageOps,
@@ -77,7 +77,6 @@ class BaseCrawlOps:
         background_job_ops: BackgroundJobOps,
     ):
         self.crawls = mdb["crawls"]
-        self.crawl_manager = crawl_manager
         self.crawl_configs = crawl_configs
         self.user_manager = users
         self.orgs = orgs
@@ -85,6 +84,7 @@ class BaseCrawlOps:
         self.storage_ops = storage_ops
         self.event_webhook_ops = event_webhook_ops
         self.background_job_ops = background_job_ops
+        self.page_ops = cast(PageOps, None)
 
         presign_duration_minutes = int(
             os.environ.get("PRESIGN_DURATION_MINUTES") or PRESIGN_MINUTES_DEFAULT
@@ -94,13 +94,17 @@ class BaseCrawlOps:
             min(presign_duration_minutes, PRESIGN_MINUTES_MAX) * 60
         )
 
+    def set_page_ops(self, page_ops):
+        """set page ops reference"""
+        self.page_ops = page_ops
+
     async def get_crawl_raw(
         self,
         crawlid: str,
         org: Optional[Organization] = None,
         type_: Optional[str] = None,
         project: Optional[dict[str, bool]] = None,
-    ):
+    ) -> Dict[str, Any]:
         """Get data for single crawl"""
 
         query: dict[str, object] = {"_id": crawlid}
@@ -117,40 +121,61 @@ class BaseCrawlOps:
 
         return res
 
-    async def _files_to_resources(self, files, org, crawlid):
+    async def _files_to_resources(
+        self,
+        files: List[Dict],
+        org: Organization,
+        crawlid: str,
+        qa_run_id: Optional[str] = None,
+    ) -> List[CrawlFileOut]:
         if not files:
             return []
 
         crawl_files = [CrawlFile(**data) for data in files]
-        return await self.resolve_signed_urls(crawl_files, org, crawl_id=crawlid)
+        return await self._resolve_signed_urls(crawl_files, org, crawlid, qa_run_id)
 
-    async def get_crawl(
+    async def get_wacz_files(self, crawl_id: str, org: Organization):
+        """Return list of WACZ files associated with crawl."""
+        wacz_files = []
+        crawl = await self.get_base_crawl(crawl_id, org)
+        for file_ in crawl.files:
+            if file_.filename.endswith(".wacz"):
+                wacz_files.append(file_)
+        return wacz_files
+
+    async def get_base_crawl(
         self,
         crawlid: str,
         org: Optional[Organization] = None,
         type_: Optional[str] = None,
-        cls_type: Type[Union[CrawlOut, CrawlOutWithResources]] = CrawlOutWithResources,
-    ):
-        """Get data for single base crawl"""
+        project: Optional[dict[str, bool]] = None,
+    ) -> BaseCrawl:
+        """Get crawl data for internal use"""
+        res = await self.get_crawl_raw(crawlid, org, type_, project)
+        return BaseCrawl.from_dict(res)
+
+    async def get_crawl_out(
+        self,
+        crawlid: str,
+        org: Optional[Organization] = None,
+        type_: Optional[str] = None,
+        skip_resources=False,
+    ) -> CrawlOutWithResources:
+        """Get crawl data for api output"""
         res = await self.get_crawl_raw(crawlid, org, type_)
 
-        if cls_type == CrawlOutWithResources:
-            res["resources"] = await self._files_to_resources(
-                res.get("files"), org, crawlid
-            )
-
-            if res.get("collectionIds"):
-                res["collections"] = await self.colls.get_collection_names(
-                    res.get("collectionIds")
-                )
-
-        res.pop("files", None)
+        files = res.pop("files", None)
         res.pop("errors", None)
 
-        crawl = cls_type.from_dict(res)
+        if not skip_resources:
+            coll_ids = res.get("collectionIds")
+            if coll_ids:
+                res["collections"] = await self.colls.get_collection_names(coll_ids)
 
-        if crawl.type == "crawl":
-            crawl = await self._resolve_crawl_refs(crawl, org)
+        crawl = CrawlOutWithResources.from_dict(res)
+
+        if not skip_resources:
+            crawl = await self._resolve_crawl_refs(crawl, org, files)
             if crawl.config and crawl.config.seeds:
                 crawl.config.seeds = None
 
@@ -161,23 +186,22 @@ class BaseCrawlOps:
 
         return crawl
 
-    async def get_resource_resolved_raw_crawl(
-        self, crawlid: str, org: Organization, type_=None
-    ):
-        """return single base crawl with resources resolved"""
-        res = await self.get_crawl_raw(crawlid=crawlid, type_=type_, org=org)
-        res["resources"] = await self._files_to_resources(
-            res.get("files"), org, res["_id"]
-        )
-        return res
+    async def get_internal_crawl_out(self, crawl_id):
+        """add internal prefix for relative paths"""
+        crawl_out = await self.get_crawl_out(crawl_id)
+        resources = crawl_out.resources or []
+        for file_ in resources:
+            file_.path = self.storage_ops.resolve_internal_access_path(file_.path)
+
+        return crawl_out
 
     async def _update_crawl_collections(
         self, crawl_id: str, org: Organization, collection_ids: List[UUID]
     ):
         """Update crawl collections to match updated list."""
-        crawl = await self.get_crawl(crawl_id, org, cls_type=CrawlOut)
+        crawl = await self.get_crawl_out(crawl_id, org, skip_resources=True)
 
-        prior_coll_ids = set(crawl.collectionIds)
+        prior_coll_ids = set(crawl.collectionIds or [])
         updated_coll_ids = set(collection_ids)
 
         # Add new collections
@@ -257,50 +281,7 @@ class BaseCrawlOps:
         )
 
     async def shutdown_crawl(self, crawl_id: str, org: Organization, graceful: bool):
-        """stop or cancel specified crawl"""
-        crawl = await self.get_crawl_raw(crawl_id, org)
-        if crawl.get("type") != "crawl":
-            return
-
-        result = None
-        try:
-            result = await self.crawl_manager.shutdown_crawl(
-                crawl_id, graceful=graceful
-            )
-
-            if result.get("success"):
-                if graceful:
-                    await self.crawls.find_one_and_update(
-                        {"_id": crawl_id, "type": "crawl", "oid": org.id},
-                        {"$set": {"stopping": True}},
-                    )
-                return result
-
-        except Exception as exc:
-            # pylint: disable=raise-missing-from
-            # if reached here, probably crawl doesn't exist anymore
-            raise HTTPException(
-                status_code=404, detail=f"crawl_not_found, (details: {exc})"
-            )
-
-        # if job no longer running, canceling is considered success,
-        # but graceful stoppage is not possible, so would be a failure
-        if result.get("error") == "Not Found":
-            if not graceful:
-                await self.update_crawl_state(crawl_id, "canceled")
-                crawl = await self.get_crawl_raw(crawl_id, org)
-                if not await self.crawl_configs.stats_recompute_last(
-                    crawl["cid"], 0, -1
-                ):
-                    raise HTTPException(
-                        status_code=404,
-                        detail=f"crawl_config_not_found: {crawl['cid']}",
-                    )
-
-                return {"success": True}
-
-        # return whatever detail may be included in the response
-        raise HTTPException(status_code=400, detail=result)
+        """placeholder, implemented in crawls, base version does nothing"""
 
     async def delete_crawls(
         self,
@@ -308,24 +289,24 @@ class BaseCrawlOps:
         delete_list: DeleteCrawlList,
         type_: str,
         user: Optional[User] = None,
-    ):
+    ) -> tuple[int, dict[UUID, dict[str, int]], bool]:
         """Delete a list of crawls by id for given org"""
-        cids_to_update: dict[str, dict[str, int]] = {}
+        cids_to_update: dict[UUID, dict[str, int]] = {}
 
         size = 0
 
         for crawl_id in delete_list.crawl_ids:
-            crawl = await self.get_crawl_raw(crawl_id, org)
-            if crawl.get("type") != type_:
+            crawl = await self.get_base_crawl(crawl_id, org)
+            if crawl.type != type_:
                 continue
 
             # Ensure user has appropriate permissions for all crawls in list:
             # - Crawler users can delete their own crawls
             # - Org owners can delete any crawls in org
-            if user and (crawl.get("userid") != user.id) and not org.is_owner(user):
+            if user and (crawl.userid != user.id) and not org.is_owner(user):
                 raise HTTPException(status_code=403, detail="not_allowed")
 
-            if type_ == "crawl" and not crawl.get("finished"):
+            if type_ == "crawl" and not crawl.finished:
                 try:
                     await self.shutdown_crawl(crawl_id, org, graceful=False)
                 except Exception as exc:
@@ -334,10 +315,13 @@ class BaseCrawlOps:
                         status_code=400, detail=f"Error Stopping Crawl: {exc}"
                     )
 
+            if type_ == "crawl":
+                await self.page_ops.delete_crawl_pages(crawl_id, org.id)
+
             crawl_size = await self._delete_crawl_files(crawl, org)
             size += crawl_size
 
-            cid = crawl.get("cid")
+            cid = crawl.cid
             if cid:
                 if cids_to_update.get(cid):
                     cids_to_update[cid]["inc"] += 1
@@ -367,9 +351,8 @@ class BaseCrawlOps:
 
         return res.deleted_count, cids_to_update, quota_reached
 
-    async def _delete_crawl_files(self, crawl, org: Organization):
+    async def _delete_crawl_files(self, crawl: BaseCrawl, org: Organization):
         """Delete files associated with crawl from storage."""
-        crawl = BaseCrawl.from_dict(crawl)
         size = 0
         for file_ in crawl.files:
             size += file_.size
@@ -381,12 +364,18 @@ class BaseCrawlOps:
 
         return size
 
+    async def delete_crawl_files(self, crawl_id: str, oid: UUID):
+        """Delete crawl files"""
+        crawl = await self.get_base_crawl(crawl_id)
+        org = await self.orgs.get_org_by_id(oid)
+        return await self._delete_crawl_files(crawl, org)
+
     async def _resolve_crawl_refs(
         self,
         crawl: Union[CrawlOut, CrawlOutWithResources],
         org: Optional[Organization],
+        files: Optional[list[dict]],
         add_first_seed: bool = True,
-        files: Optional[list[dict]] = None,
     ):
         """Resolve running crawl data"""
         # pylint: disable=too-many-branches
@@ -395,6 +384,12 @@ class BaseCrawlOps:
             config = await self.crawl_configs.get_crawl_config(
                 crawl.cid, org.id if org else None, active_only=False
             )
+
+        if not org:
+            org = await self.orgs.get_org_by_id(crawl.oid)
+            if not org:
+                raise HTTPException(status_code=400, detail="missing_org")
+
         if config and config.config.seeds:
             if add_first_seed:
                 first_seed = config.config.seeds[0]
@@ -415,17 +410,18 @@ class BaseCrawlOps:
 
         return crawl
 
-    async def resolve_signed_urls(
+    async def _resolve_signed_urls(
         self,
         files: List[CrawlFile],
         org: Organization,
-        update_presigned_url: bool = False,
         crawl_id: Optional[str] = None,
-    ):
+        qa_run_id: Optional[str] = None,
+        update_presigned_url: bool = False,
+    ) -> List[CrawlFileOut]:
         """Regenerate presigned URLs for files as necessary"""
         if not files:
             print("no files")
-            return
+            return []
 
         delta = timedelta(seconds=self.presign_duration_seconds)
 
@@ -440,12 +436,17 @@ class BaseCrawlOps:
                 presigned_url = await self.storage_ops.get_presigned_url(
                     org, file_, self.presign_duration_seconds
                 )
+
+                prefix = "files"
+                if qa_run_id:
+                    prefix = f"qaFinished.{qa_run_id}.{prefix}"
+
                 await self.crawls.find_one_and_update(
-                    {"files.filename": file_.filename},
+                    {f"{prefix}.filename": file_.filename},
                     {
                         "$set": {
-                            "files.$.presignedUrl": presigned_url,
-                            "files.$.expireAt": exp,
+                            f"{prefix}.$.presignedUrl": presigned_url,
+                            f"{prefix}.$.expireAt": exp,
                         }
                     },
                 )
@@ -470,25 +471,13 @@ class BaseCrawlOps:
 
         return out_files
 
-    @contextlib.asynccontextmanager
-    async def get_redis(self, crawl_id):
-        """get redis url for crawl id"""
-        redis_url = self.crawl_manager.get_redis_url(crawl_id)
-
-        redis = await self.crawl_manager.get_redis_client(redis_url)
-
-        try:
-            yield redis
-        finally:
-            await redis.close()
-
     async def add_to_collection(
         self, crawl_ids: List[str], collection_id: UUID, org: Organization
     ):
         """Add crawls to collection."""
         for crawl_id in crawl_ids:
-            crawl_raw = await self.get_crawl_raw(crawl_id, org)
-            crawl_collections = crawl_raw.get("collectionIds")
+            crawl = await self.get_base_crawl(crawl_id, org)
+            crawl_collections = crawl.collectionIds
             if crawl_collections and crawl_id in crawl_collections:
                 raise HTTPException(
                     status_code=400, detail="crawl_already_in_collection"
@@ -638,11 +627,10 @@ class BaseCrawlOps:
         uploads: list[str] = []
 
         for crawl_id in delete_list.crawl_ids:
-            crawl = await self.get_crawl_raw(crawl_id, org)
-            type_ = crawl.get("type")
-            if type_ == "crawl":
+            crawl = await self.get_base_crawl(crawl_id, org)
+            if crawl.type == "crawl":
                 crawls.append(crawl_id)
-            if type_ == "upload":
+            if crawl.type == "upload":
                 uploads.append(crawl_id)
 
         crawls_length = len(crawls)
@@ -793,7 +781,7 @@ def init_base_crawls_api(app, user_dep, *args):
         response_model=CrawlOutWithResources,
     )
     async def get_base_crawl(crawl_id: str, org: Organization = Depends(org_crawl_dep)):
-        return await ops.get_crawl(crawl_id, org)
+        return await ops.get_crawl_out(crawl_id, org)
 
     @app.get(
         "/orgs/all/all-crawls/{crawl_id}/replay.json",
@@ -804,15 +792,15 @@ def init_base_crawls_api(app, user_dep, *args):
         if not user.is_superuser:
             raise HTTPException(status_code=403, detail="Not Allowed")
 
-        return await ops.get_crawl(crawl_id, None)
+        return await ops.get_crawl_out(crawl_id, None)
 
     @app.get(
         "/orgs/{oid}/all-crawls/{crawl_id}/replay.json",
         tags=["all-crawls"],
         response_model=CrawlOutWithResources,
     )
-    async def get_crawl(crawl_id, org: Organization = Depends(org_viewer_dep)):
-        return await ops.get_crawl(crawl_id, org)
+    async def get_crawl_out(crawl_id, org: Organization = Depends(org_viewer_dep)):
+        return await ops.get_crawl_out(crawl_id, org)
 
     @app.patch("/orgs/{oid}/all-crawls/{crawl_id}", tags=["all-crawls"])
     async def update_crawl(

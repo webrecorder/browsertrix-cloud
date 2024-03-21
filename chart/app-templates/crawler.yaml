@@ -53,8 +53,11 @@ spec:
   volumes:
     - name: crawl-config
       configMap:
+      {% if not qa_source_crawl_id %}
         name: crawl-config-{{ cid }}
-
+      {% else %}
+        name: qa-replay-{{ qa_source_crawl_id }}
+      {% endif %}
     - name: crawl-data
       persistentVolumeClaim:
         claimName: {{ name }}
@@ -102,6 +105,7 @@ spec:
       image: {{ crawler_image }}
       imagePullPolicy: {{ crawler_image_pull_policy }}
       command:
+      {% if not qa_source_crawl_id %}
         - crawl
         - --config
         - /tmp/crawl-config.json
@@ -112,6 +116,14 @@ spec:
         - "@{{ profile_filename }}"
       {%- endif %}
 
+      {% else %}
+        - qa
+        - --qaSource
+        - /tmp/crawl-config.json
+        - --redisStoreUrl
+        - {{ redis_url }}
+        - --writePagesToRedis
+       {% endif %}
       volumeMounts:
         - name: crawl-config
           mountPath: /tmp/crawl-config.json
@@ -148,6 +160,9 @@ spec:
 
         - name: STORE_USER
           value: "{{ userid }}"
+
+        - name: WARC_PREFIX
+          value: "{{ warc_prefix }}"
 
     {% if crawler_socks_proxy_host %}
         - name: SOCKS_HOST

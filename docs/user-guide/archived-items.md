@@ -12,7 +12,7 @@ The status of an archived item depends on its type. Uploads will always have the
 
 | Status | Description |
 | ---- | ---- |
-| <span class="status-success">:bootstrap-check-circle: Complete</span>     | The crawl completed according to the workflow's settings. Workflows with [limits](../workflow-setup/#limits) set may stop running before they capture every queued page, but the resulting archived item will still be marked as "Complete". |
+| <span class="status-success">:bootstrap-check-circle: Complete</span>     | The crawl completed according to the workflow's settings. Workflows with [limits](workflow-setup.md#limits) set may stop running before they capture every queued page, but the resulting archived item will still be marked as "Complete". |
 | <span class="status-warning">:bootstrap-dash-circle: Stopped</span>       | The crawl workflow was _stopped_ gracefully by a user and data is saved. |
 | <span class="status-danger">:bootstrap-x-octagon: Canceled</span>        | The crawl workflow was _canceled_ by a user, no data is saved. |
 | <span class="status-danger">:bootstrap-exclamation-triangle: Failed</span> | A serious error occurred while crawling, no data is saved.|

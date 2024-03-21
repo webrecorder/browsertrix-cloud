@@ -1,17 +1,22 @@
-import { state, property, customElement } from "lit/decorators.js";
-import { msg, localized, str } from "@lit/localize";
-import { when } from "lit/directives/when.js";
+import { localized, msg, str } from "@lit/localize";
+import type { SlCheckbox } from "@shoelace-style/shoelace";
+import { type PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
+import { when } from "lit/directives/when.js";
 import queryString from "query-string";
 
+import type { ListWorkflow, Seed, Workflow, WorkflowParams } from "./types";
+
+import type { SelectNewDialogEvent } from ".";
+
+import { CopyButton } from "@/components/ui/copy-button";
+import type { PageChangeEvent } from "@/components/ui/pagination";
+import { type SelectEvent } from "@/components/ui/search-combobox";
+import type { APIPaginatedList, APIPaginationQuery } from "@/types/api";
+import { isApiError } from "@/utils/api";
 import type { AuthState } from "@/utils/AuthService";
 import LiteElement, { html } from "@/utils/LiteElement";
-import type { ListWorkflow, Seed, Workflow, WorkflowParams } from "./types";
-import { CopyButton } from "@/components/ui/copy-button";
-import type { SlCheckbox } from "@shoelace-style/shoelace";
-import type { APIPaginatedList, APIPaginationQuery } from "@/types/api";
-import type { PageChangeEvent } from "@/components/ui/pagination";
-import type { SelectNewDialogEvent } from "./index";
 
 type SearchFields = "name" | "firstSeed";
 type SortField = "lastRun" | "name" | "firstSeed" | "created" | "modified";
@@ -87,7 +92,7 @@ export class WorkflowsList extends LiteElement {
   private workflows?: APIPaginatedList<ListWorkflow>;
 
   @state()
-  private searchOptions: any[] = [];
+  private searchOptions: { [x: string]: string }[] = [];
 
   @state()
   private isFetching = false;
@@ -105,13 +110,13 @@ export class WorkflowsList extends LiteElement {
   };
 
   @state()
-  private filterBy: Partial<Record<keyof ListWorkflow, any>> = {};
+  private filterBy: Partial<{ [k in keyof ListWorkflow]: boolean }> = {};
 
   @state()
   private filterByCurrentUser = false;
 
   // For fuzzy search:
-  private searchKeys = ["name", "firstSeed"];
+  private readonly searchKeys = ["name", "firstSeed"];
 
   // Use to cancel requests
   private getWorkflowsController: AbortController | null = null;
@@ -119,7 +124,7 @@ export class WorkflowsList extends LiteElement {
 
   private get selectedSearchFilterKey() {
     return Object.keys(WorkflowsList.FieldLabels).find((key) =>
-      Boolean((this.filterBy as any)[key])
+      Boolean((this.filterBy as Record<string, unknown>)[key]),
     );
   }
 
@@ -130,9 +135,11 @@ export class WorkflowsList extends LiteElement {
       "true";
   }
 
-  protected async willUpdate(changedProperties: Map<string, any>) {
+  protected async willUpdate(
+    changedProperties: PropertyValues<this> & Map<string, unknown>,
+  ) {
     if (changedProperties.has("orgId")) {
-      this.fetchConfigSearchValues();
+      void this.fetchConfigSearchValues();
     }
     if (
       changedProperties.has("orgId") ||
@@ -141,14 +148,14 @@ export class WorkflowsList extends LiteElement {
       changedProperties.has("filterByScheduled") ||
       changedProperties.has("filterBy")
     ) {
-      this.fetchWorkflows({
+      void this.fetchWorkflows({
         page: changedProperties.has("orgId") ? 1 : undefined,
       });
     }
     if (changedProperties.has("filterByCurrentUser")) {
       window.sessionStorage.setItem(
         FILTER_BY_CURRENT_USER_STORAGE_KEY,
-        this.filterByCurrentUser.toString()
+        this.filterByCurrentUser.toString(),
       );
     }
   }
@@ -166,10 +173,10 @@ export class WorkflowsList extends LiteElement {
     try {
       const workflows = await this.getWorkflows(params);
       this.workflows = workflows;
-    } catch (e: any) {
-      if (e.isApiError) {
+    } catch (e) {
+      if (isApiError(e)) {
         this.fetchErrorStatusCode = e.statusCode;
-      } else if (e.name === "AbortError") {
+      } else if ((e as Error).name === "AbortError") {
         console.debug("Fetch archived items aborted to throttle");
       } else {
         this.notify({
@@ -183,7 +190,7 @@ export class WorkflowsList extends LiteElement {
 
     // Restart timer for next poll
     this.timerId = window.setTimeout(() => {
-      this.fetchWorkflows();
+      void this.fetchWorkflows();
     }, 1000 * POLL_INTERVAL_SECONDS);
   }
 
@@ -198,7 +205,7 @@ export class WorkflowsList extends LiteElement {
   render() {
     return html`
       <header class="contents">
-        <div class="flex justify-between w-full mb-4">
+        <div class="mb-4 flex w-full justify-between">
           <h1 class="text-xl font-semibold leading-8">
             ${msg("Crawl Workflows")}
           </h1>
@@ -210,19 +217,19 @@ export class WorkflowsList extends LiteElement {
                 size="small"
                 @click=${() => {
                   this.dispatchEvent(
-                    <SelectNewDialogEvent>new CustomEvent("select-new-dialog", {
+                    new CustomEvent("select-new-dialog", {
                       detail: "workflow",
-                    })
+                    }) as SelectNewDialogEvent,
                   );
                 }}
               >
                 <sl-icon slot="prefix" name="plus-lg"></sl-icon>
                 ${msg("New Workflow")}
               </sl-button>
-            `
+            `,
           )}
         </div>
-        <div class="sticky z-10 mb-3 top-2 p-4 bg-neutral-50 border rounded-lg">
+        <div class="sticky top-2 z-10 mb-3 rounded-lg border bg-neutral-50 p-4">
           ${this.renderControls()}
         </div>
       </header>
@@ -233,7 +240,7 @@ export class WorkflowsList extends LiteElement {
           <div>
             <btrix-alert variant="danger">
               ${msg(
-                `Something unexpected went wrong while retrieving Workflows.`
+                `Something unexpected went wrong while retrieving Workflows.`,
               )}
             </btrix-alert>
           </div>
@@ -243,18 +250,18 @@ export class WorkflowsList extends LiteElement {
             ? this.workflows.total
               ? this.renderWorkflowList()
               : this.renderEmptyState()
-            : this.renderLoading()
+            : this.renderLoading(),
       )}
     `;
   }
 
   private renderControls() {
     return html`
-      <div class="flex flex-wrap mb-2 items-center md:gap-4 gap-2">
+      <div class="mb-2 flex flex-wrap items-center gap-2 md:gap-4">
         <div class="grow">${this.renderSearch()}</div>
 
-        <div class="flex items-center w-full md:w-fit">
-          <div class="whitespace-nowrap text-sm text-0-500 mr-2">
+        <div class="flex w-full items-center md:w-fit">
+          <div class="mr-2 whitespace-nowrap text-sm text-0-500">
             ${msg("Sort by:")}
           </div>
           <sl-select
@@ -275,7 +282,7 @@ export class WorkflowsList extends LiteElement {
             ${Object.entries(sortableFields).map(
               ([value, { label }]) => html`
                 <sl-option value=${value}>${label}</sl-option>
-              `
+              `,
             )}
           </sl-select>
           <sl-icon-button
@@ -294,10 +301,9 @@ export class WorkflowsList extends LiteElement {
       <div class="flex flex-wrap items-center justify-between">
         <div class="text-sm">
           <button
-            class="inline-block font-medium border-b-2 border-transparent ${this
-              .filterBy.schedule === undefined
+            class="${this.filterBy.schedule === undefined
               ? "border-b-current text-primary"
-              : "text-neutral-500"} mr-3"
+              : "text-neutral-500"} mr-3 inline-block border-b-2 border-transparent font-medium"
             aria-selected=${this.filterBy.schedule === undefined}
             @click=${() =>
               (this.filterBy = {
@@ -308,10 +314,9 @@ export class WorkflowsList extends LiteElement {
             ${msg("All")}
           </button>
           <button
-            class="inline-block font-medium border-b-2 border-transparent ${this
-              .filterBy.schedule === true
+            class="${this.filterBy.schedule === true
               ? "border-b-current text-primary"
-              : "text-neutral-500"} mr-3"
+              : "text-neutral-500"} mr-3 inline-block border-b-2 border-transparent font-medium"
             aria-selected=${this.filterBy.schedule === true}
             @click=${() =>
               (this.filterBy = {
@@ -322,10 +327,9 @@ export class WorkflowsList extends LiteElement {
             ${msg("Scheduled")}
           </button>
           <button
-            class="inline-block font-medium border-b-2 border-transparent ${this
-              .filterBy.schedule === false
+            class="${this.filterBy.schedule === false
               ? "border-b-current text-primary"
-              : "text-neutral-500"} mr-3"
+              : "text-neutral-500"} mr-3 inline-block border-b-2 border-transparent font-medium"
             aria-selected=${this.filterBy.schedule === false}
             @click=${() =>
               (this.filterBy = {
@@ -338,7 +342,7 @@ export class WorkflowsList extends LiteElement {
         </div>
         <div class="flex items-center justify-end">
           <label>
-            <span class="text-neutral-500 mr-1 text-xs"
+            <span class="mr-1 text-xs text-neutral-500"
               >${msg("Show Only Mine")}</span
             >
             <sl-switch
@@ -360,8 +364,9 @@ export class WorkflowsList extends LiteElement {
         .keyLabels=${WorkflowsList.FieldLabels}
         selectedKey=${ifDefined(this.selectedSearchFilterKey)}
         placeholder=${msg("Search all Workflows by name or Crawl Start URL")}
-        @btrix-select=${(e: CustomEvent) => {
+        @btrix-select=${(e: SelectEvent<typeof this.searchKeys>) => {
           const { key, value } = e.detail;
+          if (key == null) return;
           this.filterBy = {
             [key]: value,
           };
@@ -405,20 +410,19 @@ export class WorkflowsList extends LiteElement {
               }}
             ></btrix-pagination>
           </footer>
-        `
+        `,
       )}
     `;
   }
 
-  private renderWorkflowItem = (workflow: ListWorkflow) =>
-    html`
-      <btrix-workflow-list-item
-        orgSlug=${this.appState.orgSlug || ""}
-        .workflow=${workflow}
-      >
-        <sl-menu slot="menu">${this.renderMenuItems(workflow)}</sl-menu>
-      </btrix-workflow-list-item>
-    `;
+  private readonly renderWorkflowItem = (workflow: ListWorkflow) => html`
+    <btrix-workflow-list-item
+      orgSlug=${this.appState.orgSlug || ""}
+      .workflow=${workflow}
+    >
+      <sl-menu slot="menu">${this.renderMenuItems(workflow)}</sl-menu>
+    </btrix-workflow-list-item>
+  `;
 
   private renderMenuItems(workflow: ListWorkflow) {
     return html`
@@ -428,20 +432,20 @@ export class WorkflowsList extends LiteElement {
         // color without resetting the --sl-color-neutral-700 variable
         () => html`
           <sl-menu-item
-            @click=${() => this.stop(workflow.lastCrawlId)}
+            @click=${() => void this.stop(workflow.lastCrawlId)}
             ?disabled=${workflow.lastCrawlStopping}
           >
-            <sl-icon name="dash-circle" slot="prefix"></sl-icon>
+            <sl-icon name="dash-square" slot="prefix"></sl-icon>
             ${msg("Stop Crawl")}
           </sl-menu-item>
           <sl-menu-item
             style="--sl-color-neutral-700: var(--danger)"
-            @click=${() => this.cancel(workflow.lastCrawlId)}
+            @click=${() => void this.cancel(workflow.lastCrawlId)}
           >
             <sl-icon name="x-octagon" slot="prefix"></sl-icon>
             ${msg("Cancel & Discard Crawl")}
           </sl-menu-item>
-        `
+        `,
       )}
       ${when(
         this.isCrawler && !workflow.isCrawlRunning,
@@ -450,12 +454,12 @@ export class WorkflowsList extends LiteElement {
             style="--sl-color-neutral-700: var(--success)"
             ?disabled=${this.orgStorageQuotaReached ||
             this.orgExecutionMinutesQuotaReached}
-            @click=${() => this.runNow(workflow)}
+            @click=${() => void this.runNow(workflow)}
           >
             <sl-icon name="play" slot="prefix"></sl-icon>
             ${msg("Run Crawl")}
           </sl-menu-item>
-        `
+        `,
       )}
       ${when(
         workflow.isCrawlRunning && this.isCrawler,
@@ -469,7 +473,7 @@ export class WorkflowsList extends LiteElement {
                 `${this.orgBasePath}/workflows/crawl/${workflow.id}#watch`,
                 {
                   dialog: "scale",
-                }
+                },
               )}
           >
             <sl-icon name="plus-slash-minus" slot="prefix"></sl-icon>
@@ -481,27 +485,28 @@ export class WorkflowsList extends LiteElement {
                 `${this.orgBasePath}/workflows/crawl/${workflow.id}#watch`,
                 {
                   dialog: "exclusions",
-                }
+                },
               )}
           >
             <sl-icon name="table" slot="prefix"></sl-icon>
             ${msg("Edit Exclusions")}
           </sl-menu-item>
           <sl-divider></sl-divider>
-        `
+        `,
       )}
       ${when(
         this.isCrawler,
-        () => html` <sl-divider></sl-divider>
-          <sl-menu-item
-            @click=${() =>
-              this.navTo(
-                `${this.orgBasePath}/workflows/crawl/${workflow.id}?edit`
-              )}
-          >
-            <sl-icon name="gear" slot="prefix"></sl-icon>
-            ${msg("Edit Workflow Settings")}
-          </sl-menu-item>`
+        () =>
+          html` <sl-divider></sl-divider>
+            <sl-menu-item
+              @click=${() =>
+                this.navTo(
+                  `${this.orgBasePath}/workflows/crawl/${workflow.id}?edit`,
+                )}
+            >
+              <sl-icon name="gear" slot="prefix"></sl-icon>
+              ${msg("Edit Workflow Settings")}
+            </sl-menu-item>`,
       )}
       <sl-menu-item
         @click=${() => CopyButton.copyToClipboard(workflow.tags.join(", "))}
@@ -512,12 +517,13 @@ export class WorkflowsList extends LiteElement {
       </sl-menu-item>
       ${when(
         this.isCrawler,
-        () => html` <sl-menu-item
-          @click=${() => this.duplicateConfig(workflow)}
-        >
-          <sl-icon name="files" slot="prefix"></sl-icon>
-          ${msg("Duplicate Workflow")}
-        </sl-menu-item>`
+        () =>
+          html` <sl-menu-item
+            @click=${() => void this.duplicateConfig(workflow)}
+          >
+            <sl-icon name="files" slot="prefix"></sl-icon>
+            ${msg("Duplicate Workflow")}
+          </sl-menu-item>`,
       )}
     `;
   }
@@ -532,25 +538,25 @@ export class WorkflowsList extends LiteElement {
     if (remainderCount === 1) {
       return msg(
         html`${firstSeed}
-          <span class="text-neutral-500">+${remainderCount} URL</span>`
+          <span class="text-neutral-500">+${remainderCount} URL</span>`,
       );
     }
     return msg(
       html`${firstSeed}
-        <span class="text-neutral-500">+${remainderCount} URLs</span>`
+        <span class="text-neutral-500">+${remainderCount} URLs</span>`,
     );
   }
 
   private renderEmptyState() {
     if (Object.keys(this.filterBy).length) {
       return html`
-        <div class="border rounded-lg bg-neutral-50 p-4">
+        <div class="rounded-lg border bg-neutral-50 p-4">
           <p class="text-center">
             <span class="text-neutral-400"
               >${msg("No matching Workflows found.")}</span
             >
             <button
-              class="text-neutral-500 font-medium underline hover:no-underline"
+              class="font-medium text-neutral-500 underline hover:no-underline"
               @click=${() => {
                 this.filterBy = {};
               }}
@@ -562,9 +568,9 @@ export class WorkflowsList extends LiteElement {
       `;
     }
 
-    if (this.workflows?.page && this.workflows?.page > 1) {
+    if (this.workflows?.page && this.workflows.page > 1) {
       return html`
-        <div class="border-t border-b py-5">
+        <div class="border-b border-t py-5">
           <p class="text-center text-neutral-500">
             ${msg("Could not find page.")}
           </p>
@@ -577,7 +583,7 @@ export class WorkflowsList extends LiteElement {
     }
 
     return html`
-      <div class="border-t border-b py-5">
+      <div class="border-b border-t py-5">
         <p class="text-center text-neutral-500">${msg("No Workflows yet.")}</p>
       </div>
     `;
@@ -585,7 +591,7 @@ export class WorkflowsList extends LiteElement {
 
   private renderLoading() {
     return html`<div
-      class="w-full flex items-center justify-center my-24 text-3xl"
+      class="my-24 flex w-full items-center justify-center text-3xl"
     >
       <sl-spinner></sl-spinner>
     </div>`;
@@ -595,7 +601,7 @@ export class WorkflowsList extends LiteElement {
    * Fetch Workflows and update state
    **/
   private async getWorkflows(
-    queryParams?: APIPaginationQuery & Record<string, unknown>
+    queryParams?: APIPaginationQuery & Record<string, unknown>,
   ) {
     const query = queryString.stringify(
       {
@@ -611,7 +617,7 @@ export class WorkflowsList extends LiteElement {
       },
       {
         arrayFormat: "comma",
-      }
+      },
     );
 
     this.getWorkflowsController = new AbortController();
@@ -620,7 +626,7 @@ export class WorkflowsList extends LiteElement {
       this.authState!,
       {
         signal: this.getWorkflowsController.signal,
-      }
+      },
     );
     this.getWorkflowsController = null;
 
@@ -646,14 +652,14 @@ export class WorkflowsList extends LiteElement {
       {
         workflow: workflowParams,
         seeds: seeds.items,
-      }
+      },
     );
 
     if (seeds.total > SEEDS_MAX) {
       this.notify({
         title: msg(str`Partially copied Workflow`),
         message: msg(
-          str`Only first ${SEEDS_MAX.toLocaleString()} URLs were copied.`
+          str`Only first ${SEEDS_MAX.toLocaleString()} URLs were copied.`,
         ),
         variant: "warning",
         icon: "exclamation-triangle",
@@ -674,13 +680,13 @@ export class WorkflowsList extends LiteElement {
         this.authState!,
         {
           method: "DELETE",
-        }
+        },
       );
 
-      this.fetchWorkflows();
+      void this.fetchWorkflows();
       this.notify({
         message: msg(
-          html`Deactivated <strong>${this.renderName(workflow)}</strong>.`
+          html`Deactivated <strong>${this.renderName(workflow)}</strong>.`,
         ),
         variant: "success",
         icon: "check2-circle",
@@ -701,13 +707,13 @@ export class WorkflowsList extends LiteElement {
         this.authState!,
         {
           method: "DELETE",
-        }
+        },
       );
 
-      this.fetchWorkflows();
+      void this.fetchWorkflows();
       this.notify({
         message: msg(
-          html`Deleted <strong>${this.renderName(workflow)}</strong>.`
+          html`Deleted <strong>${this.renderName(workflow)}</strong>.`,
         ),
         variant: "success",
         icon: "check2-circle",
@@ -729,10 +735,10 @@ export class WorkflowsList extends LiteElement {
         this.authState!,
         {
           method: "POST",
-        }
+        },
       );
-      if (data.success === true) {
-        this.fetchWorkflows();
+      if (data.success) {
+        void this.fetchWorkflows();
       } else {
         this.notify({
           message: msg("Something went wrong, couldn't cancel crawl."),
@@ -751,10 +757,10 @@ export class WorkflowsList extends LiteElement {
         this.authState!,
         {
           method: "POST",
-        }
+        },
       );
-      if (data.success === true) {
-        this.fetchWorkflows();
+      if (data.success) {
+        void this.fetchWorkflows();
       } else {
         this.notify({
           message: msg("Something went wrong, couldn't stop crawl."),
@@ -772,7 +778,7 @@ export class WorkflowsList extends LiteElement {
         this.authState!,
         {
           method: "POST",
-        }
+        },
       );
 
       this.notify({
@@ -784,7 +790,7 @@ export class WorkflowsList extends LiteElement {
               href="${this.orgBasePath}/workflows/crawl/${workflow.id}#watch"
               @click=${this.navLink.bind(this)}
               >Watch crawl</a
-            >`
+            >`,
         ),
         variant: "success",
         icon: "check2-circle",
@@ -794,14 +800,14 @@ export class WorkflowsList extends LiteElement {
       await this.fetchWorkflows();
       // Scroll to top of list
       this.scrollIntoView({ behavior: "smooth" });
-    } catch (e: any) {
+    } catch (e) {
       let message = msg("Sorry, couldn't run crawl at this time.");
-      if (e.isApiError && e.statusCode === 403) {
+      if (isApiError(e) && e.statusCode === 403) {
         if (e.details === "storage_quota_reached") {
           message = msg("Your org does not have enough storage to run crawls.");
         } else if (e.details === "exec_minutes_quota_reached") {
           message = msg(
-            "Your org has used all of its execution minutes for this month."
+            "Your org has used all of its execution minutes for this month.",
           );
         } else {
           message = msg("You do not have permission to run crawls.");
@@ -824,7 +830,7 @@ export class WorkflowsList extends LiteElement {
         firstSeeds: string[];
       } = await this.apiFetch(
         `/orgs/${this.orgId}/crawlconfigs/search-values`,
-        this.authState!
+        this.authState!,
       );
 
       // Update search/filter collection
@@ -843,7 +849,7 @@ export class WorkflowsList extends LiteElement {
   private async getWorkflow(workflow: ListWorkflow): Promise<Workflow> {
     const data: Workflow = await this.apiFetch(
       `/orgs/${this.orgId}/crawlconfigs/${workflow.id}`,
-      this.authState!
+      this.authState!,
     );
     return data;
   }
@@ -852,7 +858,7 @@ export class WorkflowsList extends LiteElement {
     // NOTE Returns first 1000 seeds (backend pagination max)
     const data = await this.apiFetch<APIPaginatedList<Seed>>(
       `/orgs/${this.orgId}/crawlconfigs/${workflow.id}/seeds`,
-      this.authState!
+      this.authState!,
     );
     return data;
   }

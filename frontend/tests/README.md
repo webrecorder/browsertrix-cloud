@@ -1,6 +1,6 @@
 # Running Tests Locally
 
-This guide will show you how to run tests locally for a frontend application using `yarn start` and `npx playwright test`. 
+This guide will show you how to run tests locally for a frontend application using `yarn start` and `npx playwright test`.
 
 ## Prerequisites
 

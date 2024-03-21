@@ -1,5 +1,6 @@
 import requests
 import os
+import time
 from urllib.parse import urljoin
 
 from .conftest import API_PREFIX
@@ -933,6 +934,8 @@ def test_delete_form_upload_and_crawls_from_all_crawls(
     assert data["storageUsedBytes"] == org_bytes - total_size
     assert data["storageUsedCrawls"] == org_crawl_bytes - combined_crawl_size
     assert data["storageUsedUploads"] == org_upload_bytes - upload_size
+
+    time.sleep(10)
 
     r = requests.get(
         f"{API_PREFIX}/orgs/{default_org_id}/crawlconfigs/{all_crawls_delete_config_id}",

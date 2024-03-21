@@ -10,30 +10,30 @@
  * </btrix-numbered-list>
  * ```
  */
-import { LitElement, html, css } from "lit";
+import { css, html, LitElement } from "lit";
 import {
+  customElement,
   property,
   queryAssignedElements,
-  customElement,
 } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 
 @customElement("btrix-numbered-list-item")
 export class NumberedListItem extends LitElement {
   @property({ type: Boolean })
-  isFirst: boolean = false;
+  isFirst = false;
 
   @property({ type: Boolean })
-  isLast: boolean = false;
+  isLast = false;
 
   @property({ type: Boolean })
-  isEven: boolean = false;
+  isEven = false;
 
   @property({ type: Boolean })
-  selected: boolean = false;
+  selected = false;
 
   @property({ type: Boolean })
-  hoverable: boolean = false;
+  hoverable = false;
 
   // postcss-lit-disable-next-line
   static styles = css`

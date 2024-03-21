@@ -1,6 +1,6 @@
-import { LitElement, html, css } from "lit";
-import { property, customElement } from "lit/decorators.js";
-import { msg, localized } from "@lit/localize";
+import { localized, msg } from "@lit/localize";
+import { css, html, LitElement } from "lit";
+import { customElement, property } from "lit/decorators.js";
 
 import seededCrawlSvg from "~assets/images/new-crawl-config_Seeded-Crawl.svg";
 import urlListSvg from "~assets/images/new-crawl-config_URL-List.svg";
@@ -41,9 +41,14 @@ export class NewWorkflowDialog extends LitElement {
     }
 
     .jobTypeButton {
+      padding: 0.25rem;
       display: block;
-      width: min-content;
+      width: 16.5rem;
       cursor: pointer;
+      background: none;
+      text-align: left;
+      border: none;
+      border-radius: 0.75rem;
     }
 
     figure {
@@ -56,6 +61,8 @@ export class NewWorkflowDialog extends LitElement {
     }
 
     .jobTypeImg {
+      width: 100%;
+      max-height: 9rem;
       transition-property: transform;
       transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
       transition-duration: 150ms;
@@ -72,20 +79,19 @@ export class NewWorkflowDialog extends LitElement {
   render() {
     return html`
       <btrix-dialog
-        .label=${msg("Create a New Crawl Workflow")}
+        .label=${msg("Choose New Workflow Type")}
         .open=${this.open}
         style="--width: 46rem"
       >
-        <h3 class="title heading">${msg("Choose Crawl Type")}</h3>
         <div class="container">
-          <div
-            role="button"
+          <button
+            tabindex="2"
             class="jobTypeButton"
             @click=${() => {
               this.dispatchEvent(
-                <SelectJobTypeEvent>new CustomEvent("select-job-type", {
+                new CustomEvent("select-job-type", {
                   detail: "url-list",
-                })
+                }) as SelectJobTypeEvent,
               );
             }}
           >
@@ -95,20 +101,20 @@ export class NewWorkflowDialog extends LitElement {
                 <div class="heading">${msg("URL List")}</div>
                 <p class="description">
                   ${msg(
-                    "The crawler visits every URL specified in a list, and optionally every URL linked on those pages."
+                    "The crawler visits every URL specified in a list, and optionally every URL linked on those pages.",
                   )}
                 </p>
               </figcaption>
             </figure>
-          </div>
-          <div
-            role="button"
+          </button>
+          <button
+            tabindex="1"
             class="jobTypeButton"
             @click=${() => {
               this.dispatchEvent(
-                <SelectJobTypeEvent>new CustomEvent("select-job-type", {
+                new CustomEvent("select-job-type", {
                   detail: "seed-crawl",
-                })
+                }) as SelectJobTypeEvent,
               );
             }}
           >
@@ -118,13 +124,13 @@ export class NewWorkflowDialog extends LitElement {
                 <div class="heading">${msg("Seeded Crawl")}</div>
                 <p class="description">
                   ${msg(
-                    "The crawler automatically discovers and archives pages starting from a single seed URL."
+                    "The crawler automatically discovers and archives pages starting from a single seed URL.",
                   )}
                 </p>
               </figcaption>
             </figure>
           </div>
-        </div>
+        </button>
       </btrix-dialog>
     `;
   }

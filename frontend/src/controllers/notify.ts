@@ -42,7 +42,7 @@ const NOTIFY_EVENT_NAME: keyof NotifyEventMap = "btrix-notify";
  * Manage global app notifications
  */
 export class NotifyController implements ReactiveController {
-  private host: ReactiveControllerHost & EventTarget;
+  private readonly host: ReactiveControllerHost & EventTarget;
 
   constructor(host: NotifyController["host"]) {
     this.host = host;
@@ -58,7 +58,7 @@ export class NotifyController implements ReactiveController {
         bubbles: true,
         composed: true,
         detail,
-      })
+      }),
     );
   }
 }

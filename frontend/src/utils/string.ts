@@ -5,3 +5,7 @@
 export function regexEscape(s: unknown) {
   return String(s).replace(/[\\^$*+?.()|[\]{}]/g, "\\$&");
 }
+
+export function regexUnescape(s: unknown) {
+  return String(s).replace(/(\\|\/\.\*)/g, "");
+}

@@ -9,7 +9,7 @@
  **/
 export function numberFormatter(
   locales?: string | string[],
-  opts?: Intl.NumberFormatOptions
+  opts?: Intl.NumberFormatOptions,
 ) {
   const numFormat = new Intl.NumberFormat(locales, opts);
   const pluralRules = new Intl.PluralRules("en", { type: "ordinal" });

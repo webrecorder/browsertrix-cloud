@@ -1,6 +1,7 @@
 """
 Migration 0019 - Organization slug
 """
+
 from btrixcloud.migrations import BaseMigration
 from btrixcloud.utils import slug_from_name
 
@@ -11,8 +12,9 @@ MIGRATION_VERSION = "0019"
 class Migration(BaseMigration):
     """Migration class."""
 
-    def __init__(self, mdb, migration_version=MIGRATION_VERSION):
-        super().__init__(mdb, migration_version)
+    # pylint: disable=unused-argument
+    def __init__(self, mdb, **kwargs):
+        super().__init__(mdb, migration_version=MIGRATION_VERSION)
 
     async def migrate_up(self):
         """Perform migration up.

@@ -1,25 +1,27 @@
-import type { TemplateResult } from "lit";
-import { state, property, customElement } from "lit/decorators.js";
-import { when } from "lit/directives/when.js";
-import { ifDefined } from "lit/directives/if-defined.js";
+import { localized, msg, str } from "@lit/localize";
+import type { PropertyValues, TemplateResult } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
-import { msg, localized, str } from "@lit/localize";
+import { ifDefined } from "lit/directives/if-defined.js";
+import { when } from "lit/directives/when.js";
+import capitalize from "lodash/fp/capitalize";
 
+import type { ArchivedItem, Crawl, CrawlConfig, Seed, Workflow } from "./types";
+
+import { CopyButton } from "@/components/ui/copy-button";
 import type { PageChangeEvent } from "@/components/ui/pagination";
 import { RelativeDuration } from "@/components/ui/relative-duration";
-import type { AuthState } from "@/utils/AuthService";
-import LiteElement, { html } from "@/utils/LiteElement";
-import { isActive } from "@/utils/crawler";
-import { CopyButton } from "@/components/ui/copy-button";
-import type { ArchivedItem, Crawl, CrawlConfig, Seed, Workflow } from "./types";
-import type { APIPaginatedList } from "@/types/api";
-import { humanizeExecutionSeconds } from "@/utils/executionTimeFormatter";
 import type { CrawlLog } from "@/features/archived-items/crawl-logs";
-
-import capitalize from "lodash/fp/capitalize";
+import type { APIPaginatedList } from "@/types/api";
+import { isApiError } from "@/utils/api";
+import type { AuthState } from "@/utils/AuthService";
+import { isActive } from "@/utils/crawler";
+import { humanizeExecutionSeconds } from "@/utils/executionTimeFormatter";
+import LiteElement, { html } from "@/utils/LiteElement";
 
 const SECTIONS = [
   "overview",
+  "qa",
   "watch",
   "replay",
   "files",
@@ -32,11 +34,11 @@ type SectionName = (typeof SECTIONS)[number];
 /**
  * Usage:
  * ```ts
- * <btrix-crawl-detail></btrix-crawl-detail>
+ * <btrix-archived-item-detail></btrix-archived-item-detail>
  * ```
  */
 @localized()
-@customElement("btrix-crawl-detail")
+@customElement("btrix-archived-item-detail")
 export class CrawlDetail extends LiteElement {
   @property({ type: Object })
   authState?: AuthState;
@@ -57,7 +59,7 @@ export class CrawlDetail extends LiteElement {
   orgId!: string;
 
   @property({ type: String })
-  crawlId!: string;
+  crawlId?: string;
 
   @property({ type: Boolean })
   isCrawler!: boolean;
@@ -95,7 +97,7 @@ export class CrawlDetail extends LiteElement {
   }
 
   // TODO localize
-  private numberFormatter = new Intl.NumberFormat();
+  private readonly numberFormatter = new Intl.NumberFormat();
 
   private get isActive(): boolean | null {
     if (!this.crawl) return null;
@@ -116,14 +118,14 @@ export class CrawlDetail extends LiteElement {
     return this.crawl.resources.length > 0;
   }
 
-  willUpdate(changedProperties: Map<string, any>) {
+  willUpdate(changedProperties: PropertyValues<this>) {
     if (changedProperties.has("crawlId") && this.crawlId) {
-      this.fetchCrawl();
-      this.fetchCrawlLogs();
-      this.fetchSeeds();
+      void this.fetchCrawl();
+      void this.fetchCrawlLogs();
+      void this.fetchSeeds();
     }
     if (changedProperties.has("workflowId") && this.workflowId) {
-      this.fetchWorkflow();
+      void this.fetchWorkflow();
     }
   }
 
@@ -141,6 +143,15 @@ export class CrawlDetail extends LiteElement {
     let sectionContent: string | TemplateResult = "";
 
     switch (this.sectionName) {
+      case "qa":
+        sectionContent = this.renderPanel(
+          html`${this.renderTitle(msg("Crawl Analysis"))}
+            <sl-button size="small" @click=${() => console.log("TODO")}>
+              ${msg("Reanalyze Crawl")}
+            </sl-button>`,
+          this.renderQA(),
+        );
+        break;
       case "replay":
         sectionContent = this.renderPanel(msg("Replay"), this.renderReplay(), {
           "overflow-hidden": true,
@@ -163,7 +174,7 @@ export class CrawlDetail extends LiteElement {
               <sl-icon slot="prefix" name="download"></sl-icon>
               ${msg("Download Logs")}
             </sl-button>`,
-          this.renderLogs()
+          this.renderLogs(),
         );
         break;
       case "config":
@@ -174,12 +185,12 @@ export class CrawlDetail extends LiteElement {
             "p-4": true,
             "rounded-lg": true,
             border: true,
-          }
+          },
         );
         break;
       default:
         sectionContent = html`
-          <div class="grid gap-5 grid-cols-1 lg:grid-cols-2">
+          <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <div class="col-span-1 flex flex-col">
               ${this.renderPanel(msg("Overview"), this.renderOverview(), {
                 "p-4": true,
@@ -196,7 +207,7 @@ export class CrawlDetail extends LiteElement {
                     () => html`
                       <sl-tooltip
                         content=${msg(
-                          "Metadata cannot be edited while crawl is running."
+                          "Metadata cannot be edited while crawl is running.",
                         )}
                         ?disabled=${!this.isActive}
                       >
@@ -210,7 +221,7 @@ export class CrawlDetail extends LiteElement {
                           ?disabled=${this.isActive}
                         ></sl-icon-button>
                       </sl-tooltip>
-                    `
+                    `,
                   )}
                 `,
                 this.renderMetadata(),
@@ -218,7 +229,7 @@ export class CrawlDetail extends LiteElement {
                   "p-4": true,
                   "rounded-lg": true,
                   border: true,
-                }
+                },
               )}
             </div>
           </div>
@@ -234,17 +245,17 @@ export class CrawlDetail extends LiteElement {
     } else if (this.crawl) {
       if (this.crawl.type === "upload") {
         label = msg("Back to All Uploads");
-      } else if (this.crawl.type === "crawl") {
-        label = msg("Back to All Crawls");
       } else {
-        label = msg("Back to Archived Items");
+        label = msg("Back to All Crawls");
       }
+      // TODO have a "Back to Archived Items" link & label when we have the info to tell
+      // https://github.com/webrecorder/browsertrix-cloud/issues/1526
     }
 
     return html`
       <div class="mb-7">
         <a
-          class="text-neutral-500 hover:text-neutral-600 text-sm font-medium"
+          class="text-sm font-medium text-neutral-500 hover:text-neutral-600"
           href=${this.listUrl}
           @click=${this.navLink}
         >
@@ -259,19 +270,25 @@ export class CrawlDetail extends LiteElement {
       <div class="mb-4">${this.renderHeader()}</div>
 
       <main>
-        <section class="grid grid-cols-14 gap-6">
-          <div class="col-span-14 md:col-span-3">${this.renderNav()}</div>
+        <section class="grid gap-6 md:grid-cols-14">
+          <div class="col-span-14 grid border-b md:col-span-3 md:border-b-0 ">
+            <div
+              class="-mx-3 box-border flex overflow-x-auto px-3 md:mx-0 md:block md:px-0"
+            >
+              ${this.renderNav()}
+            </div>
+          </div>
           <div class="col-span-14 md:col-span-11">${sectionContent}</div>
         </section>
       </main>
 
-      <btrix-crawl-metadata-editor
+      <btrix-item-metadata-editor
         .authState=${this.authState}
         .crawl=${this.crawl}
         ?open=${this.openDialogName === "metadata"}
         @request-close=${() => (this.openDialogName = undefined)}
-        @updated=${() => this.fetchCrawl()}
-      ></btrix-crawl-metadata-editor>
+        @updated=${() => void this.fetchCrawl()}
+      ></btrix-item-metadata-editor>
     `;
   }
 
@@ -289,12 +306,12 @@ export class CrawlDetail extends LiteElement {
       if (remainder === 1) {
         crawlName = msg(
           html`<span class="break-words">${this.crawl.firstSeed}</span>
-            <span class="text-neutral-500">+${remainder} URL</span>`
+            <span class="text-neutral-500">+${remainder} URL</span>`,
         );
       } else {
         crawlName = msg(
           html`<span class="break-words">${this.crawl.firstSeed}</span>
-            <span class="text-neutral-500">+${remainder} URLs</span>`
+            <span class="text-neutral-500">+${remainder} URLs</span>`,
         );
       }
     }
@@ -307,98 +324,111 @@ export class CrawlDetail extends LiteElement {
       label,
       iconLibrary,
       icon,
+      detail,
     }: {
       section: SectionName;
-      label: any;
+      label: string;
       iconLibrary: "app" | "default";
       icon: string;
+      detail?: TemplateResult<1>;
     }) => {
       const isActive = section === this.sectionName;
       const baseUrl = window.location.pathname.split("#")[0];
       return html`
-        <li class="relative grow" role="menuitem" aria-selected="${isActive}">
-          <a
-            class="flex gap-2 flex-col md:flex-row items-center font-semibold rounded-md h-full p-2 ${isActive
-              ? "text-blue-600 bg-blue-100 shadow-sm shadow-blue-800/20"
-              : "text-neutral-600 hover:bg-blue-50"}"
-            href=${`${baseUrl}${window.location.search}#${section}`}
-            @click=${() => (this.sectionName = section)}
-          >
-            <sl-icon
-              class="w-4 h-4 shrink-0"
-              name=${icon}
-              aria-hidden="true"
-              library=${iconLibrary}
-            ></sl-icon>
-            ${label}
-          </a>
-        </li>
+        <btrix-navigation-button
+          class="whitespace-nowrap md:whitespace-normal"
+          .active=${isActive}
+          href=${`${baseUrl}${window.location.search}#${section}`}
+          @click=${() => {
+            this.sectionName = section;
+          }}
+          ><sl-icon
+            class="h-4 w-4 shrink-0"
+            name=${icon}
+            aria-hidden="true"
+            library=${iconLibrary}
+          ></sl-icon>
+          ${label}${detail}</btrix-navigation-button
+        >
       `;
     };
     return html`
-      <nav class="sticky top-0 border-b md:border-b-0 pb-4 md:mt-10">
-        <ul
-          class="flex flex-row md:flex-col gap-2 text-center md:text-start"
-          role="menu"
-        >
-          ${renderNavItem({
-            section: "overview",
-            iconLibrary: "default",
-            icon: "info-circle-fill",
-            label: msg("Overview"),
-          })}
-          ${renderNavItem({
-            section: "replay",
-            iconLibrary: "app",
-            icon: "link-replay",
-            label: msg("Replay"),
-          })}
-          ${renderNavItem({
-            section: "files",
-            iconLibrary: "default",
-            icon: "folder-fill",
-            label: msg("Files"),
-          })}
-          ${when(
-            this.itemType === "crawl",
-            () => html`
-              ${renderNavItem({
-                section: "logs",
-                iconLibrary: "default",
-                icon: "terminal-fill",
-                label: msg("Error Logs"),
-              })}
-              ${renderNavItem({
-                section: "config",
-                iconLibrary: "default",
-                icon: "file-code-fill",
-                label: msg("Crawl Settings"),
-              })}
-            `
-          )}
-        </ul>
+      <nav
+        class="sticky top-0 flex flex-row gap-2 pb-4 text-center md:mt-10 md:flex-col md:text-start"
+        role="menu"
+      >
+        ${renderNavItem({
+          section: "overview",
+          iconLibrary: "default",
+          icon: "info-circle-fill",
+          label: msg("Overview"),
+        })}
+        ${when(
+          this.itemType === "crawl",
+          () => {},
+          // html`
+          //   ${renderNavItem({
+          //     section: "qa",
+          //     iconLibrary: "default",
+          //     icon: "clipboard2-data-fill",
+          //     label: msg("QA"),
+          //     detail: html`
+          //       <btrix-badge variant="primary">${msg("Ready")}</btrix-badge>
+          //     `,
+          //   })}
+          // `,
+        )}
+        ${renderNavItem({
+          section: "replay",
+          iconLibrary: "app",
+          icon: "link-replay",
+          label: msg("Replay"),
+        })}
+        ${renderNavItem({
+          section: "files",
+          iconLibrary: "default",
+          icon: "folder-fill",
+          label: msg("Files"),
+        })}
+        ${when(
+          this.itemType === "crawl",
+          () => html`
+            ${renderNavItem({
+              section: "logs",
+              iconLibrary: "default",
+              icon: "terminal-fill",
+              label: msg("Error Logs"),
+            })}
+            ${renderNavItem({
+              section: "config",
+              iconLibrary: "default",
+              icon: "file-code-fill",
+              label: msg("Crawl Settings"),
+            })}
+          `,
+        )}
       </nav>
     `;
   }
 
   private renderHeader() {
     return html`
-      <header class="md:flex items-center gap-2 pb-3 mb-3 border-b">
+      <header class="mb-3 flex flex-wrap items-center gap-2 border-b pb-3">
         <h1
-          class="grid flex-1 min-w-0 text-xl font-semibold leading-7 truncate mb-2 md:mb-0"
+          class="grid min-w-0 flex-auto truncate text-xl font-semibold leading-7"
         >
           ${this.renderName()}
         </h1>
         <div
-          class="grid gap-2 grid-flow-col ${this.isActive
+          class="${this.isActive
             ? "justify-between"
-            : "justify-end"}"
+            : "justify-end ml-auto"} grid grid-flow-col gap-2"
         >
           ${this.isActive
             ? html`
                 <sl-button-group>
                   <sl-button size="small" @click=${this.stop}>
-                    <sl-icon name="slash-circle" slot="prefix"></sl-icon>
+                    <sl-icon name="dash-square" slot="prefix"></sl-icon>
                     <span> ${msg("Stop")} </span>
                   </sl-button>
                   <sl-button size="small" @click=${this.cancel}>
@@ -415,7 +445,7 @@ export class CrawlDetail extends LiteElement {
           ${this.crawl && this.isCrawler
             ? this.renderMenu()
             : html`<sl-skeleton
-                class="w-24 h-8 [--border-radius:theme(borderRadius.sm)]"
+                class="h-8 w-24 [--border-radius:theme(borderRadius.sm)]"
               ></sl-skeleton>`}
         </div>
       </header>
@@ -445,7 +475,7 @@ export class CrawlDetail extends LiteElement {
                 ${msg("Edit Metadata")}
               </sl-menu-item>
               <sl-divider></sl-divider>
-            `
+            `,
           )}
           ${when(
             this.itemType === "crawl",
@@ -455,7 +485,7 @@ export class CrawlDetail extends LiteElement {
                   this.navTo(
                     `${this.orgBasePath}/workflows/crawl/${
                       (this.crawl as Crawl).cid
-                    }`
+                    }`,
                   )}
               >
                 <sl-icon name="arrow-return-right" slot="prefix"></sl-icon>
@@ -465,10 +495,10 @@ export class CrawlDetail extends LiteElement {
                 @click=${() =>
                   CopyButton.copyToClipboard((this.crawl as Crawl).cid)}
               >
-                <sl-icon name="copy-code" library="app" slot="prefix"></sl-icon>
+                <sl-icon name="copy" slot="prefix"></sl-icon>
                 ${msg("Copy Workflow ID")}
               </sl-menu-item>
-            `
+            `,
           )}
           <sl-menu-item
             @click=${() =>
@@ -484,12 +514,12 @@ export class CrawlDetail extends LiteElement {
               <sl-divider></sl-divider>
               <sl-menu-item
                 style="--sl-color-neutral-700: var(--danger)"
-                @click=${() => this.deleteCrawl()}
+                @click=${() => void this.deleteCrawl()}
               >
                 <sl-icon name="trash3" slot="prefix"></sl-icon>
                 ${msg("Delete Crawl")}
               </sl-menu-item>
-            `
+            `,
           )}
         </sl-menu>
       </sl-dropdown>
@@ -502,13 +532,13 @@ export class CrawlDetail extends LiteElement {
 
   private renderPanel(
     heading: string | TemplateResult,
-    content: any,
-    classes: any = {}
+    content: TemplateResult | undefined,
+    classes: Record<string, boolean> = {},
   ) {
     const headingIsTitle = typeof heading === "string";
     return html`
       <header
-        class="flex-0 flex items-center justify-between leading-none h-8 min-h-fit mb-2"
+        class="flex-0 mb-2 flex h-8 min-h-fit items-center justify-between leading-none"
       >
         ${headingIsTitle ? this.renderTitle(heading) : heading}
       </header>
@@ -520,6 +550,15 @@ export class CrawlDetail extends LiteElement {
       >
         ${content}
       </div>
+    `;
+  }
+
+  private renderQA() {
+    return html`
+      <section class="mb-5 rounded-lg border p-4">[summary]</section>
+      <section class="mb-7 rounded-lg border p-4">[stats]</section>
+      <h4 class="text-lg font-semibold">${msg("Pages")}</h4>
+      <section>[pages]</section>
     `;
   }
 
@@ -542,7 +581,7 @@ export class CrawlDetail extends LiteElement {
           ? html`<div id="replay-crawl" class="aspect-4/3 overflow-hidden">
               <replay-web-page
                 source="${replaySource}"
-                coll="${ifDefined(this.crawl?.id)}"
+                coll="${ifDefined(this.crawl.id)}"
                 config="${config}"
                 replayBase="/replay/"
                 noSandbox="true"
@@ -550,7 +589,7 @@ export class CrawlDetail extends LiteElement {
               ></replay-web-page>
             </div>`
           : html`
-              <p class="text-sm text-neutral-400 p-4">
+              <p class="p-4 text-sm text-neutral-400">
                 ${this.isActive
                   ? msg("No files yet.")
                   : msg("No files to replay.")}
@@ -572,7 +611,7 @@ export class CrawlDetail extends LiteElement {
                   ?isUpload=${this.crawl.type === "upload"}
                 ></btrix-crawl-status>
               `
-            : html`<sl-skeleton class="h-[16px] mb-[3px] w-24"></sl-skeleton>`}
+            : html`<sl-skeleton class="mb-[3px] h-[16px] w-24"></sl-skeleton>`}
         </btrix-desc-list-item>
         ${when(this.crawl, () =>
           this.crawl!.type === "upload"
@@ -618,7 +657,7 @@ export class CrawlDetail extends LiteElement {
                   ${this.crawl!.finished
                     ? html`${RelativeDuration.humanize(
                         new Date(`${this.crawl!.finished}Z`).valueOf() -
-                          new Date(`${this.crawl!.started}Z`).valueOf()
+                          new Date(`${this.crawl!.started}Z`).valueOf(),
                       )}`
                     : html`
                         <span class="text-purple-600">
@@ -634,7 +673,7 @@ export class CrawlDetail extends LiteElement {
                   ${this.crawl!.finished
                     ? html`<span
                         >${humanizeExecutionSeconds(
-                          this.crawl!.crawlExecSeconds
+                          this.crawl!.crawlExecSeconds,
                         )}</span
                       >`
                     : html`<span class="text-0-400">${msg("Pending")}</span>`}
@@ -645,11 +684,11 @@ export class CrawlDetail extends LiteElement {
                         html`Manual start by
                           <span
                             >${this.crawl!.userName || this.crawl!.userid}</span
-                          >`
+                          >`,
                       )
                     : msg(html`Scheduled start`)}
                 </btrix-desc-list-item>
-              `
+              `,
         )}
 
         <btrix-desc-list-item label=${msg("Size")}>
@@ -662,16 +701,16 @@ export class CrawlDetail extends LiteElement {
                     >${this.crawl.stats
                       ? html`<span>,</span
                           ><span
-                            class="font-mono tracking-tighter${this.isActive
+                            class="tracking-tighter${this.isActive
                               ? " text-purple-600"
-                              : ""}"
+                              : ""} font-mono"
                           >
                             ${this.numberFormatter.format(
-                              +this.crawl.stats.done
+                              +this.crawl.stats.done,
                             )}
                             <span class="text-0-400">/</span>
                             ${this.numberFormatter.format(
-                              +this.crawl.stats.found
+                              +this.crawl.stats.found,
                             )}
                           </span>
                           <span> pages</span>`
@@ -685,7 +724,7 @@ export class CrawlDetail extends LiteElement {
             ? html`<btrix-copy-field
                 value="${this.crawl.id}"
               ></btrix-copy-field>`
-            : html`<sl-skeleton class="h-[16px] mb-[3px] w-24"></sl-skeleton>`}
+            : html`<sl-skeleton class="mb-[3px] h-[16px] w-24"></sl-skeleton>`}
         </btrix-desc-list-item>
       </btrix-desc-list>
     `;
@@ -724,9 +763,9 @@ export class CrawlDetail extends LiteElement {
 ${this.crawl?.description}
                 </pre
                   >`,
-                () => noneText
+                () => noneText,
               ),
-            () => html`<sl-skeleton class="h-[16px] w-24"></sl-skeleton>`
+            () => html`<sl-skeleton class="h-[16px] w-24"></sl-skeleton>`,
           )}
         </btrix-desc-list-item>
         <btrix-desc-list-item label=${msg("Tags")}>
@@ -738,11 +777,11 @@ ${this.crawl?.description}
                 () =>
                   this.crawl!.tags.map(
                     (tag) =>
-                      html`<btrix-tag class="mt-1 mr-2">${tag}</btrix-tag>`
+                      html`<btrix-tag class="mr-2 mt-1">${tag}</btrix-tag>`,
                   ),
-                () => noneText
+                () => noneText,
               ),
-            () => html`<sl-skeleton class="h-[16px] w-24"></sl-skeleton>`
+            () => html`<sl-skeleton class="h-[16px] w-24"></sl-skeleton>`,
           )}
         </btrix-desc-list-item>
         <btrix-desc-list-item label=${msg("In Collections")}>
@@ -762,13 +801,13 @@ ${this.crawl?.description}
                             @click=${this.navLink}
                             >${name}</a
                           >
-                        </li>`
+                        </li>`,
                     )}
                   </ul>
                 `,
-                () => noneText
+                () => noneText,
               ),
-            () => html`<sl-skeleton class="h-[16px] w-24"></sl-skeleton>`
+            () => html`<sl-skeleton class="h-[16px] w-24"></sl-skeleton>`,
           )}
         </btrix-desc-list-item>
       </btrix-desc-list>
@@ -779,19 +818,19 @@ ${this.crawl?.description}
     return html`
       ${this.hasFiles
         ? html`
-            <ul class="border rounded-lg text-sm">
+            <ul class="rounded-lg border text-sm">
               ${this.crawl!.resources!.map(
                 (file) => html`
                   <li
-                    class="flex justify-between p-3 border-t first:border-t-0"
+                    class="flex justify-between border-t p-3 first:border-t-0"
                   >
-                    <div class="whitespace-nowrap truncate flex items-center">
+                    <div class="flex items-center truncate whitespace-nowrap">
                       <sl-icon
                         name="file-earmark-zip-fill"
-                        class="h-4 pr-2 shrink-0 text-neutral-600"
+                        class="h-4 shrink-0 pr-2 text-neutral-600"
                       ></sl-icon>
                       <a
-                        class="text-primary hover:underline truncate mr-2"
+                        class="mr-2 truncate text-primary hover:underline"
                         href=${file.path}
                         download
                         title=${file.name}
@@ -799,22 +838,22 @@ ${this.crawl?.description}
                       </a>
                     </div>
                     <div
-                      class="whitespace-nowrap text-sm font-mono text-neutral-400"
+                      class="whitespace-nowrap font-mono text-sm text-neutral-400"
                     >
                       ${when(
                         file.numReplicas > 0,
                         () =>
                           html` <sl-tooltip content=${msg("Backed up")}>
                             <sl-icon
-                              name="clouds"
-                              class="w-4 h-4 mr-2 align-text-bottom shrink-0 text-success"
+                              name="clouds-fill"
+                              class="mr-2 h-4 w-4 shrink-0 align-text-bottom text-success"
                             ></sl-icon>
-                          </sl-tooltip>`
+                          </sl-tooltip>`,
                       )}
                       <sl-format-bytes value=${file.size}></sl-format-bytes>
                     </div>
                   </li>
-                `
+                `,
               )}
             </ul>
           `
@@ -846,11 +885,11 @@ ${this.crawl?.description}
                   }}
                 ></btrix-crawl-logs>
               `
-            : html`<div class="border rounded-lg p-4">
+            : html`<div class="rounded-lg border p-4">
                 <p class="text-sm text-neutral-400">
                   ${msg("No error logs to display.")}
                 </p>
-              </div>`
+              </div>`,
         )}
       </div>
     `;
@@ -872,14 +911,14 @@ ${this.crawl?.description}
               hideMetadata
             ></btrix-config-details>
           `,
-          this.renderLoading
+          this.renderLoading,
         )}
       </div>
     `;
   }
 
-  private renderLoading = () =>
-    html`<div class="w-full flex items-center justify-center my-24 text-3xl">
+  private readonly renderLoading = () =>
+    html`<div class="my-24 flex w-full items-center justify-center text-3xl">
       <sl-spinner></sl-spinner>
     </div>`;
 
@@ -904,7 +943,7 @@ ${this.crawl?.description}
     } catch {
       this.notify({
         message: msg(
-          "Sorry, couldn't retrieve all crawl settings at this time."
+          "Sorry, couldn't retrieve all crawl settings at this time.",
         ),
         variant: "danger",
         icon: "exclamation-octagon",
@@ -931,7 +970,7 @@ ${this.crawl?.description}
     // NOTE Returns first 1000 seeds (backend pagination max)
     const data = await this.apiFetch<APIPaginatedList<Seed>>(
       `/orgs/${this.orgId}/crawls/${this.crawlId}/seeds`,
-      this.authState!
+      this.authState!,
     );
     return data;
   }
@@ -939,12 +978,12 @@ ${this.crawl?.description}
   private async getWorkflow(): Promise<Workflow> {
     return this.apiFetch<Workflow>(
       `/orgs/${this.orgId}/crawlconfigs/${this.workflowId}`,
-      this.authState!
+      this.authState!,
     );
   }
 
   private async fetchCrawlLogs(
-    params: Partial<APIPaginatedList> = {}
+    params: Partial<APIPaginatedList> = {},
   ): Promise<void> {
     if (this.itemType !== "crawl") {
       return;
@@ -968,7 +1007,7 @@ ${this.crawl?.description}
 
     const data = (await this.apiFetch)<APIPaginatedList<CrawlLog>>(
       `/orgs/${this.orgId}/crawls/${this.crawlId}/errors?page=${page}&pageSize=${pageSize}`,
-      this.authState!
+      this.authState!,
     );
 
     return data;
@@ -981,11 +1020,11 @@ ${this.crawl?.description}
         this.authState!,
         {
           method: "POST",
-        }
+        },
       );
 
-      if (data.success === true) {
-        this.fetchCrawl();
+      if (data.success) {
+        void this.fetchCrawl();
       } else {
         this.notify({
           message: msg("Sorry, couldn't cancel crawl at this time."),
@@ -1003,11 +1042,11 @@ ${this.crawl?.description}
         this.authState!,
         {
           method: "POST",
-        }
+        },
       );
 
-      if (data.success === true) {
-        this.fetchCrawl();
+      if (data.success) {
+        void this.fetchCrawl();
       } else {
         this.notify({
           message: msg("Sorry, couldn't stop crawl at this time."),
@@ -1030,7 +1069,9 @@ ${this.crawl?.description}
   private async deleteCrawl() {
     if (
       !window.confirm(
-        msg(str`Are you sure you want to delete crawl of ${this.renderName()}?`)
+        msg(
+          str`Are you sure you want to delete crawl of ${this.renderName()}?`,
+        ),
       )
     ) {
       return;
@@ -1047,7 +1088,7 @@ ${this.crawl?.description}
           body: JSON.stringify({
             crawl_ids: [this.crawl!.id],
           }),
-        }
+        },
       );
       this.navTo(this.listUrl);
       this.notify({
@@ -1055,14 +1096,14 @@ ${this.crawl?.description}
         variant: "success",
         icon: "check2-circle",
       });
-    } catch (e: any) {
+    } catch (e) {
       let message = msg(
-        str`Sorry, couldn't delete archived item at this time.`
+        str`Sorry, couldn't delete archived item at this time.`,
       );
-      if (e.isApiError) {
+      if (isApiError(e)) {
         if (e.details == "not_allowed") {
           message = msg(
-            str`Only org owners can delete other users' archived items.`
+            str`Only org owners can delete other users' archived items.`,
           );
         } else if (e.message) {
           message = e.message;
@@ -1080,7 +1121,7 @@ ${this.crawl?.description}
   private _crawlDone() {
     if (!this.crawl) return;
 
-    this.fetchCrawlLogs();
+    void this.fetchCrawlLogs();
 
     this.notify({
       message: msg(html`Done crawling <strong>${this.renderName()}</strong>.`),
@@ -1100,7 +1141,7 @@ ${this.crawl?.description}
    */
   private async _enterFullscreen(id: string) {
     try {
-      document.getElementById(id)!.requestFullscreen({
+      void document.getElementById(id)!.requestFullscreen({
         // Show browser navigation controls
         navigationUI: "show",
       });

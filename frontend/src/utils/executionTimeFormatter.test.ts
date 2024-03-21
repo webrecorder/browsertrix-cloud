@@ -1,8 +1,9 @@
-import {
-  humanizeSeconds,
-  humanizeExecutionSeconds,
-} from "./executionTimeFormatter";
 import { expect, fixture } from "@open-wc/testing";
+
+import {
+  humanizeExecutionSeconds,
+  humanizeSeconds,
+} from "./executionTimeFormatter";
 
 describe("formatHours", () => {
   it("returns a time in hours and minutes when given a time over an hour", () => {
@@ -25,7 +26,7 @@ describe("formatHours", () => {
     expect(humanizeSeconds(44_442_000_000, "en-IN")).to.equal("1,23,45,000h");
     expect(humanizeSeconds(44_442_000_000, "pt-BR")).to.equal("12.345.000 h");
     expect(humanizeSeconds(44_442_000_000, "de-DE")).to.equal(
-      "12.345.000 Std."
+      "12.345.000 Std.",
     );
     expect(humanizeSeconds(44_442_000_000, "ar-EG")).to.equal("١٢٬٣٤٥٬٠٠٠ س");
   });
@@ -37,7 +38,7 @@ describe("formatHours", () => {
   });
   it("formats negative time as expected", () => {
     expect(() => humanizeSeconds(-100, "en-US")).to.throw(
-      "humanizeSeconds in unimplemented for negative times"
+      "humanizeSeconds in unimplemented for negative times",
     );
   });
 });
@@ -59,10 +60,10 @@ describe("humanizeExecutionSeconds", () => {
       humanizeExecutionSeconds(1_234_567_890, { style: "short" }),
       {
         parentNode,
-      }
+      },
     );
     expect(el.getAttribute("title")).to.equal(
-      "20,576,132 minutes\u00a0(342,935h 32m)"
+      "20,576,132 minutes\u00a0(342,935h 32m)",
     );
     expect(el.textContent?.trim()).to.equal("21M min");
     expect(parentNode.innerText).to.equal("21M min");
@@ -91,7 +92,7 @@ describe("humanizeExecutionSeconds", () => {
       humanizeExecutionSeconds(120, { displaySeconds: true }),
       {
         parentNode,
-      }
+      },
     );
     expect(el.getAttribute("title")).to.equal("2 minutes");
     expect(el.textContent?.trim()).to.equal("2 minutes");
@@ -105,7 +106,7 @@ describe("humanizeExecutionSeconds", () => {
       }),
       {
         parentNode,
-      }
+      },
     );
     expect(el.getAttribute("title")).to.equal("1 minute");
     expect(el.textContent?.trim()).to.equal("1 minute");

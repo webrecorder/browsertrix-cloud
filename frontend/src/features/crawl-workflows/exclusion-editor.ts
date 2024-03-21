@@ -1,14 +1,17 @@
+import { localized, msg } from "@lit/localize";
+import { type PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { msg, localized } from "@lit/localize";
 
-import type { ExclusionRemoveEvent } from "./queue-exclusion-table";
 import type {
   ExclusionAddEvent,
   ExclusionChangeEvent,
 } from "./queue-exclusion-form";
+import type { ExclusionRemoveEvent } from "./queue-exclusion-table";
+
 import type { SeedConfig } from "@/pages/org/types";
-import LiteElement, { html } from "@/utils/LiteElement";
+import { isApiError } from "@/utils/api";
 import type { AuthState } from "@/utils/AuthService";
+import LiteElement, { html } from "@/utils/LiteElement";
 
 type URLs = string[];
 type ResponseData = {
@@ -59,7 +62,7 @@ export class ExclusionEditor extends LiteElement {
 
   @state()
   /** `new RegExp` constructor string */
-  private regex: string = "";
+  private regex = "";
 
   @state()
   matchedURLs: URLs | null = null;
@@ -67,20 +70,20 @@ export class ExclusionEditor extends LiteElement {
   @state()
   private isLoading = false;
 
-  willUpdate(changedProperties: Map<string, any>) {
+  willUpdate(changedProperties: PropertyValues<this> & Map<string, unknown>) {
     if (
       changedProperties.has("authState") ||
       changedProperties.has("orgId") ||
       changedProperties.has("crawlId") ||
       changedProperties.has("regex")
     ) {
-      this.fetchQueueMatches();
+      void this.fetchQueueMatches();
     }
   }
 
   render() {
     return html`
-      <div class="grid gap-6 grid-cols-1 lg:grid-cols-2">
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div class="col-span-1">${this.renderTable()}</div>
         <div class="col-span-1">
           ${this.isActiveCrawl && this.regex
@@ -104,7 +107,7 @@ export class ExclusionEditor extends LiteElement {
           >
           </btrix-queue-exclusion-table>`
         : html`
-            <div class="flex items-center justify-center my-9 text-xl">
+            <div class="my-9 flex items-center justify-center text-xl">
               <sl-spinner></sl-spinner>
             </div>
           `}
@@ -136,7 +139,7 @@ export class ExclusionEditor extends LiteElement {
       crawlId=${this.crawlId!}
       .authState=${this.authState}
       regex=${this.regex}
-      .exclusions=${(this.config && this.config.exclude) || []}
+      .exclusions=${this.config?.exclude || []}
       matchedTotal=${this.matchedURLs?.length || 0}
     ></btrix-crawl-queue>`;
   }
@@ -157,11 +160,13 @@ export class ExclusionEditor extends LiteElement {
     try {
       const params = new URLSearchParams({ regex });
       const data = await this.apiFetch<{ success: boolean }>(
-        `/orgs/${this.orgId}/crawls/${this.crawlId}/exclusions?${params}`,
+        `/orgs/${this.orgId}/crawls/${
+          this.crawlId
+        }/exclusions?${params.toString()}`,
         this.authState!,
         {
           method: "DELETE",
-        }
+        },
       );
 
       if (data.success) {
@@ -175,10 +180,10 @@ export class ExclusionEditor extends LiteElement {
       } else {
         throw data;
       }
-    } catch (e: any) {
+    } catch (e) {
       this.notify({
         message:
-          e.message === "crawl_running_cant_deactivate"
+          isApiError(e) && e.message === "crawl_running_cant_deactivate"
             ? msg("Cannot remove exclusion when crawl is no longer running.")
             : msg("Sorry, couldn't remove exclusion at this time."),
         variant: "danger",
@@ -198,13 +203,13 @@ export class ExclusionEditor extends LiteElement {
     try {
       const { matched } = await this.getQueueMatches();
       this.matchedURLs = matched;
-    } catch (e: any) {
-      if (e.message === "invalid_regex") {
+    } catch (e) {
+      if (isApiError(e) && e.message === "invalid_regex") {
         this.exclusionFieldErrorMessage = msg("Invalid Regex");
       } else {
         this.notify({
           message: msg(
-            "Sorry, couldn't fetch pending exclusions at this time."
+            "Sorry, couldn't fetch pending exclusions at this time.",
           ),
           variant: "danger",
           icon: "exclamation-octagon",
@@ -219,8 +224,10 @@ export class ExclusionEditor extends LiteElement {
     const regex = this.regex;
     const params = new URLSearchParams({ regex });
     const data = await this.apiFetch<ResponseData>(
-      `/orgs/${this.orgId}/crawls/${this.crawlId}/queueMatchAll?${params}`,
-      this.authState!
+      `/orgs/${this.orgId}/crawls/${
+        this.crawlId
+      }/queueMatchAll?${params.toString()}`,
+      this.authState!,
     );
 
     return data;
@@ -245,11 +252,13 @@ export class ExclusionEditor extends LiteElement {
     try {
       const params = new URLSearchParams({ regex });
       const data = await this.apiFetch<{ success: boolean }>(
-        `/orgs/${this.orgId}/crawls/${this.crawlId}/exclusions?${params}`,
+        `/orgs/${this.orgId}/crawls/${
+          this.crawlId
+        }/exclusions?${params.toString()}`,
         this.authState!,
         {
           method: "POST",
-        }
+        },
       );
 
       if (data.success) {
@@ -270,11 +279,13 @@ export class ExclusionEditor extends LiteElement {
       } else {
         throw data;
       }
-    } catch (e: any) {
-      if (e.message === "exclusion_already_exists") {
-        this.exclusionFieldErrorMessage = msg("Exclusion already exists");
-      } else if (e.message === "invalid_regex") {
-        this.exclusionFieldErrorMessage = msg("Invalid Regex");
+    } catch (e) {
+      if (isApiError(e)) {
+        if (e.message === "exclusion_already_exists") {
+          this.exclusionFieldErrorMessage = msg("Exclusion already exists");
+        } else if (e.message === "invalid_regex") {
+          this.exclusionFieldErrorMessage = msg("Invalid Regex");
+        }
       } else {
         this.notify({
           message: msg("Sorry, couldn't add exclusion at this time."),

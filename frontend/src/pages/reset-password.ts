@@ -1,13 +1,14 @@
-import { state, property, customElement } from "lit/decorators.js";
-import { str, msg, localized } from "@lit/localize";
-import debounce from "lodash/fp/debounce";
-import { when } from "lit/directives/when.js";
+import { localized, msg, str } from "@lit/localize";
 import type { ZxcvbnResult } from "@zxcvbn-ts/core";
+import { customElement, property, state } from "lit/decorators.js";
+import { when } from "lit/directives/when.js";
+import debounce from "lodash/fp/debounce";
 
+import type { Input as BtrixInput } from "@/components/ui/input";
+import type { UnderlyingFunction } from "@/types/utils";
 import type { ViewState } from "@/utils/APIRouter";
 import LiteElement, { html } from "@/utils/LiteElement";
 import PasswordService from "@/utils/PasswordService";
-import type { Input as BtrixInput } from "@/components/ui/input";
 
 const { PASSWORD_MINLENGTH, PASSWORD_MAXLENGTH, PASSWORD_MIN_SCORE } =
   PasswordService;
@@ -25,10 +26,10 @@ export class ResetPassword extends LiteElement {
   private serverError?: string;
 
   @state()
-  private isSubmitting: boolean = false;
+  private isSubmitting = false;
 
   protected firstUpdated() {
-    PasswordService.setOptions();
+    void PasswordService.setOptions();
   }
 
   render() {
@@ -45,8 +46,8 @@ export class ResetPassword extends LiteElement {
     }
 
     return html`
-      <div class="w-full max-w-md grid gap-5">
-        <div class="md:bg-white md:border md:shadow-lg md:rounded-lg md:p-10">
+      <div class="grid w-full max-w-md gap-5">
+        <div class="md:rounded-lg md:border md:bg-white md:p-10 md:shadow-lg">
           <form @submit=${this.onSubmit} aria-describedby="formError">
             <div class="mb-5">
               <btrix-input
@@ -59,12 +60,14 @@ export class ResetPassword extends LiteElement {
                 autocomplete="new-password"
                 passwordToggle
                 required
-                @input=${this.onPasswordInput}
+                @input=${this.onPasswordInput as UnderlyingFunction<
+                  typeof this.onPasswordInput
+                >}
               >
               </btrix-input>
               <p class="mt-2 text-gray-500">
                 ${msg(
-                  str`Choose a strong password between ${PASSWORD_MINLENGTH}-${PASSWORD_MAXLENGTH} characters.`
+                  str`Choose a strong password between ${PASSWORD_MINLENGTH}-${PASSWORD_MAXLENGTH} characters.`,
                 )}
               </p>
               ${when(this.pwStrengthResults, this.renderPasswordStrength)}
@@ -96,7 +99,7 @@ export class ResetPassword extends LiteElement {
     `;
   }
 
-  private renderPasswordStrength = () => html`
+  private readonly renderPasswordStrength = () => html`
     <div class="my-3">
       <btrix-pw-strength-alert
         .result=${this.pwStrengthResults ?? undefined}
@@ -106,14 +109,14 @@ export class ResetPassword extends LiteElement {
     </div>
   `;
 
-  private onPasswordInput = debounce(150)(async (e: InputEvent) => {
+  private readonly onPasswordInput = debounce(150)(async (e: InputEvent) => {
     const { value } = e.target as BtrixInput;
     if (!value || value.length < 4) {
       this.pwStrengthResults = null;
       return;
     }
     this.pwStrengthResults = await PasswordService.checkStrength(value);
-  }) as any;
+  });
 
   async onSubmit(event: SubmitEvent) {
     event.preventDefault();
@@ -139,19 +142,20 @@ export class ResetPassword extends LiteElement {
         this.navTo("/log-in");
         break;
       case 400:
-      case 422:
+      case 422: {
         const { detail } = await resp.json();
         if (detail === "reset_password_bad_token") {
           // TODO password validation details
           this.serverError = msg(
-            "Password reset email is not valid. Request a new password reset email"
+            "Password reset email is not valid. Request a new password reset email",
           );
         } else if (detail.code && detail.code === "invalid_password") {
           this.serverError = msg(
-            "Invalid password. Must be between 8 and 64 characters"
+            "Invalid password. Must be between 8 and 64 characters",
           );
         }
         break;
+      }
       default:
         this.serverError = msg("Something unexpected went wrong");
         break;

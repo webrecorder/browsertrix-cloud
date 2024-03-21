@@ -1,13 +1,14 @@
 """
 Browsertrix API Mongo DB initialization
 """
+
 import importlib.util
 import os
 import urllib
 import asyncio
 from uuid import UUID
 
-from typing import Optional, Union
+from typing import Optional, Union, TypeVar, Type
 
 import motor.motor_asyncio
 from pydantic import BaseModel
@@ -79,6 +80,7 @@ async def update_and_prepare_db(
     coll_ops,
     invite_ops,
     storage_ops,
+    page_ops,
     db_inited,
 ):
     """Prepare database for application.
@@ -91,10 +93,16 @@ async def update_and_prepare_db(
     """
     await ping_db(mdb)
     print("Database setup started", flush=True)
-    if await run_db_migrations(mdb, user_manager):
+    if await run_db_migrations(mdb, user_manager, page_ops):
         await drop_indexes(mdb)
     await create_indexes(
-        org_ops, crawl_ops, crawl_config_ops, coll_ops, invite_ops, user_manager
+        org_ops,
+        crawl_ops,
+        crawl_config_ops,
+        coll_ops,
+        invite_ops,
+        user_manager,
+        page_ops,
     )
     await user_manager.create_super_user()
     await org_ops.create_default_org()
@@ -104,7 +112,7 @@ async def update_and_prepare_db(
 
 
 # ============================================================================
-async def run_db_migrations(mdb, user_manager):
+async def run_db_migrations(mdb, user_manager, page_ops):
     """Run database migrations."""
 
     # if first run, just set version and exit
@@ -136,7 +144,7 @@ async def run_db_migrations(mdb, user_manager):
             assert spec.loader
             migration_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(migration_module)
-            migration = migration_module.Migration(mdb)
+            migration = migration_module.Migration(mdb, page_ops=page_ops)
             if await migration.run():
                 migrations_run = True
         except ImportError as err:
@@ -184,7 +192,7 @@ async def drop_indexes(mdb):
 # ============================================================================
 # pylint: disable=too-many-arguments
 async def create_indexes(
-    org_ops, crawl_ops, crawl_config_ops, coll_ops, invite_ops, user_manager
+    org_ops, crawl_ops, crawl_config_ops, coll_ops, invite_ops, user_manager, page_ops
 ):
     """Create database indexes."""
     print("Creating database indexes", flush=True)
@@ -194,6 +202,11 @@ async def create_indexes(
     await coll_ops.init_index()
     await invite_ops.init_index()
     await user_manager.init_index()
+    await page_ops.init_index()
+
+
+# ============================================================================
+T = TypeVar("T")
 
 
 # ============================================================================
@@ -208,10 +221,10 @@ class BaseMongoModel(BaseModel):
         return str(self.id)
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls: Type[T], data: dict) -> T:
         """convert dict from mongo to a class"""
         if not data:
-            return None
+            return cls()
         data["id"] = data.pop("_id")
         return cls(**data)
 

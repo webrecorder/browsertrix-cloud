@@ -1,0 +1,24 @@
+btrix-table-cell[rowClickTarget] {
+  display: grid;
+  grid-template-columns: subgrid;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+btrix-table-cell .rowClickTarget {
+  max-width: 100%;
+}
+
+btrix-table-cell .rowClickTarget::after {
+  content: "";
+  display: block;
+  position: absolute;
+  inset: 0;
+  grid-column: clickable-start / clickable-end;
+}
+
+btrix-table-cell .rowClickTarget:focus-visible {
+  outline: var(--sl-focus-ring);
+  outline-offset: -0.25rem;
+  border-radius: 0.5rem;
+}

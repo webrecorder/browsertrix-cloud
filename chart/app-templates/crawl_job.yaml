@@ -4,7 +4,7 @@ metadata:
   name: crawljob-{{ id }}
   labels:
     crawl: "{{ id }}"
-    role: "job"
+    role: {{ "qa-job" if qa_source else "job" }}
     btrix.org: "{{ oid }}"
     btrix.user: "{{ userid }}"
     btrix.storage: "{{ storage_name }}"
@@ -19,11 +19,15 @@ spec:
   cid: "{{ cid }}"
   oid: "{{ oid }}"
   scale: {{ scale }}
-  maxCrawlSize: {{ max_crawl_size }}
-  timeout: {{ timeout }}
+
+  maxCrawlSize: {{ max_crawl_size if not qa_source else 0 }}
+  timeout: {{ timeout if not qa_source else 0 }}
+  qaSourceCrawlId: "{{ qa_source }}"
+
   manual: {{ manual }}
   crawlerChannel: "{{ crawler_channel }}"
-  ttlSecondsAfterFinished: 30
+  ttlSecondsAfterFinished: {{ 30 if not qa_source else 0 }}
+  warcPrefix: "{{ warc_prefix }}"
 
   storageName: "{{ storage_name }}"
 

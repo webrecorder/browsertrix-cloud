@@ -1,7 +1,12 @@
-import { LitElement, html, css } from "lit";
-import { customElement, state, queryAssignedElements } from "lit/decorators.js";
-import { msg, localized } from "@lit/localize";
-import type { SlMenu } from "@shoelace-style/shoelace";
+import { localized, msg } from "@lit/localize";
+import type { SlDropdown, SlMenu } from "@shoelace-style/shoelace";
+import { css, html, LitElement } from "lit";
+import {
+  customElement,
+  query,
+  queryAssignedElements,
+  state,
+} from "lit/decorators.js";
 
 /**
  * Dropdown for additional actions.
@@ -34,12 +39,15 @@ export class OverflowDropdown extends LitElement {
   @state()
   private hasMenuItems?: boolean;
 
+  @query("sl-dropdown")
+  private readonly dropdown?: SlDropdown;
+
   @queryAssignedElements({ selector: "sl-menu", flatten: true })
-  private menu!: Array<SlMenu>;
+  private readonly menu!: SlMenu[];
 
   render() {
     return html`
-      <sl-dropdown ?disabled=${!this.hasMenuItems}>
+      <sl-dropdown ?disabled=${!this.hasMenuItems} hoist>
         <sl-icon-button
           slot="trigger"
           class="trigger"
@@ -53,5 +61,9 @@ export class OverflowDropdown extends LitElement {
         ></slot>
       </sl-dropdown>
     `;
+  }
+
+  hide() {
+    void this.dropdown?.hide();
   }
 }

@@ -1,6 +1,4 @@
-import { LitElement, html, css } from "lit";
-import { state, property, query, customElement } from "lit/decorators.js";
-import { msg, localized, str } from "@lit/localize";
+import { localized, msg, str } from "@lit/localize";
 import type {
   SlMenu,
   SlMenuItem,
@@ -8,17 +6,28 @@ import type {
   SlTag,
 } from "@shoelace-style/shoelace";
 import inputCss from "@shoelace-style/shoelace/dist/components/input/input.styles.js";
+import {
+  css,
+  html,
+  LitElement,
+  type CSSResultGroup,
+  type PropertyValues,
+} from "lit";
+import { customElement, property, query, state } from "lit/decorators.js";
 import debounce from "lodash/fp/debounce";
 
+import type { UnderlyingFunction } from "@/types/utils";
 import { dropdown } from "@/utils/css";
 
 export type Tags = string[];
-export type TagsChangeEvent = CustomEvent<{
+type TagsChangeEventDetail = {
   tags: string[];
-}>;
-export type TagInputEvent = CustomEvent<{
+};
+export type TagsChangeEvent = CustomEvent<TagsChangeEventDetail>;
+type TagInputEventDetail = {
   value: string;
-}>;
+};
+export type TagInputEvent = CustomEvent<TagInputEventDetail>;
 
 /**
  * Usage:
@@ -101,7 +110,7 @@ export class TagInput extends LitElement {
         }
       }
     `,
-  ] as any;
+  ] as CSSResultGroup;
 
   @property({ type: Array })
   initialTags?: Tags;
@@ -126,19 +135,19 @@ export class TagInput extends LitElement {
   private dropdownIsOpen?: boolean;
 
   @query(".form-control")
-  private formControl!: HTMLElement;
+  private readonly formControl!: HTMLElement;
 
   @query("#input")
-  private input!: HTMLInputElement;
+  private readonly input!: HTMLInputElement;
 
   @query("#dropdown")
-  private dropdown!: HTMLDivElement;
+  private readonly dropdown!: HTMLDivElement;
 
   @query("sl-menu")
-  private menu!: SlMenu;
+  private readonly menu?: SlMenu;
 
   @query("sl-popup")
-  private combobox!: SlPopup;
+  private readonly combobox!: SlPopup;
 
   connectedCallback() {
     if (this.initialTags) {
@@ -147,7 +156,7 @@ export class TagInput extends LitElement {
     super.connectedCallback();
   }
 
-  willUpdate(changedProperties: Map<string, any>) {
+  willUpdate(changedProperties: PropertyValues<this> & Map<string, unknown>) {
     if (changedProperties.has("tags") && this.required) {
       if (this.tags.length) {
         this.removeAttribute("data-invalid");
@@ -184,8 +193,8 @@ export class TagInput extends LitElement {
           tabindex="-1"
           @click=${this.onInputWrapperClick}
           @focusout=${(e: FocusEvent) => {
-            const currentTarget = e.currentTarget as SlMenuItem;
-            const relatedTarget = e.relatedTarget as HTMLElement;
+            const currentTarget = e.currentTarget as SlMenuItem | null;
+            const relatedTarget = e.relatedTarget as HTMLElement | null;
             if (
               this.dropdownIsOpen &&
               !currentTarget?.contains(relatedTarget)
@@ -209,7 +218,7 @@ export class TagInput extends LitElement {
               style="min-width: ${placeholder.length}ch"
               @focus=${this.onFocus}
               @blur=${this.onBlur}
-              @input=${this.onInput}
+              @input=${this.onInput as UnderlyingFunction<typeof this.onInput>}
               @keydown=${this.onKeydown}
               @keyup=${this.onKeyup}
               @paste=${this.onPaste}
@@ -254,7 +263,7 @@ export class TagInput extends LitElement {
                       <sl-menu-item role="option" value=${tag}
                         >${tag}</sl-menu-item
                       >
-                    `
+                    `,
                   )}
                 ${this.tagOptions.length ? html`<sl-divider></sl-divider>` : ""}
 
@@ -273,10 +282,10 @@ export class TagInput extends LitElement {
     return this.tags.map(this.renderTag);
   }
 
-  private renderTag = (content: string) => {
+  private readonly renderTag = (content: string) => {
     const removeTag = (e: CustomEvent | KeyboardEvent) => {
       this.tags = this.tags.filter((v) => v !== content);
-      this.dispatchChange();
+      void this.dispatchChange();
 
       const tag = e.currentTarget as SlTag;
       const focusTarget = tag.previousElementSibling as HTMLElement | null;
@@ -295,7 +304,7 @@ export class TagInput extends LitElement {
           let focusTarget = el.nextElementSibling as HTMLElement | null;
           if (!focusTarget) return;
           if (focusTarget === this.combobox) {
-            focusTarget = this.input || null;
+            focusTarget = (this.input as HTMLInputElement | null) || null;
           }
           focusTarget?.focus();
           break;
@@ -339,21 +348,21 @@ export class TagInput extends LitElement {
     this.dropdown.classList.add("animateHide");
   }
 
-  private onSelect(e: CustomEvent) {
-    this.addTags([e.detail.item.value]);
+  private onSelect(e: CustomEvent<{ item: { value: string } }>) {
+    void this.addTags([e.detail.item.value]);
     this.input.focus();
   }
 
   private onFocus(e: FocusEvent) {
     const input = e.target as HTMLInputElement;
-    (input.parentElement as HTMLElement).classList.add("input--focused");
+    input.parentElement!.classList.add("input--focused");
     if (input.value) {
       this.dropdownIsOpen = true;
     }
   }
 
   private onBlur(e: FocusEvent) {
-    const relatedTarget = e.relatedTarget as HTMLElement;
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
     if (relatedTarget) {
       if (this.menu?.contains(relatedTarget)) {
         // Keep focus on form control if moving to menu selection
@@ -368,8 +377,8 @@ export class TagInput extends LitElement {
       }
     }
     const input = e.target as HTMLInputElement;
-    (input.parentElement as HTMLElement).classList.remove("input--focused");
-    this.addTags([input.value]);
+    input.parentElement!.classList.remove("input--focused");
+    void this.addTags([input.value]);
   }
 
   // TODO consolidate with btrix-combobox
@@ -377,7 +386,7 @@ export class TagInput extends LitElement {
     if (this.dropdownIsOpen && (e.key === "ArrowDown" || e.key === "Tab")) {
       e.preventDefault();
       const menuItem = this.menu?.querySelector("sl-menu-item");
-      if (menuItem) {
+      if (this.menu && menuItem) {
         // Reset roving tabindex set by shoelace
         this.menu.setCurrentItem(menuItem);
         menuItem.focus();
@@ -388,6 +397,7 @@ export class TagInput extends LitElement {
       case "Backspace":
       case "Delete":
       // TODO localize, handle RTL
+      // falls through
       case "ArrowLeft": {
         if (this.input.selectionStart! > 0) return;
         e.preventDefault();
@@ -407,7 +417,7 @@ export class TagInput extends LitElement {
         const input = e.target as HTMLInputElement;
         const value = input.value.trim();
         if (value) {
-          this.addTags([value]);
+          void this.addTags([value]);
         }
         break;
       }
@@ -416,7 +426,7 @@ export class TagInput extends LitElement {
     }
   }
 
-  private onInput = debounce(200)(async () => {
+  private readonly onInput = debounce(200)(() => {
     const input = this.input;
     this.inputValue = input.value;
     if (input.value.length) {
@@ -425,17 +435,17 @@ export class TagInput extends LitElement {
       this.dropdownIsOpen = false;
     }
     this.dispatchEvent(
-      <TagInputEvent>new CustomEvent("tag-input", {
+      new CustomEvent<TagInputEventDetail>("tag-input", {
         detail: { value: input.value },
-      })
+      }),
     );
-  }) as any;
+  });
 
   // TODO consolidate with btrix-combobox
   private onKeyup(e: KeyboardEvent) {
     const input = e.target as HTMLInputElement;
     if (e.key === "Escape") {
-      (input.parentElement as HTMLElement).classList.remove("input--focused");
+      input.parentElement!.classList.remove("input--focused");
       this.dropdownIsOpen = false;
       this.inputValue = "";
       input.value = "";
@@ -452,7 +462,7 @@ export class TagInput extends LitElement {
         .replace(/[\u200B-\u200D\uFEFF]/g, "")
         .trim();
       if (text) {
-        this.addTags(text.split(","));
+        void this.addTags(text.split(","));
       }
     }
   }
@@ -482,7 +492,7 @@ export class TagInput extends LitElement {
       }
     });
     this.tags = uniqueTags;
-    this.dispatchChange();
+    void this.dispatchChange();
     this.dropdownIsOpen = false;
     this.input.value = "";
     if (repeatTags.length) {
@@ -490,20 +500,17 @@ export class TagInput extends LitElement {
     }
   }
 
-  private shakeTag = (tag: string) => {
-    const tagEl = this.formControl.querySelector(
-      `btrix-tag[title="${tag}"]`
-    ) as SlTag;
-    if (!tagEl) return;
-    tagEl.classList.add("shake");
+  private readonly shakeTag = (tag: string) => {
+    const tagEl = this.formControl.querySelector(`btrix-tag[title="${tag}"]`);
+    tagEl?.classList.add("shake");
   };
 
   private async dispatchChange() {
     await this.updateComplete;
     this.dispatchEvent(
-      <TagsChangeEvent>new CustomEvent("tags-change", {
+      new CustomEvent<TagsChangeEventDetail>("tags-change", {
         detail: { tags: this.tags },
-      })
+      }),
     );
   }
 }

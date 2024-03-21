@@ -1,12 +1,24 @@
+import { localized, msg } from "@lit/localize";
+import { type SlSelect } from "@shoelace-style/shoelace";
 import { html } from "lit";
-import { property, state, customElement } from "lit/decorators.js";
-import { msg, localized } from "@lit/localize";
-
-import type { AuthState } from "../../utils/AuthService";
-import type { CrawlerChannel } from "../../pages/org/types";
-
-import LiteElement from "@/utils/LiteElement";
+import { customElement, property, state } from "lit/decorators.js";
 import capitalize from "lodash/fp/capitalize";
+
+import type { CrawlerChannel } from "@/pages/org/types";
+import type { AuthState } from "@/utils/AuthService";
+import LiteElement from "@/utils/LiteElement";
+
+type SelectCrawlerChangeDetail = {
+  value: string | undefined;
+};
+
+export type SelectCrawlerChangeEvent = CustomEvent<SelectCrawlerChangeDetail>;
+
+type SelectCrawlerUpdateDetail = {
+  show: boolean;
+};
+
+export type SelectCrawlerUpdateEvent = CustomEvent<SelectCrawlerUpdateDetail>;
 
 type CrawlerChannelsAPIResponse = {
   channels: CrawlerChannel[];
@@ -45,7 +57,7 @@ export class SelectCrawler extends LiteElement {
   private crawlerChannels?: CrawlerChannel[];
 
   protected firstUpdated() {
-    this.fetchCrawlerChannels();
+    void this.fetchCrawlerChannels();
   }
 
   render() {
@@ -63,15 +75,16 @@ export class SelectCrawler extends LiteElement {
         @sl-change=${this.onChange}
         @sl-focus=${() => {
           // Refetch to keep list up to date
-          this.fetchCrawlerChannels();
+          void this.fetchCrawlerChannels();
         }}
         @sl-hide=${this.stopProp}
         @sl-after-hide=${this.stopProp}
       >
         ${this.crawlerChannels?.map(
-          (crawler) => html` <sl-option value=${crawler.id}>
-            ${capitalize(crawler.id)}
-          </sl-option>`
+          (crawler) =>
+            html` <sl-option value=${crawler.id}>
+              ${capitalize(crawler.id)}
+            </sl-option>`,
         )}
         ${this.selectedCrawler
           ? html`
@@ -87,19 +100,19 @@ export class SelectCrawler extends LiteElement {
     `;
   }
 
-  private onChange(e: any) {
+  private onChange(e: Event) {
     this.stopProp(e);
 
     this.selectedCrawler = this.crawlerChannels?.find(
-      ({ id }) => id === e.target.value
+      ({ id }) => id === (e.target as SlSelect).value,
     );
 
     this.dispatchEvent(
-      new CustomEvent("on-change", {
+      new CustomEvent<SelectCrawlerChangeDetail>("on-change", {
         detail: {
           value: this.selectedCrawler?.id,
         },
-      })
+      }),
     );
   }
 
@@ -109,11 +122,11 @@ export class SelectCrawler extends LiteElement {
   private async fetchCrawlerChannels(): Promise<void> {
     try {
       const channels = await this.getCrawlerChannels();
-      this.crawlerChannels = channels as CrawlerChannel[];
+      this.crawlerChannels = channels;
 
       if (this.crawlerChannel && !this.selectedCrawler) {
         this.selectedCrawler = this.crawlerChannels.find(
-          ({ id }) => id === this.crawlerChannel
+          ({ id }) => id === this.crawlerChannel,
         );
       }
 
@@ -124,19 +137,19 @@ export class SelectCrawler extends LiteElement {
             detail: {
               value: "default",
             },
-          })
+          }),
         );
         this.selectedCrawler = this.crawlerChannels.find(
-          ({ id }) => id === this.crawlerChannel
+          ({ id }) => id === this.crawlerChannel,
         );
       }
 
       this.dispatchEvent(
-        new CustomEvent("on-update", {
+        new CustomEvent<SelectCrawlerUpdateDetail>("on-update", {
           detail: {
             show: this.crawlerChannels.length > 1,
           },
-        })
+        }),
       );
     } catch (e) {
       this.notify({
@@ -151,7 +164,7 @@ export class SelectCrawler extends LiteElement {
     const data: CrawlerChannelsAPIResponse =
       await this.apiFetch<CrawlerChannelsAPIResponse>(
         `/orgs/${this.orgId}/crawlconfigs/crawler-channels`,
-        this.authState!
+        this.authState!,
       );
 
     return data.channels;
@@ -162,7 +175,7 @@ export class SelectCrawler extends LiteElement {
    * Prevents bug where sl-dialog closes when dropdown closes
    * https://github.com/shoelace-style/shoelace/issues/170
    */
-  private stopProp(e: CustomEvent) {
+  private stopProp(e: Event) {
     e.stopPropagation();
   }
 }

@@ -5,7 +5,7 @@ type: application
 icon: https://webrecorder.net/assets/icon.png
 
 # Browsertrix Cloud and Chart Version
-version: v1.9.0-beta.2
+version: v1.10.0-beta.0
 
 dependencies:
   - name: btrix-admin-logging

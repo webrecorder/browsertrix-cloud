@@ -2,7 +2,7 @@
 
 *Playbook Path: [ansible/playbooks/install_microk8s.yml](https://github.com/webrecorder/browsertrix-cloud/blob/main/ansible/playbooks/install_microk8s.yml)*
 
-This playbook provides an easy way to install Browsertrix Cloud on Ubuntu (tested on Jammy Jellyfish) and RedHat 9 (tested on Rocky Linux 9). It automatically sets up Browsertrix with Letsencrypt certificates.
+This playbook provides an easy way to install Browsertrix on Ubuntu (tested on Jammy Jellyfish) and RedHat 9 (tested on Rocky Linux 9). It automatically sets up Browsertrix with Letsencrypt certificates.
 
 ### Requirements
 

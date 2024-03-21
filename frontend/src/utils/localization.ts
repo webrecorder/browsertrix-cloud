@@ -5,7 +5,7 @@ import { sourceLocale, targetLocales } from "@/__generated__/locale-codes";
 export const { getLocale, setLocale } = configureLocalization({
   sourceLocale,
   targetLocales,
-  loadLocale: (locale: string) =>
+  loadLocale: async (locale: string) =>
     import(`/src/__generated__/locales/${locale}.ts`),
 });
 

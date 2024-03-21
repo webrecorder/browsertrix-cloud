@@ -91,6 +91,9 @@
     --sl-input-help-text-font-size-medium: var(--sl-font-size-x-small);
 
     --sl-shadow-x-small: 0px 1px 2px rgba(0, 0, 0, 0.15);
+
+    /* Transition */
+    --sl-transition-x-fast: 100ms;
   }
 
   body {
@@ -253,6 +256,8 @@
   .truncate {
     /* Fix tailwind clipping vertical */
     overflow: clip visible;
+    /* Fix for if flex item: */
+    min-width: 0;
   }
 
   .offscreen {
@@ -261,6 +266,22 @@
     bottom: -9999px;
     visibility: hidden;
     clip: rect(0 0 0 0);
+  }
+
+  .scrollbar-hidden {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fade-out-r {
+    mask-image: linear-gradient(
+      to right,
+      var(--sl-panel-background-color) calc(100% - 1rem),
+      transparent
+    );
   }
 }
 
@@ -282,7 +303,15 @@
   }
 }
 
+/* Following styles won't work with layers */
+
 .sl-toast-stack {
   bottom: 0;
   top: auto;
+}
+
+/* Ensure buttons in shadow dom inherit hover color */
+[class^="hover\:text-"]::part(base):hover,
+[class*=" hover\:text-"]::part(base):hover {
+  color: inherit;
 }

@@ -1,5 +1,5 @@
-import UrlPattern from "url-pattern";
 import queryString from "query-string";
+import UrlPattern from "url-pattern";
 
 type Routes = { [key: string]: UrlPattern };
 type Paths = { [key: string]: string };
@@ -16,11 +16,12 @@ export type ViewState = {
   // e.g. "/redirect?url"
   params: { [key: string]: string };
   // arbitrary data to pass between routes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: { [key: string]: any };
 };
 
 export default class APIRouter {
-  private routes: Routes;
+  private readonly routes: Routes;
 
   constructor(paths: Paths) {
     this.routes = {};

@@ -1,5 +1,5 @@
-import { LitElement, css } from "lit";
-import { property, customElement } from "lit/decorators.js";
+import { css, LitElement } from "lit";
+import { customElement, property } from "lit/decorators.js";
 import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 import { micromark } from "micromark";
 import {
@@ -40,7 +40,7 @@ export class MarkdownViewer extends LitElement {
       micromark(this.value, {
         extensions: [gfmStrikethrough()],
         htmlExtensions: [gfmStrikethroughHtml()],
-      })
+      }),
     )}`;
   }
 }

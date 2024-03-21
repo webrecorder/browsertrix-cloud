@@ -12,6 +12,8 @@ data:
 
   DEFAULT_NAMESPACE: {{ .Release.Namespace }}
 
+  FRONTEND_ORIGIN: {{ .Values.frontend_alias | default "http://browsertrix-cloud-frontend" }}
+
   CRAWLER_FQDN_SUFFIX: ".{{ .Values.crawler_namespace }}.svc.cluster.local"
 
   DEFAULT_ORG: "{{ .Values.default_org }}"
@@ -59,7 +61,7 @@ metadata:
 
 data:
   CRAWL_ARGS: >-
-    --workers {{ .Values.crawler_browser_instances | default 1 }} --sizeLimit {{ .Values.crawler_session_size_limit_bytes }} --timeLimit {{ .Values.crawler_session_time_limit_seconds }} --maxPageLimit {{ .Values.max_pages_per_crawl | default 0 }} --healthCheckPort {{ .Values.crawler_liveness_port }} --diskUtilization {{ .Values.disk_utilization_threshold }} --logging {{ .Values.crawler_logging_opts }} --text {{ .Values.crawler_extract_full_text }} --generateWACZ --collection thecrawl --screencastPort 9037 --logErrorsToRedis --restartsOnError --headless {{ .Values.crawler_extra_args }}
+    --workers {{ .Values.crawler_browser_instances | default 1 }} --sizeLimit {{ .Values.crawler_session_size_limit_bytes }} --timeLimit {{ .Values.crawler_session_time_limit_seconds }} --maxPageLimit {{ .Values.max_pages_per_crawl | default 0 }} --healthCheckPort {{ .Values.crawler_liveness_port }} --diskUtilization {{ .Values.disk_utilization_threshold }} --logging {{ .Values.crawler_logging_opts }} --text {{ .Values.crawler_extract_full_text }} --generateWACZ --collection thecrawl --screencastPort 9037 --logErrorsToRedis --writePagesToRedis --restartsOnError --headless --screenshot view,thumbnail {{ .Values.crawler_extra_args }}
 
 ---
 apiVersion: v1

@@ -4,11 +4,11 @@ Crawl Workflows consist of a list of configuration options that instruct the cra
 
 ## Creating and Editing Crawl Workflows
 
-New Crawl Workflows can be created from the Crawling page. A detailed breakdown of available settings can be found [here](../workflow-setup).
+New Crawl Workflows can be created from the Crawling page. A detailed breakdown of available settings can be found [here](workflow-setup.md).
 
 ## Status
 
-Crawl Workflows inherit the [status of the last item they created](../archived-items/#status). When a workflow has been instructed to run it can have have five possible states:
+Crawl Workflows inherit the [status of the last item they created](archived-items.md#status). When a workflow has been instructed to run it can have have five possible states:
 
 | Status | Description |
 | ---- | ---- |
@@ -25,11 +25,11 @@ Crawl workflows can be run from the actions menu of the workflow in the crawl wo
 
 While crawling, the Watch Crawl page displays a list of queued URLs that will be visited, and streams the current state of the browser windows as they visit pages from the queue.
 
-Running a crawl workflow that has successfully run previously can be useful to capture content as it changes over time, or to run with an updated [Crawl Scope](../workflow-setup/#scope).
+Running a crawl workflow that has successfully run previously can be useful to capture content as it changes over time, or to run with an updated [Crawl Scope](workflow-setup.md#scope).
 
 ### Live Exclusion Editing
 
-While [exclusions](../workflow-setup/#exclusions) can be set before running a crawl workflow, sometimes while crawling the crawler may find new parts of the site that weren't previously known about and shouldn't be crawled, or get stuck browsing parts of a website that automatically generate URLs known as ["crawler traps"](https://en.wikipedia.org/wiki/Spider_trap).
+While [exclusions](workflow-setup.md#exclusions) can be set before running a crawl workflow, sometimes while crawling the crawler may find new parts of the site that weren't previously known about and shouldn't be crawled, or get stuck browsing parts of a website that automatically generate URLs known as ["crawler traps"](https://en.wikipedia.org/wiki/Spider_trap).
 
 If the crawl queue is filled with URLs that should not be crawled, use the _Edit Exclusions_ button on the Watch Crawl page to instruct the crawler what pages should be excluded from the queue.
 
@@ -37,7 +37,7 @@ Exclusions added while crawling are applied to the same exclusion table saved in
 
 ### Changing the Amount of Crawler Instances
 
-Like exclusions, the [crawler instance](../workflow-setup/#crawler-instances) scale can also be adjusted while crawling. On the Watch Crawl page, press the _Edit Crawler Instances_ button, and set the desired value.
+Like exclusions, the [crawler instance](workflow-setup.md#crawler-instances) scale can also be adjusted while crawling. On the Watch Crawl page, press the _Edit Crawler Instances_ button, and set the desired value.
 
 Unlike exclusions, this change will not be applied to future workflow runs.
 

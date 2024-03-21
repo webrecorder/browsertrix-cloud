@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+/* eslint-env node */
 const path = require("path");
 require(path.resolve(process.cwd(), "./webpack.config.js"));
 
@@ -8,7 +8,7 @@ const RWP_BASE_URL =
 
 if (!process.env.API_BASE_URL) {
   throw new Error(
-    "To run a dev frontend server, please set the API_BASE_URL pointing to your backend api server in '.env.local'"
+    "To run a dev frontend server, please set the API_BASE_URL pointing to your backend api server in '.env.local'",
   );
 }
 

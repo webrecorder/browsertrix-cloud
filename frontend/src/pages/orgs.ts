@@ -1,12 +1,12 @@
-import { state, property, customElement } from "lit/decorators.js";
-import { msg, localized } from "@lit/localize";
+import { localized, msg } from "@lit/localize";
+import { customElement, property, state } from "lit/decorators.js";
 
-import type { AuthState } from "@/utils/AuthService";
-import type { CurrentUser } from "@/types/user";
-import type { OrgData } from "@/utils/orgs";
-import LiteElement, { html } from "@/utils/LiteElement";
-import { needLogin } from "@/utils/auth";
 import type { APIPaginatedList } from "@/types/api";
+import type { CurrentUser } from "@/types/user";
+import { needLogin } from "@/utils/auth";
+import type { AuthState } from "@/utils/AuthService";
+import LiteElement, { html } from "@/utils/LiteElement";
+import type { OrgData } from "@/utils/orgs";
 
 @localized()
 @customElement("btrix-orgs")
@@ -29,17 +29,17 @@ export class Orgs extends LiteElement {
     return html`
       <div class="bg-white">
         <header
-          class="w-full max-w-screen-desktop mx-auto px-3 py-4 box-border md:py-8"
+          class="mx-auto box-border w-full max-w-screen-desktop px-3 py-4 md:py-8"
         >
           <h1 class="text-xl font-medium">${msg("Organizations")}</h1>
         </header>
         <hr />
       </div>
-      <main class="w-full max-w-screen-desktop mx-auto px-3 py-4 box-border">
+      <main class="mx-auto box-border w-full max-w-screen-desktop px-3 py-4">
         ${this.orgList
           ? this.renderOrgs()
           : html`
-              <div class="flex items-center justify-center my-24 text-3xl">
+              <div class="my-24 flex items-center justify-center text-3xl">
                 <sl-spinner></sl-spinner>
               </div>
             `}
@@ -49,8 +49,8 @@ export class Orgs extends LiteElement {
 
   private renderOrgs() {
     if (!this.orgList?.length) {
-      return html`<div class="border rounded-lg bg-white p-4 md:p-8">
-        <p class="text-neutral-400 text-center">
+      return html`<div class="rounded-lg border bg-white p-4 md:p-8">
+        <p class="text-center text-neutral-400">
           ${msg("You don't have any organizations.")}
         </p>
       </div>`;
@@ -67,7 +67,7 @@ export class Orgs extends LiteElement {
   private async getOrgs() {
     const data = await this.apiFetch<APIPaginatedList<OrgData>>(
       "/orgs",
-      this.authState!
+      this.authState!,
     );
 
     return data.items;

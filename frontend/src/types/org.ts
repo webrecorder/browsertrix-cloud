@@ -1,3 +1,5 @@
+import type { Range } from "./utils";
+
 // From UserRole in backend
 export type UserRole = "viewer" | "crawler" | "owner" | "superadmin";
 
@@ -8,32 +10,20 @@ export const AccessCode: Record<UserRole, number> = {
   owner: 40,
 } as const;
 
+/** `${4-digit year}-${2-digit month}` */
+export type YearMonth = `${number}-${Range<0, 2>}${Range<0, 10>}`;
+
 export type OrgData = {
   id: string;
   name: string;
   slug: string;
-  quotas: Record<string, number>;
+  quotas?: Record<string, number>;
   bytesStored: number;
-  usage: {
-    // Keyed by {4-digit year}-{2-digit month}
-    [key: string]: number;
-  } | null;
-  crawlExecSeconds: {
-    // Keyed by {4-digit year}-{2-digit month}
-    [key: string]: number;
-  };
-  monthlyExecSeconds: {
-    // Keyed by {4-digit year}-{2-digit month}
-    [key: string]: number;
-  };
-  extraExecSeconds: {
-    // Keyed by {4-digit year}-{2-digit month}
-    [key: string]: number;
-  };
-  giftedExecSeconds: {
-    // Keyed by {4-digit year}-{2-digit month}
-    [key: string]: number;
-  };
+  usage: { [key: YearMonth]: number } | null;
+  crawlExecSeconds?: { [key: YearMonth]: number };
+  monthlyExecSeconds?: { [key: YearMonth]: number };
+  extraExecSeconds?: { [key: YearMonth]: number };
+  giftedExecSeconds?: { [key: YearMonth]: number };
   extraExecSecondsAvailable: number;
   giftedExecSecondsAvailable: number;
   storageQuotaReached?: boolean;

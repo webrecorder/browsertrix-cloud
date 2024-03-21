@@ -1,6 +1,6 @@
-Welcome to Browsertrix Cloud, Verify your Registration.
+Welcome to Browsertrix, Verify your Registration.
 ~~~
-Please verify your registration for Browsertrix Cloud for {{ receiver_email }}
+Please verify your registration for Browsertrix for {{ receiver_email }}
 
 You can verify by clicking here: {{ origin }}/verify?token={{ token }}
 

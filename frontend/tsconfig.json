@@ -18,17 +18,17 @@
         "name": "ts-lit-plugin",
         "strict": true,
         "rules": {
-          "no-missing-import": "off"
+          "no-missing-import": "off",
         },
-        "maxNodeModuleImportDepth": -1
-      }
+        "maxNodeModuleImportDepth": -1,
+      },
     ],
     "incremental": true,
     "paths": {
       "@/*": ["./src/*"],
-      "~assets/*": ["./src/assets/*"]
-    }
+      "~assets/*": ["./src/assets/*"],
+    },
   },
   "include": ["**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules"],
 }

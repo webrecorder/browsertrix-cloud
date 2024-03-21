@@ -2,6 +2,7 @@
   "recommendations": [
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
     "runem.lit-plugin",
     "bradlc.vscode-tailwindcss",
     "redhat.vscode-yaml",

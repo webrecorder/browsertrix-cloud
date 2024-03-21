@@ -1,4 +1,5 @@
 """ K8S API Access """
+
 import os
 import traceback
 
@@ -29,7 +30,9 @@ class K8sAPI:
         self.namespace = os.environ.get("CRAWLER_NAMESPACE") or "crawlers"
         self.custom_resources = {}
 
-        self.templates = Jinja2Templates(directory=get_templates_dir())
+        self.templates = Jinja2Templates(
+            directory=get_templates_dir(), autoescape=False
+        )
 
         config.load_incluster_config()
         self.client = client
@@ -66,7 +69,10 @@ class K8sAPI:
     async def get_redis_client(self, redis_url):
         """return redis client with correct params for one-time use"""
         return aioredis.from_url(
-            redis_url, decode_responses=True, auto_close_connection_pool=True
+            redis_url,
+            decode_responses=True,
+            auto_close_connection_pool=True,
+            socket_timeout=20,
         )
 
     # pylint: disable=too-many-arguments, too-many-locals
@@ -82,6 +88,8 @@ class K8sAPI:
         max_crawl_size=0,
         manual=True,
         crawl_id=None,
+        warc_prefix="",
+        qa_source="",
     ):
         """load job template from yaml"""
         if not crawl_id:
@@ -100,6 +108,8 @@ class K8sAPI:
             "storage_name": str(storage),
             "manual": "1" if manual else "0",
             "crawler_channel": crawler_channel,
+            "warc_prefix": warc_prefix,
+            "qa_source": qa_source,
         }
 
         data = self.templates.env.get_template("crawl_job.yaml").render(params)
@@ -167,12 +177,14 @@ class K8sAPI:
     async def delete_crawl_job(self, crawl_id):
         """delete custom crawljob object"""
         try:
+            name = f"crawljob-{crawl_id}"
+
             await self.custom_api.delete_namespaced_custom_object(
                 group="btrix.cloud",
                 version="v1",
                 namespace=self.namespace,
                 plural="crawljobs",
-                name=f"crawljob-{crawl_id}",
+                name=name,
                 grace_period_seconds=0,
                 # delete as background to allow operator to do proper cleanup
                 propagation_policy="Background",
@@ -210,32 +222,23 @@ class K8sAPI:
         )
 
     async def _patch_job(self, crawl_id, body, pluraltype="crawljobs") -> dict:
-        content_type = self.api_client.default_headers.get("Content-Type")
-
         try:
-            self.api_client.set_default_header(
-                "Content-Type", "application/merge-patch+json"
-            )
+            name = f"{pluraltype[:-1]}-{crawl_id}"
 
             await self.custom_api.patch_namespaced_custom_object(
                 group="btrix.cloud",
                 version="v1",
                 namespace=self.namespace,
                 plural=pluraltype,
-                name=f"{pluraltype[:-1]}-{crawl_id}",
+                name=name,
                 body={"spec": body},
+                _content_type="application/merge-patch+json",
             )
             return {"success": True}
         # pylint: disable=broad-except
         except Exception as exc:
             traceback.print_exc()
             return {"error": str(exc)}
-
-        finally:
-            if content_type:
-                self.api_client.set_default_header("Content-Type", content_type)
-            else:
-                del self.api_client.default_headers["Content-Type"]
 
     async def print_pod_logs(self, pod_names, lines=100):
         """print pod logs"""

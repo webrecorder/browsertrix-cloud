@@ -1,6 +1,6 @@
-import { LitElement, html } from "lit";
+import { localized, msg } from "@lit/localize";
+import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { msg, localized } from "@lit/localize";
 
 /**
  * Copy text to clipboard on click
@@ -35,12 +35,12 @@ export class CopyButton extends LitElement {
   hoist = false;
 
   @state()
-  private isCopied: boolean = false;
+  private isCopied = false;
 
   timeoutId?: number;
 
   static copyToClipboard(value: string) {
-    navigator.clipboard.writeText(value);
+    void navigator.clipboard.writeText(value);
   }
 
   disconnectedCallback() {
@@ -54,12 +54,14 @@ export class CopyButton extends LitElement {
         content=${this.isCopied
           ? msg("Copied to clipboard!")
           : this.content
-          ? this.content
-          : msg("Copy")}
+            ? this.content
+            : msg("Copy")}
         ?hoist=${this.hoist}
+        @sl-hide=${this.stopProp}
+        @sl-after-hide=${this.stopProp}
       >
         <sl-icon-button
-          name=${this.isCopied ? "check-lg" : this.name ? this.name : "files"}
+          name=${this.isCopied ? "check-lg" : this.name ? this.name : "copy"}
           label=${msg("Copy to clipboard")}
           @click=${this.onClick}
           ?disabled=${!this.value && !this.getValue}
@@ -81,5 +83,14 @@ export class CopyButton extends LitElement {
       const button = this.shadowRoot?.querySelector("sl-icon-button");
       button?.blur(); // Remove focus from the button to set it back to its default state
     }, 3000);
+  }
+
+  /**
+   * Stop propgation of sl-tooltip events.
+   * Prevents bug where sl-dialog closes when tooltip closes
+   * https://github.com/shoelace-style/shoelace/issues/170
+   */
+  private stopProp(e: Event) {
+    e.stopPropagation();
   }
 }

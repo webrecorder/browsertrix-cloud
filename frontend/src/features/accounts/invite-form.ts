@@ -1,11 +1,13 @@
-import { state, property, customElement } from "lit/decorators.js";
-import { msg, localized } from "@lit/localize";
+import { localized, msg } from "@lit/localize";
+import { type PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { ifDefined } from "lit/directives/if-defined.js";
 import sortBy from "lodash/fp/sortBy";
 
+import type { OrgData } from "@/types/org";
+import { isApiError } from "@/utils/api";
 import type { AuthState } from "@/utils/AuthService";
 import LiteElement, { html } from "@/utils/LiteElement";
-import type { OrgData } from "@/types/org";
-import { ifDefined } from "lit/directives/if-defined.js";
 
 const sortByName = sortBy("name");
 
@@ -25,7 +27,7 @@ export class InviteForm extends LiteElement {
   defaultOrg: Partial<OrgData> | null = null;
 
   @state()
-  private isSubmitting: boolean = false;
+  private isSubmitting = false;
 
   @state()
   private serverError?: string;
@@ -33,7 +35,7 @@ export class InviteForm extends LiteElement {
   @state()
   private selectedOrgId?: string;
 
-  willUpdate(changedProperties: Map<string, any>) {
+  willUpdate(changedProperties: PropertyValues<this> & Map<string, unknown>) {
     if (
       changedProperties.has("defaultOrg") &&
       this.defaultOrg &&
@@ -56,7 +58,7 @@ export class InviteForm extends LiteElement {
       `;
     }
 
-    const sortedOrgs = sortByName(this.orgs) as any as OrgData[];
+    const sortedOrgs = sortByName(this.orgs) as unknown as OrgData[];
 
     return html`
       <form
@@ -68,7 +70,7 @@ export class InviteForm extends LiteElement {
           <sl-select
             label=${msg("Organization")}
             value=${ifDefined(
-              this.defaultOrg ? this.defaultOrg.id : sortedOrgs[0]?.id
+              this.defaultOrg ? this.defaultOrg.id : sortedOrgs[0]?.id,
             )}
             @sl-change=${(e: Event) => {
               this.selectedOrgId = (e.target as HTMLSelectElement).value;
@@ -79,7 +81,7 @@ export class InviteForm extends LiteElement {
             ${sortedOrgs.map(
               (org) => html`
                 <sl-option value=${org.id}>${org.name}</sl-option>
-              `
+              `,
             )}
           </sl-select>
         </div>
@@ -136,7 +138,7 @@ export class InviteForm extends LiteElement {
             email: inviteEmail,
             role: 10,
           }),
-        }
+        },
       );
 
       this.dispatchEvent(
@@ -145,11 +147,11 @@ export class InviteForm extends LiteElement {
             inviteEmail,
             isExistingUser: data.invited === "existing_user",
           },
-        })
+        }),
       );
-    } catch (e: any) {
-      if (e?.isApiError) {
-        this.serverError = e?.message;
+    } catch (e) {
+      if (isApiError(e)) {
+        this.serverError = e.message;
       } else {
         this.serverError = msg("Something unexpected went wrong");
       }

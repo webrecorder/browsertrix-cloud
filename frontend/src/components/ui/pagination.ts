@@ -1,18 +1,20 @@
-import { LitElement, html, css } from "lit";
-import { property, state, customElement } from "lit/decorators.js";
-import { when } from "lit/directives/when.js";
+import { localized, msg, str } from "@lit/localize";
+import { type SlInput } from "@shoelace-style/shoelace";
+import { css, html, LitElement, type PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 import { ifDefined } from "lit/directives/if-defined.js";
-import { msg, localized, str } from "@lit/localize";
+import { when } from "lit/directives/when.js";
 
+import { srOnly } from "@/utils/css";
 import chevronLeft from "~assets/icons/chevron-left.svg";
 import chevronRight from "~assets/icons/chevron-right.svg";
-import { srOnly } from "@/utils/css";
 
-export type PageChangeEvent = CustomEvent<{
+type PageChangeDetail = {
   page: number;
   pages: number;
-}>;
+};
+export type PageChangeEvent = CustomEvent<PageChangeDetail>;
 
 /**
  * Pagination
@@ -23,7 +25,7 @@ export type PageChangeEvent = CustomEvent<{
  * </btrix-pagination>
  * ```
  *
- * @event page-change { page: number; pages: number; }
+ * @event page-change {PageChangeEvent}
  */
 @customElement("btrix-pagination")
 @localized()
@@ -128,13 +130,13 @@ export class Pagination extends LitElement {
   ];
 
   @property({ type: Number })
-  page: number = 1;
+  page = 1;
 
   @property({ type: Number })
-  totalCount: number = 0;
+  totalCount = 0;
 
   @property({ type: Number })
-  size: number = 10;
+  size = 10;
 
   @property({ type: Boolean })
   compact = false;
@@ -150,7 +152,7 @@ export class Pagination extends LitElement {
     super.connectedCallback();
   }
 
-  async willUpdate(changedProperties: Map<string, any>) {
+  async willUpdate(changedProperties: PropertyValues<this>) {
     if (changedProperties.has("totalCount") || changedProperties.has("size")) {
       this.calculatePages();
     }
@@ -198,7 +200,7 @@ export class Pagination extends LitElement {
     `;
   }
 
-  private renderInputPage = () => html`
+  private readonly renderInputPage = () => html`
     <li class="currentPage" role="presentation">
       ${msg(html` ${this.renderInput()} of ${this.pages} `)}
     </li>
@@ -218,13 +220,13 @@ export class Pagination extends LitElement {
           autocomplete="off"
           min="1"
           max=${this.pages}
-          @keydown=${(e: any) => {
+          @keydown=${(e: KeyboardEvent) => {
             // Prevent typing non-numeric keys
             if (e.key.length === 1 && /\D/.test(e.key)) {
               e.preventDefault();
             }
           }}
-          @keyup=${(e: any) => {
+          @keyup=${(e: KeyboardEvent) => {
             const { key } = e;
 
             if (key === "ArrowUp" || key === "ArrowRight") {
@@ -232,11 +234,11 @@ export class Pagination extends LitElement {
             } else if (key === "ArrowDown" || key === "ArrowLeft") {
               this.inputValue = `${Math.max(+this.inputValue - 1, 1)}`;
             } else {
-              this.inputValue = e.target.value;
+              this.inputValue = (e.target as SlInput).value;
             }
           }}
-          @sl-change=${(e: any) => {
-            const page = +e.target.value;
+          @sl-change=${(e: Event) => {
+            const page = +(e.target as HTMLInputElement).value;
             let nextPage = page;
 
             if (page < 1) {
@@ -249,16 +251,16 @@ export class Pagination extends LitElement {
 
             this.onPageChange(nextPage);
           }}
-          @focus=${(e: any) => {
+          @focus=${(e: Event) => {
             // Select text on focus for easy typing
-            e.target.select();
+            (e.target as SlInput).select();
           }}
         ></sl-input>
       </div>
     `;
   }
 
-  private renderPages = () => {
+  private readonly renderPages = () => {
     const pages = Array.from({ length: this.pages }).map((_, i) => i + 1);
     const middleVisible = 3;
     const middlePad = Math.floor(middleVisible / 2);
@@ -272,7 +274,7 @@ export class Pagination extends LitElement {
       if (currentPageIdx > middleVisible) {
         middlePages = pages.slice(
           Math.min(currentPageIdx - middlePad, this.pages - middleEnd),
-          Math.min(currentPageIdx + middlePad + 1, this.pages - endsVisible)
+          Math.min(currentPageIdx + middlePad + 1, this.pages - endsVisible),
         );
       }
 
@@ -280,12 +282,12 @@ export class Pagination extends LitElement {
         ${firstPages.map(this.renderPageButton)}
         ${when(
           middlePages[0] > firstPages[firstPages.length - 1] + 1,
-          () => html`...`
+          () => html`...`,
         )}
         ${middlePages.map(this.renderPageButton)}
         ${when(
           lastPages[0] > middlePages[middlePages.length - 1] + 1,
-          () => html`...`
+          () => html`...`,
         )}
         ${lastPages.map(this.renderPageButton)}
       `;
@@ -293,16 +295,17 @@ export class Pagination extends LitElement {
     return html`${pages.map(this.renderPageButton)}`;
   };
 
-  private renderPageButton = (page: number) => {
+  private readonly renderPageButton = (page: number) => {
     const isCurrent = page === this.page;
     return html`<li aria-current=${ifDefined(isCurrent ? "page" : undefined)}>
-      <btrix-button
+      <btrix-navigation-button
         icon
-        variant=${isCurrent ? "primary" : "neutral"}
-        ?raised=${isCurrent}
+        .active=${isCurrent}
+        .size=${"small"}
+        .align=${"center"}
         @click=${() => this.onPageChange(page)}
         aria-disabled=${isCurrent}
-        >${page}</btrix-button
+        >${page}</btrix-navigation-button
       >
     </li>`;
   };
@@ -317,10 +320,10 @@ export class Pagination extends LitElement {
 
   private onPageChange(page: number) {
     this.dispatchEvent(
-      <PageChangeEvent>new CustomEvent("page-change", {
+      new CustomEvent<PageChangeDetail>("page-change", {
         detail: { page: page, pages: this.pages },
         composed: true,
-      })
+      }),
     );
   }
 

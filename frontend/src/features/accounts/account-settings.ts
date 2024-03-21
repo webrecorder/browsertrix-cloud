@@ -1,16 +1,18 @@
-import { LitElement } from "lit";
-import { state, queryAsync, property, customElement } from "lit/decorators.js";
-import { msg, str, localized } from "@lit/localize";
-import debounce from "lodash/fp/debounce";
-import { when } from "lit/directives/when.js";
-import { serialize } from "@shoelace-style/shoelace/dist/utilities/form.js";
+import { localized, msg, str } from "@lit/localize";
 import type { SlInput } from "@shoelace-style/shoelace";
+import { serialize } from "@shoelace-style/shoelace/dist/utilities/form.js";
 import type { ZxcvbnResult } from "@zxcvbn-ts/core";
+import { LitElement, type PropertyValues } from "lit";
+import { customElement, property, queryAsync, state } from "lit/decorators.js";
+import { when } from "lit/directives/when.js";
+import debounce from "lodash/fp/debounce";
 
 import type { CurrentUser } from "@/types/user";
-import LiteElement, { html } from "@/utils/LiteElement";
+import type { UnderlyingFunction } from "@/types/utils";
+import { isApiError } from "@/utils/api";
 import { needLogin } from "@/utils/auth";
 import type { AuthState } from "@/utils/AuthService";
+import LiteElement, { html } from "@/utils/LiteElement";
 import PasswordService from "@/utils/PasswordService";
 
 const { PASSWORD_MINLENGTH, PASSWORD_MAXLENGTH, PASSWORD_MIN_SCORE } =
@@ -26,12 +28,12 @@ export class RequestVerify extends LitElement {
   email!: string;
 
   @state()
-  private isRequesting: boolean = false;
+  private isRequesting = false;
 
   @state()
-  private requestSuccess: boolean = false;
+  private requestSuccess = false;
 
-  willUpdate(changedProperties: Map<string, any>) {
+  willUpdate(changedProperties: PropertyValues<this>) {
     if (changedProperties.has("email")) {
       this.isRequesting = false;
       this.requestSuccess = false;
@@ -45,7 +47,7 @@ export class RequestVerify extends LitElement {
   render() {
     if (this.requestSuccess) {
       return html`
-        <div class="text-sm text-gray-500 inline-flex items-center">
+        <div class="inline-flex items-center text-sm text-gray-500">
           <sl-icon class="mr-1" name="check-lg"></sl-icon> ${msg("Sent", {
             desc: "Status message after sending verification email",
           })}
@@ -111,9 +113,11 @@ export class AccountSettings extends LiteElement {
   private pwStrengthResults: null | ZxcvbnResult = null;
 
   @queryAsync('sl-input[name="password"]')
-  private passwordInput?: Promise<SlInput | null>;
+  private readonly passwordInput?: Promise<SlInput | null>;
 
-  async updated(changedProperties: Map<string, any>) {
+  async updated(
+    changedProperties: PropertyValues<this> & Map<string, unknown>,
+  ) {
     if (
       changedProperties.has("isChangingPassword") &&
       this.isChangingPassword
@@ -123,24 +127,24 @@ export class AccountSettings extends LiteElement {
   }
 
   protected firstUpdated() {
-    PasswordService.setOptions();
+    void PasswordService.setOptions();
   }
 
   render() {
     if (!this.userInfo) return;
     return html`
-      <div class="max-w-screen-sm mx-auto">
-        <h1 class="text-xl font-semibold leading-8 mb-7">
+      <div class="mx-auto max-w-screen-sm">
+        <h1 class="mb-7 text-xl font-semibold leading-8">
           ${msg("Account Settings")}
         </h1>
-        <form class="border rounded mb-5" @submit=${this.onSubmitName}>
+        <form class="mb-5 rounded border" @submit=${this.onSubmitName}>
           <div class="p-4">
-            <h2 class="text-lg font-semibold leading-none mb-4">
+            <h2 class="mb-4 text-lg font-semibold leading-none">
               ${msg("Display Name")}
             </h2>
             <p class="mb-2">
               ${msg(
-                "Enter your full name, or another name to display in the orgs you belong to."
+                "Enter your full name, or another name to display in the orgs you belong to.",
               )}
             </p>
             <sl-input
@@ -162,9 +166,9 @@ export class AccountSettings extends LiteElement {
             >
           </footer>
         </form>
-        <form class="border rounded mb-5" @submit=${this.onSubmitEmail}>
+        <form class="mb-5 rounded border" @submit=${this.onSubmitEmail}>
           <div class="p-4">
-            <h2 class="text-lg font-semibold leading-none mb-4">
+            <h2 class="mb-4 text-lg font-semibold leading-none">
               ${msg("Email")}
             </h2>
             <p class="mb-2">${msg("Update the email you use to log in.")}</p>
@@ -195,7 +199,7 @@ export class AccountSettings extends LiteElement {
             </sl-input>
           </div>
           <footer class="flex items-center justify-end border-t px-4 py-3">
-            ${this.userInfo && !this.userInfo.isVerified
+            ${!this.userInfo.isVerified
               ? html`
                   <btrix-request-verify
                     class="mr-auto"
@@ -212,13 +216,13 @@ export class AccountSettings extends LiteElement {
             >
           </footer>
         </form>
-        <section class="border rounded mb-5">
+        <section class="mb-5 rounded border">
           ${when(
             this.isChangingPassword,
             () => html`
               <form @submit=${this.onSubmitPassword}>
                 <div class="p-4">
-                  <h2 class="text-lg font-semibold leading-none mb-4">
+                  <h2 class="mb-4 text-lg font-semibold leading-none">
                     ${msg("Password")}
                   </h2>
                   <sl-input
@@ -238,7 +242,9 @@ export class AccountSettings extends LiteElement {
                     password-toggle
                     minlength="8"
                     required
-                    @input=${this.onPasswordInput}
+                    @input=${this.onPasswordInput as UnderlyingFunction<
+                      typeof this.onPasswordInput
+                    >}
                   ></sl-input>
 
                   ${when(this.pwStrengthResults, this.renderPasswordStrength)}
@@ -248,7 +254,7 @@ export class AccountSettings extends LiteElement {
                 >
                   <p class="mr-auto text-gray-500">
                     ${msg(
-                      str`Choose a strong password between ${PASSWORD_MINLENGTH}-${PASSWORD_MAXLENGTH} characters.`
+                      str`Choose a strong password between ${PASSWORD_MINLENGTH}-${PASSWORD_MAXLENGTH} characters.`,
                     )}
                   </p>
                   <sl-button
@@ -264,7 +270,7 @@ export class AccountSettings extends LiteElement {
               </form>
             `,
             () => html`
-              <div class="px-4 py-3 flex items-center justify-between">
+              <div class="flex items-center justify-between px-4 py-3">
                 <h2 class="text-lg font-semibold leading-none">
                   ${msg("Password")}
                 </h2>
@@ -274,14 +280,14 @@ export class AccountSettings extends LiteElement {
                   >${msg("Change Password")}</sl-button
                 >
               </div>
-            `
+            `,
           )}
         </section>
       </div>
     `;
   }
 
-  private renderPasswordStrength = () => html`
+  private readonly renderPasswordStrength = () => html`
     <div class="mt-4">
       <btrix-pw-strength-alert
         .result=${this.pwStrengthResults ?? undefined}
@@ -291,7 +297,7 @@ export class AccountSettings extends LiteElement {
     </div>
   `;
 
-  private onPasswordInput = debounce(150)(async (e: InputEvent) => {
+  private readonly onPasswordInput = debounce(150)(async (e: InputEvent) => {
     const { value } = e.target as SlInput;
     if (!value || value.length < 4) {
       this.pwStrengthResults = null;
@@ -303,14 +309,14 @@ export class AccountSettings extends LiteElement {
     }
     this.pwStrengthResults = await PasswordService.checkStrength(
       value,
-      userInputs
+      userInputs,
     );
-  }) as any;
+  });
 
   private async onSubmitName(e: SubmitEvent) {
     if (!this.userInfo || !this.authState) return;
     const form = e.target as HTMLFormElement;
-    const input = form.querySelector("sl-input") as SlInput;
+    const input = form.querySelector("sl-input")!;
     if (!input.checkValidity()) {
       return;
     }
@@ -351,7 +357,7 @@ export class AccountSettings extends LiteElement {
   private async onSubmitEmail(e: SubmitEvent) {
     if (!this.userInfo || !this.authState) return;
     const form = e.target as HTMLFormElement;
-    const input = form.querySelector("sl-input") as SlInput;
+    const input = form.querySelector("sl-input")!;
     if (!input.checkValidity()) {
       return;
     }
@@ -417,8 +423,8 @@ export class AccountSettings extends LiteElement {
         variant: "success",
         icon: "check2-circle",
       });
-    } catch (e: any) {
-      if (e.isApiError && e.details === "invalid_current_password") {
+    } catch (e) {
+      if (isApiError(e) && e.details === "invalid_current_password") {
         this.notify({
           message: msg("Please correct your current password and try again."),
           variant: "danger",

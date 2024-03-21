@@ -1,4 +1,4 @@
-import { html, css, type TemplateResult } from "lit";
+import { css, html, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
 import { TailwindElement } from "@/classes/TailwindElement";
@@ -38,31 +38,39 @@ export class DataTable extends TailwindElement {
   columns: CellContent[] = [];
 
   @property({ type: Array })
-  rows: Array<CellContent[]> = [];
+  rows: CellContent[][] = [];
 
-  // Array of CSS grid track widths
-  // https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-columns#values
+  /**
+   * Array of CSS grid track widths
+   * https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-columns#values
+   */
   @property({ type: Array })
   columnWidths: string[] = [];
 
+  /**
+   * Table border style
+   */
+  @property({ type: String })
+  border?: "grid" | "horizontal";
+
   render() {
-    const gridAutoColumnsStyle = `--btrix-table-grid-auto-columns: ${
+    const gridAutoColumnsStyle = `grid-template-columns: ${
       this.columnWidths.length
         ? this.columnWidths.join(" ")
         : "minmax(max-content, auto)"
     }`;
     return html`
       <btrix-table
-        class="border rounded overflow-auto"
+        class="overflow-auto rounded border"
         style=${gridAutoColumnsStyle}
       >
-        <btrix-table-head class="border-b rounded-t bg-neutral-50">
+        <btrix-table-head class="rounded-t border-b bg-neutral-50">
           ${this.columns.map(
             (content, i) => html`
               <btrix-table-header-cell class=${i > 0 ? "border-l" : ""}>
                 ${content}
               </btrix-table-header-cell>
-            `
+            `,
           )}
         </btrix-table-head>
         <btrix-table-body>
@@ -73,10 +81,10 @@ export class DataTable extends TailwindElement {
                   (content, ii) =>
                     html`<btrix-table-cell class=${ii > 0 ? "border-l" : ""}
                       >${content}</btrix-table-cell
-                    >`
+                    >`,
                 )}
               </btrix-table-row>
-            `
+            `,
           )}
         </btrix-table-body>
       </btrix-table>

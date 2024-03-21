@@ -1,16 +1,16 @@
 # Developing the Frontend UI
 
-This guide explains how to run the Browsertrix Cloud frontend development server with [Yarn](https://classic.yarnpkg.com).
+This guide explains how to run the Browsertrix frontend development server with [Yarn](https://classic.yarnpkg.com).
 
 Instead of rebuilding the entire frontend image to view your UI changes, you can use the included local development server to access the frontend from your browser. This setup is ideal for rapid UI development that does not rely on any backend changes.
 
 ## Requirements
 
-### 1. Browsertrix Cloud API backend already in a Kubernetes cluster
+### 1. Browsertrix API backend already in a Kubernetes cluster
 
-The frontend development server requires an existing backend that has been deployed locally or is in production. See [Deploying Browsertrix Cloud](../../deploy/).
+The frontend development server requires an existing backend that has been deployed locally or is in production. See [Deploying Browsertrix](../deploy/index.md).
 
-### 2. Node.js ≥16 and Yarn 1
+### 2. Node.js ≥18 and Yarn 1
 
 To check if you already have Node.js installed, run the following command in your command line terminal:
 
@@ -64,7 +64,7 @@ API_BASE_URL=http://dev.example.com
 
 !!! note
 
-    This setup assumes that your API endpoints are available under `/api`, which is the default configuration for the Browsertrix Cloud backend.
+    This setup assumes that your API endpoints are available under `/api`, which is the default configuration for the Browsertrix backend.
 
 If connecting to a local deployment cluster, set `API_BASE_URL` to:
 

@@ -1,5 +1,5 @@
 name: Bug Report
-description: If something isn't working as expected and you're sure your issue is reproducible, please file this type of issue!
+description: Report a demonstrable problem caused by code in this repo.
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -7,8 +7,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Browsertrix Cloud Version
-      description: This can be found in the site footer
+      label: Browsertrix Version
+      description: This can be found in the bottom end of the Browsertrix web app.
       placeholder: "v1.5.0-beta.0-67d0c6a"
     validations:
       required: true
@@ -17,27 +17,38 @@ body:
     attributes:
       label: What did you expect to happen? What happened instead?
       description: |
-        "I was trying to modify the Page Load Timeout value in a saved workflow, however..."
-
-        Please submit any screenshots/videos that can be used to understand how to reproduce the issue. You can attach images by clicking this area to highlight it and then dragging files into the browser window.
+        A clear and concise description of the bug, and what you expected to happen instead.
         
-        If your problem is related to crawling, or something wasn't captured in the way you expect please include a link to the finished crawl/workflow if possible.
+        For issues related to crawling or replay, please include a link to the archived item and workflow when possible.
     validations:
       required: true
   # Step-by-step reproduction instructions
   - type: textarea
     attributes:
-      label: Step-by-step reproduction instructions
+      label: Reproduction instructions
+      description: Step-by-step description of how to reproduce the issue, including the page URL if applicable.
       placeholder: |
         1. Navigate to...
         2. Click on...
         3. See error...
     validations:
       required: true
+  # Screenshots / videos
+  - type: textarea
+    attributes:
+      label: Screenshots / Video
+      description: Please attach any screenshots or screen recordings that demonstrate the bug. You can attach images by clicking this area to highlight it and then dragging files into the browser window.
+  # Environment
+  - type: input
+    attributes:
+      label: Environment
+      description: Please specify your browser if the issue is related to the web app, and provide information on your operating system if you're running Browsertrix locally.
+      placeholder: |
+        Browser:
+        Browser version:
+        OS:
   # Additional details
   - type: textarea
     attributes:
       label: Additional details
-      description: Add any other relevant information here, such as your local environment if you are running Browsertrix Cloud locally.
-    validations:
-      required: false
+      description: Any additional context that helps us investigate the issue. For example, does the issue only happen in a specific browser? Are there forum discussions related to your issue? etc.

@@ -129,6 +129,16 @@ For in-line code blocks, syntax highlighting should be added for all code-relate
 
 Renders to: `#!python range()`
 
+### Paid features
+
+`Paid Feature`{ .badge-green }
+
+Some features of Browsertrix only pertain to those paying for the software on a hosted plan. Denote these with the following:
+
+```markdown
+`Paid Feature`{ .badge-green }
+```
+
 ### Admonitions
 
 We use [Admonitions](https://squidfunk.github.io/mkdocs-material/reference/admonitions/) in their collapsed state to offer additional context or tips that aren't relevant to all users reading the section. We use standard un-collapsible ones when we need to call attention to a specific point.

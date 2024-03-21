@@ -20,12 +20,16 @@
     "Browsertrix",
     "btrix",
     "Elems",
+    "favicons",
     "hoverable",
+    "micromark",
     "novnc",
     "profileid",
     "tailwindcss",
     "wacz",
     "Webrecorder",
+    "wysimark",
+    "xstate",
     "zxcvbn"
   ],
   "cSpell.languageSettings": [
@@ -41,5 +45,8 @@
         "css"
       ]
     }
-  ]
+  ],
+  "eslint.workingDirectories": ["./frontend"],
+  "eslint.nodePath": "./frontend/node_modules",
+  "tailwindCSS.experimental.classRegex": ["tw`([^`]*)"]
 }

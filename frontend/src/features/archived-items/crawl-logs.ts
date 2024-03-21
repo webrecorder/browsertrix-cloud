@@ -1,14 +1,14 @@
-import { LitElement, html, css } from "lit";
+import { localized, msg } from "@lit/localize";
+import { css, html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { msg, localized } from "@lit/localize";
 
-import { truncate } from "@/utils/css";
 import type { APIPaginatedList } from "@/types/api";
+import { truncate } from "@/utils/css";
 
 export type CrawlLog = {
   timestamp: string;
   logLevel: "error";
-  details: Record<string, string>;
+  details: Record<string, unknown>;
   context: string;
   message: string;
 };
@@ -138,9 +138,9 @@ export class CrawlLogs extends LitElement {
                   <span class="tag">${log.logLevel}</span>
                 </div>
                 <div class="message">${log.message}</div>
-                <div class="url" title="${log.details?.page}">
-                  <a target="_blank" href="${log.details?.page}"
-                    >${log.details?.page}</a
+                <div class="url" title="${log.details.page as string}">
+                  <a target="_blank" href="${log.details.page as string}"
+                    >${log.details.page}</a
                   >
                 </div>
               </div>
@@ -182,16 +182,15 @@ export class CrawlLogs extends LitElement {
               ${key === "stack" ||
               (typeof value !== "string" && typeof value !== "number")
                 ? this.renderPre(value)
-                : value ?? "--"}
+                : value || "--"}
             </btrix-desc-list-item>
-          `
+          `,
         )}
       </btrix-desc-list>
     `;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private renderPre(value: any) {
+  private renderPre(value: unknown) {
     let str = value;
     if (typeof value !== "string") {
       str = JSON.stringify(value, null, 2);

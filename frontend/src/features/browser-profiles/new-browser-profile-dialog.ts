@@ -1,10 +1,11 @@
-import { state, property, queryAsync, customElement } from "lit/decorators.js";
-import { msg, localized, str } from "@lit/localize";
-import type { SlInput } from "@shoelace-style/shoelace";
+import { localized, msg, str } from "@lit/localize";
+import { type SlInput } from "@shoelace-style/shoelace";
+import { customElement, property, queryAsync, state } from "lit/decorators.js";
 
+import type { Dialog } from "@/components/ui/dialog";
+import { type SelectCrawlerChangeEvent } from "@/components/ui/select-crawler";
 import type { AuthState } from "@/utils/AuthService";
 import LiteElement, { html } from "@/utils/LiteElement";
-import type { Dialog } from "@/components/ui/dialog";
 
 @localized()
 @customElement("btrix-new-browser-profile-dialog")
@@ -25,16 +26,16 @@ export class NewBrowserProfileDialog extends LiteElement {
   private crawlerChannel = "default";
 
   @queryAsync("#browserProfileForm")
-  private form!: Promise<HTMLFormElement>;
+  private readonly form!: Promise<HTMLFormElement>;
 
   render() {
     return html` <btrix-dialog
       .label=${msg(str`Create a New Browser Profile`)}
       .open=${this.open}
       @sl-initial-focus=${async (e: CustomEvent) => {
-        const nameInput = (await this.form).querySelector(
-          'sl-input[name="url"]'
-        ) as SlInput;
+        const nameInput = (await this.form).querySelector<SlInput>(
+          'sl-input[name="url"]',
+        );
         if (nameInput) {
           e.preventDefault();
           nameInput.focus();
@@ -57,7 +58,7 @@ export class NewBrowserProfileDialog extends LiteElement {
 
             <div class="flex">
               <sl-select
-                class="grow-0 mr-1 max-w-[8rem]"
+                class="mr-1 max-w-[8rem] grow-0"
                 name="urlPrefix"
                 value="https://"
                 hoist
@@ -84,7 +85,8 @@ export class NewBrowserProfileDialog extends LiteElement {
             orgId=${this.orgId}
             .crawlerChannel=${this.crawlerChannel}
             .authState=${this.authState}
-            @on-change=${(e: any) => (this.crawlerChannel = e.detail.value)}
+            @on-change=${(e: SelectCrawlerChangeEvent) =>
+              (this.crawlerChannel = e.detail.value!)}
           ></btrix-select-crawler>
         </div>
         <input class="invisible h-0 w-0" type="submit" />
@@ -108,9 +110,9 @@ export class NewBrowserProfileDialog extends LiteElement {
             // Using submit method instead of type="submit" fixes
             // incorrect getRootNode in Chrome
             const form = await this.form;
-            const submitInput = form.querySelector(
-              'input[type="submit"]'
-            ) as HTMLInputElement;
+            const submitInput = form.querySelector<HTMLElement>(
+              'input[type="submit"]',
+            );
             form.requestSubmit(submitInput);
           }}
           >${msg("Start Profile Creator")}</sl-button
@@ -120,11 +122,11 @@ export class NewBrowserProfileDialog extends LiteElement {
   }
 
   private async hideDialog() {
-    ((await this.form).closest("btrix-dialog") as Dialog).hide();
+    void (await this.form).closest<Dialog>("btrix-dialog")?.hide();
   }
 
   private onReset() {
-    this.hideDialog();
+    void this.hideDialog();
   }
 
   private async onSubmit(event: SubmitEvent) {
@@ -136,8 +138,8 @@ export class NewBrowserProfileDialog extends LiteElement {
 
     try {
       const data = await this.createBrowser({
-        url: `${formData.get("urlPrefix")}${url.substring(
-          url.indexOf(",") + 1
+        url: `${formData.get("urlPrefix")?.toString()}${url.substring(
+          url.indexOf(",") + 1,
         )}`,
         crawlerChannel: this.crawlerChannel,
       });
@@ -152,10 +154,10 @@ export class NewBrowserProfileDialog extends LiteElement {
         `${this.orgBasePath}/browser-profiles/profile/browser/${
           data.browserid
         }?name=${window.encodeURIComponent(
-          "My Profile"
-        )}&description=&profileId=&crawlerChannel=${this.crawlerChannel}`
+          "My Profile",
+        )}&description=&profileId=&crawlerChannel=${this.crawlerChannel}`,
       );
-    } catch (e: any) {
+    } catch (e) {
       this.notify({
         message: msg("Sorry, couldn't create browser profile at this time."),
         variant: "danger",
@@ -165,7 +167,7 @@ export class NewBrowserProfileDialog extends LiteElement {
     this.isSubmitting = false;
   }
 
-  private createBrowser({
+  private async createBrowser({
     url,
     crawlerChannel,
   }: {
@@ -183,7 +185,7 @@ export class NewBrowserProfileDialog extends LiteElement {
       {
         method: "POST",
         body: JSON.stringify(params),
-      }
+      },
     );
   }
 

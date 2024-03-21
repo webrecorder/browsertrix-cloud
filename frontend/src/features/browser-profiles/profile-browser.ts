@@ -1,5 +1,6 @@
-import { property, state, query, customElement } from "lit/decorators.js";
-import { msg, localized, str } from "@lit/localize";
+import { localized, msg, str } from "@lit/localize";
+import { type PropertyValues } from "lit";
+import { customElement, property, query, state } from "lit/decorators.js";
 
 import type { AuthState } from "@/utils/AuthService";
 import LiteElement, { html } from "@/utils/LiteElement";
@@ -60,13 +61,13 @@ export class ProfileBrowser extends LiteElement {
   private newOrigins?: string[] = [];
 
   @query("#profileBrowserSidebar")
-  private sidebar?: HTMLElement;
+  private readonly sidebar?: HTMLElement;
 
   @query("#iframeWrapper")
-  private iframeWrapper?: HTMLElement;
+  private readonly iframeWrapper?: HTMLElement;
 
   @query("iframe")
-  private iframe?: HTMLIFrameElement;
+  private readonly iframe?: HTMLIFrameElement;
 
   private pollTimerId?: number;
 
@@ -81,11 +82,11 @@ export class ProfileBrowser extends LiteElement {
     document.removeEventListener("fullscreenchange", this.onFullscreenChange);
   }
 
-  willUpdate(changedProperties: Map<string, any>) {
+  willUpdate(changedProperties: PropertyValues<this> & Map<string, unknown>) {
     if (changedProperties.has("browserId")) {
       if (this.browserId) {
         window.clearTimeout(this.pollTimerId);
-        this.fetchBrowser();
+        void this.fetchBrowser();
       } else if (changedProperties.get("browserId")) {
         this.iframeSrc = undefined;
         this.isIframeLoaded = false;
@@ -112,24 +113,24 @@ export class ProfileBrowser extends LiteElement {
 
   render() {
     return html`
-      <div id="interactive-browser" class="w-full h-full flex flex-col">
+      <div id="interactive-browser" class="flex h-full w-full flex-col">
         ${this.renderControlBar()}
         <div
           id="iframeWrapper"
           class="${this.isFullscreen
             ? "w-screen h-screen"
-            : "border-t"} flex-1 relative bg-neutral-50 overflow-hidden"
+            : "border-t"} relative flex-1 overflow-hidden bg-neutral-50"
           aria-live="polite"
         >
           ${this.renderBrowser()}
           <div
             id="profileBrowserSidebar"
             class="${hiddenClassList.join(
-              " "
-            )} lg:absolute top-0 right-0 bottom-0 lg:w-80 lg:p-3 flex transition-all duration-300 ease-out"
+              " ",
+            )} bottom-0 right-0 top-0 flex transition-all duration-300 ease-out lg:absolute lg:w-80 lg:p-3"
           >
             <div
-              class="shadow-lg overflow-auto border rounded-lg bg-white flex-1"
+              class="flex-1 overflow-auto rounded-lg border bg-white shadow-lg"
             >
               ${this.renderOrigins()} ${this.renderNewOrigins()}
             </div>
@@ -143,25 +144,25 @@ export class ProfileBrowser extends LiteElement {
     if (this.isFullscreen) {
       return html`
         <div
-          class="fixed top-2 left-1/2 bg-white rounded-lg shadow z-50 -translate-x-1/2 flex items-center text-base"
+          class="fixed left-1/2 top-2 z-50 flex -translate-x-1/2 items-center rounded-lg bg-white text-base shadow"
         >
           ${this.renderSidebarButton()}
           <sl-icon-button
             name="fullscreen-exit"
             label=${msg("Exit fullscreen")}
-            @click=${() => document.exitFullscreen()}
+            @click=${() => void document.exitFullscreen()}
           ></sl-icon-button>
         </div>
       `;
     }
 
     return html`
-      <div class="text-right text-base p-1">
+      <div class="p-1 text-right text-base">
         ${this.renderSidebarButton()}
         <sl-icon-button
           name="arrows-fullscreen"
           label=${msg("Enter fullscreen")}
-          @click=${() => this.enterFullscreen("interactive-browser")}
+          @click=${() => void this.enterFullscreen("interactive-browser")}
         ></sl-icon-button>
       </div>
     `;
@@ -178,7 +179,7 @@ export class ProfileBrowser extends LiteElement {
 
     if (this.iframeSrc) {
       return html`<iframe
-        class="w-full h-full"
+        class="h-full w-full"
         title=${msg("Interactive browser for creating browser profile")}
         src=${this.iframeSrc}
         @load=${this.onIframeLoad}
@@ -187,7 +188,7 @@ export class ProfileBrowser extends LiteElement {
 
     if (this.browserId && !this.isIframeLoaded) {
       return html`
-        <div class="w-full h-full flex items-center justify-center text-3xl">
+        <div class="flex h-full w-full items-center justify-center text-3xl">
           <sl-spinner></sl-spinner>
         </div>
       `;
@@ -211,7 +212,7 @@ export class ProfileBrowser extends LiteElement {
 
   private renderOrigins() {
     return html`
-      <h4 class="text-xs text-neutral-500 leading-tight p-2 border-b">
+      <h4 class="border-b p-2 text-xs leading-tight text-neutral-500">
         <span class="inline-block align-middle">${msg("Visited Sites")}</span>
         <sl-tooltip content=${msg("Websites in the browser profile")}
           ><sl-icon
@@ -230,11 +231,11 @@ export class ProfileBrowser extends LiteElement {
     if (!this.newOrigins?.length) return;
 
     return html`
-      <h4 class="text-xs text-neutral-500 leading-tight p-2 border-b">
+      <h4 class="border-b p-2 text-xs leading-tight text-neutral-500">
         <span class="inline-block align-middle">${msg("New Sites")}</span>
         <sl-tooltip
           content=${msg(
-            "Websites that are not in the browser profile yet. Finish editing and save to add these websites to the profile."
+            "Websites that are not in the browser profile yet. Finish editing and save to add these websites to the profile.",
           )}
           ><sl-icon
             class="inline-block align-middle"
@@ -250,15 +251,14 @@ export class ProfileBrowser extends LiteElement {
 
   private renderOriginItem(url: string) {
     return html`<li
-      class="p-2 flex items-center justify-between border-t first:border-t-0 border-t-neutral-100${this
-        .iframeSrc
+      class="border-t-neutral-100${this.iframeSrc
         ? " hover:bg-slate-50 hover:text-primary"
-        : ""}"
+        : ""} flex items-center justify-between border-t p-2 first:border-t-0"
       role=${this.iframeSrc ? "button" : "listitem"}
       title=${msg(str`Go to ${url}`)}
       @click=${() => (this.iframeSrc ? this.navigateBrowser({ url }) : {})}
     >
-      <div class="text-sm truncate w-full">${url}</div>
+      <div class="w-full truncate text-sm">${url}</div>
       ${this.iframeSrc
         ? html`<sl-icon name="play-btn" class="text-xl"></sl-icon>`
         : ""}
@@ -295,12 +295,24 @@ export class ProfileBrowser extends LiteElement {
 
     if (result.detail === "waiting_for_browser") {
       this.pollTimerId = window.setTimeout(
-        () => this.checkBrowserStatus(),
-        POLL_INTERVAL_SECONDS * 1000
+        () => void this.checkBrowserStatus(),
+        POLL_INTERVAL_SECONDS * 1000,
       );
 
       return;
     } else if (result.url) {
+      // check that the browser is actually available
+      // if not, continue waiting
+      // (will not work with local frontend due to CORS)
+      try {
+        const resp = await fetch(result.url, { method: "HEAD" });
+        if (!resp.ok) {
+          return;
+        }
+      } catch (e) {
+        // ignore
+      }
+
       if (this.initialNavigateUrl) {
         await this.navigateBrowser({ url: this.initialNavigateUrl });
       }
@@ -311,7 +323,7 @@ export class ProfileBrowser extends LiteElement {
 
       this.dispatchEvent(new CustomEvent("load", { detail: result.url }));
 
-      this.pingBrowser();
+      void this.pingBrowser();
     } else {
       console.debug("Unknown checkBrowserStatus state");
     }
@@ -323,7 +335,7 @@ export class ProfileBrowser extends LiteElement {
       url?: string;
     }>(
       `/orgs/${this.orgId}/profiles/browser/${this.browserId}`,
-      this.authState!
+      this.authState!,
     );
 
     return data;
@@ -341,7 +353,7 @@ export class ProfileBrowser extends LiteElement {
       {
         method: "POST",
         body: JSON.stringify({ url }),
-      }
+      },
     );
 
     return data;
@@ -358,20 +370,20 @@ export class ProfileBrowser extends LiteElement {
       this.authState!,
       {
         method: "POST",
-      }
+      },
     );
 
     if (!this.origins) {
       this.origins = data.origins;
     } else {
       this.newOrigins = data.origins?.filter(
-        (url: string) => !this.origins?.includes(url)
+        (url: string) => !this.origins?.includes(url),
       );
     }
 
     this.pollTimerId = window.setTimeout(
-      () => this.pingBrowser(),
-      POLL_INTERVAL_SECONDS * 1000
+      () => void this.pingBrowser(),
+      POLL_INTERVAL_SECONDS * 1000,
     );
   }
 
@@ -381,7 +393,7 @@ export class ProfileBrowser extends LiteElement {
    */
   private async enterFullscreen(id: string) {
     try {
-      document.getElementById(id)!.requestFullscreen({
+      await document.getElementById(id)!.requestFullscreen({
         // Hide browser navigation controls
         navigationUI: "hide",
       });
@@ -394,11 +406,13 @@ export class ProfileBrowser extends LiteElement {
     this.isIframeLoaded = true;
     try {
       this.iframe?.contentWindow?.localStorage.setItem("uiTheme", '"default"');
-    } catch (e) {}
+    } catch (e) {
+      /* empty */
+    }
     this.dispatchEvent(new CustomEvent("load", { detail: this.iframeSrc }));
   }
 
-  private onFullscreenChange = async () => {
+  private readonly onFullscreenChange = async () => {
     if (document.fullscreenElement) {
       this.isFullscreen = true;
     } else {

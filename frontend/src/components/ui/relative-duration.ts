@@ -1,6 +1,6 @@
-import { LitElement } from "lit";
-import { property, state, customElement } from "lit/decorators.js";
 import { localized } from "@lit/localize";
+import { LitElement } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import humanizeDuration from "pretty-ms";
 
 export type HumanizeOptions = {
@@ -84,7 +84,7 @@ export class RelativeDuration extends LitElement {
         compact: this.compact,
         verbose: this.verbose,
         unitCount: this.unitCount,
-      }
+      },
     );
   }
 }

@@ -1,41 +1,43 @@
-import { type PropertyValues, css, html, nothing, TemplateResult } from "lit";
-import { state, property, query, customElement } from "lit/decorators.js";
-import { msg, localized, str } from "@lit/localize";
+import { localized, msg, str } from "@lit/localize";
+import { merge } from "immutable";
+import { css, html, type PropertyValues } from "lit";
+import { customElement, property, query, state } from "lit/decorators.js";
 import { cache } from "lit/directives/cache.js";
+import { repeat } from "lit/directives/repeat.js";
 import { when } from "lit/directives/when.js";
 import difference from "lodash/fp/difference";
-import without from "lodash/fp/without";
 import union from "lodash/fp/union";
+import without from "lodash/fp/without";
 import queryString from "query-string";
-import { merge } from "immutable";
-import { repeat } from "lit/directives/repeat.js";
-import type { SlCheckbox } from "@shoelace-style/shoelace";
 
-import type { AuthState } from "@/utils/AuthService";
+import type {
+  AutoAddChangeDetail,
+  SelectionChangeDetail,
+} from "./collection-workflow-list";
+
+import { TailwindElement } from "@/classes/TailwindElement";
+import type { Dialog } from "@/components/ui/dialog";
+import type { PageChangeEvent } from "@/components/ui/pagination";
+import { APIController } from "@/controllers/api";
+import { NotifyController } from "@/controllers/notify";
+import { type CheckboxChangeEventDetail } from "@/features/archived-items/archived-item-list";
+import type {
+  FilterBy,
+  FilterChangeEventDetail,
+  SearchValues,
+  SortBy,
+  SortChangeEventDetail,
+  SortOptions,
+} from "@/features/archived-items/item-list-controls";
 import type {
   APIPaginatedList,
   APIPaginationQuery,
   APISortQuery,
 } from "@/types/api";
 import type { ArchivedItem, Crawl, Upload, Workflow } from "@/types/crawler";
-import type { PageChangeEvent } from "@/components/ui/pagination";
+import { isApiError } from "@/utils/api";
+import type { AuthState } from "@/utils/AuthService";
 import { finishedCrawlStates } from "@/utils/crawler";
-import type { Dialog } from "@/components/ui/dialog";
-import { TailwindElement } from "@/classes/TailwindElement";
-import { APIController } from "@/controllers/api";
-import { NotifyController } from "@/controllers/notify";
-import type {
-  SortChangeEventDetail,
-  FilterChangeEventDetail,
-  SearchValues,
-  SortOptions,
-  SortBy,
-  FilterBy,
-} from "@/features/archived-items/item-list-controls";
-import type {
-  AutoAddChangeDetail,
-  SelectionChangeDetail,
-} from "./collection-workflow-list";
 
 const TABS = ["crawl", "upload"] as const;
 type Tab = (typeof TABS)[number];
@@ -163,12 +165,12 @@ export class CollectionItemsDialog extends TailwindElement {
   private isReady = false;
 
   @query("btrix-dialog")
-  private dialog!: Dialog;
+  private readonly dialog!: Dialog;
 
   private savedCollectionItemIDs: string[] = [];
 
-  private api = new APIController(this);
-  private notify = new NotifyController(this);
+  private readonly api = new APIController(this);
+  private readonly notify = new NotifyController(this);
 
   private readonly tabLabels: Record<Tab, { icon: string; label: string }> = {
     crawl: {
@@ -187,24 +189,24 @@ export class CollectionItemsDialog extends TailwindElement {
       return;
     }
     if (changedProperties.has("open")) {
-      this.initSelection();
+      void this.initSelection();
     } else if (
       changedProperties.has("showOnlyMine") ||
       changedProperties.has("showOnlyInCollection")
     ) {
-      this.fetchCrawls();
-      this.fetchUploads();
+      void this.fetchCrawls();
+      void this.fetchUploads();
     } else {
       if (changedProperties.has("sortCrawlsBy")) {
-        this.fetchCrawls();
+        void this.fetchCrawls();
       } else if (changedProperties.has("filterCrawlsBy")) {
-        this.fetchCrawls({ page: 1 });
+        void this.fetchCrawls({ page: 1 });
       }
 
       if (changedProperties.has("sortUploadsBy")) {
-        this.fetchUploads();
+        void this.fetchUploads();
       } else if (changedProperties.has("filterUploadsBy")) {
-        this.fetchUploads({ page: 1 });
+        void this.fetchUploads({ page: 1 });
       }
     }
   }
@@ -218,14 +220,14 @@ export class CollectionItemsDialog extends TailwindElement {
     >
       <span slot="label">
         ${msg("Select Archived Items")}
-        <span class="text-neutral-500 font-normal"
+        <span class="font-normal text-neutral-500"
           >${msg(str`in ${this.collectionName}`)}</span
         >
       </span>
       <div class="dialogContent flex flex-col">
         ${when(this.isReady, this.renderContent)}
       </div>
-      <div slot="footer" class="flex gap-3 items-center justify-end">
+      <div slot="footer" class="flex items-center justify-end gap-3">
         <sl-button class="mr-auto" size="small" @click=${() => this.close()}
           >${msg("Cancel")}</sl-button
         >
@@ -234,7 +236,7 @@ export class CollectionItemsDialog extends TailwindElement {
     </btrix-dialog>`;
   }
 
-  private renderContent = () => {
+  private readonly renderContent = () => {
     return html`
       <div class="flex flex-wrap items-center justify-between">
         <div class="flex gap-3 px-4 py-3" role="tablist">
@@ -268,15 +270,15 @@ export class CollectionItemsDialog extends TailwindElement {
     `;
   };
 
-  private renderTab = (tab: Tab) => {
+  private readonly renderTab = (tab: Tab) => {
     const isSelected = tab === this.activeTab;
     const { icon, label } = this.tabLabels[tab];
 
     return html`
-      <btrix-button
+      <btrix-navigation-button
         @click=${() => (this.activeTab = tab)}
-        variant=${isSelected ? "primary" : "neutral"}
-        ?raised=${isSelected}
+        .active=${isSelected}
+        size="small"
         aria-selected="${isSelected}"
         role="tab"
         aria-controls="tabPanel-${tab}"
@@ -285,14 +287,14 @@ export class CollectionItemsDialog extends TailwindElement {
       >
         <sl-icon name=${icon}></sl-icon>
         <span>${label}</span>
-      </btrix-button>
+      </btrix-navigation-button>
     `;
   };
 
-  private renderCrawls = () => {
+  private readonly renderCrawls = () => {
     const data = this.showOnlyInCollection ? this.crawls : this.workflows;
     return html`
-      <header class="sticky top-0 bg-white z-20">
+      <header class="sticky top-0 z-20 bg-white">
         <div class="border-y bg-neutral-50 p-3">
           <btrix-item-list-controls
             .searchKeys=${searchKeys}
@@ -300,7 +302,7 @@ export class CollectionItemsDialog extends TailwindElement {
             .sortOptions=${crawlSortOptions}
             .sortBy=${this.sortCrawlsBy}
             @btrix-filter-change=${(
-              e: CustomEvent<FilterChangeEventDetail>
+              e: CustomEvent<FilterChangeEventDetail>,
             ) => {
               this.filterCrawlsBy = e.detail;
             }}
@@ -319,10 +321,10 @@ export class CollectionItemsDialog extends TailwindElement {
               () =>
                 this.showOnlyInCollection
                   ? msg(
-                      str`Crawls in Collection (${data!.total.toLocaleString()})`
+                      str`Crawls in Collection (${data!.total.toLocaleString()})`,
                     )
                   : msg(str`All Workflows (${data!.total.toLocaleString()})`),
-              () => msg("Loading...")
+              () => msg("Loading..."),
             )}
           </div>
         </btrix-section-heading>
@@ -330,18 +332,18 @@ export class CollectionItemsDialog extends TailwindElement {
       ${cache(
         this.showOnlyInCollection
           ? this.renderCollectionCrawls()
-          : this.renderOrgWorkflows()
+          : this.renderOrgWorkflows(),
       )}
     `;
   };
 
-  private renderUploads = () => {
+  private readonly renderUploads = () => {
     if (!this.uploads) {
       return this.renderLoading();
     }
 
     return html`
-      <header class="sticky top-0 bg-white z-20">
+      <header class="sticky top-0 z-20 bg-white">
         <div class="border-y bg-neutral-50 p-3">
           <btrix-item-list-controls
             .searchKeys=${searchKeys}
@@ -349,7 +351,7 @@ export class CollectionItemsDialog extends TailwindElement {
             .sortOptions=${uploadSortOptions}
             .sortBy=${this.sortUploadsBy}
             @btrix-filter-change=${(
-              e: CustomEvent<FilterChangeEventDetail>
+              e: CustomEvent<FilterChangeEventDetail>,
             ) => {
               this.filterUploadsBy = e.detail;
             }}
@@ -368,19 +370,21 @@ export class CollectionItemsDialog extends TailwindElement {
               () =>
                 this.showOnlyInCollection
                   ? msg(
-                      str`Uploads in Collection (${this.uploads!.total.toLocaleString()})`
+                      str`Uploads in Collection (${this.uploads!.total.toLocaleString()})`,
                     )
                   : msg(
-                      str`All Uploads (${this.uploads!.total.toLocaleString()})`
+                      str`All Uploads (${this.uploads!.total.toLocaleString()})`,
                     ),
-              () => msg("Loading...")
+              () => msg("Loading..."),
             )}
           </div>
         </btrix-section-heading>
       </header>
       <section class="flex-1 px-3 pb-3 pt-2">
         <btrix-archived-item-list>
-          <span class="sr-only" slot="checkbox">${msg("In Collection?")}</span>
+          <btrix-table-header-cell slot="checkboxCell" class="pr-0">
+            <span class="sr-only">${msg("In Collection?")}</span>
+          </btrix-table-header-cell>
           ${repeat(this.uploads.items, ({ id }) => id, this.renderArchivedItem)}
         </btrix-archived-item-list>
         ${when(
@@ -388,7 +392,7 @@ export class CollectionItemsDialog extends TailwindElement {
           () =>
             html`<p class="p-5 text-center text-neutral-500">
               ${msg("No matching uploads found.")}
-            </p>`
+            </p>`,
         )}
       </section>
       <footer class="flex justify-center pb-3">
@@ -400,19 +404,19 @@ export class CollectionItemsDialog extends TailwindElement {
               size=${this.uploads!.pageSize}
               totalCount=${this.uploads!.total}
               @page-change=${(e: PageChangeEvent) => {
-                this.fetchUploads({
+                void this.fetchUploads({
                   page: e.detail.page,
                 });
               }}
             >
             </btrix-pagination>
-          `
+          `,
         )}
       </footer>
     `;
   };
 
-  private renderCollectionCrawls = () => {
+  private readonly renderCollectionCrawls = () => {
     if (!this.crawls) {
       return this.renderLoading();
     }
@@ -420,7 +424,9 @@ export class CollectionItemsDialog extends TailwindElement {
     return html`
       <section class="flex-1 px-3 pb-3 pt-2">
         <btrix-archived-item-list>
-          <span class="sr-only" slot="checkbox">${msg("In Collection?")}</span>
+          <btrix-table-header-cell slot="checkboxCell" class="pr-0">
+            <span class="sr-only">${msg("In Collection?")}</span>
+          </btrix-table-header-cell>
           ${repeat(this.crawls.items, ({ id }) => id, this.renderArchivedItem)}
         </btrix-archived-item-list>
 
@@ -429,7 +435,7 @@ export class CollectionItemsDialog extends TailwindElement {
           () =>
             html`<p class="p-5 text-center text-neutral-500">
               ${msg("No matching crawls found.")}
-            </p>`
+            </p>`,
         )}
       </section>
 
@@ -442,19 +448,19 @@ export class CollectionItemsDialog extends TailwindElement {
               size=${this.crawls!.pageSize}
               totalCount=${this.crawls!.total}
               @page-change=${(e: PageChangeEvent) => {
-                this.fetchCrawls({
+                void this.fetchCrawls({
                   page: e.detail.page,
                 });
               }}
             >
             </btrix-pagination>
-          `
+          `,
         )}
       </footer>
     `;
   };
 
-  private renderOrgWorkflows = () => {
+  private readonly renderOrgWorkflows = () => {
     if (!this.workflows) {
       return this.renderLoading();
     }
@@ -464,7 +470,7 @@ export class CollectionItemsDialog extends TailwindElement {
           .authState=${this.authState}
           orgId=${this.orgId}
           collectionId=${this.collectionId}
-          .workflows=${this.workflows!.items || []}
+          .workflows=${this.workflows.items}
           .selection=${this.selection}
           @btrix-selection-change=${(e: CustomEvent<SelectionChangeDetail>) => {
             this.selection = {
@@ -475,10 +481,10 @@ export class CollectionItemsDialog extends TailwindElement {
           @btrix-auto-add-change=${(e: CustomEvent<AutoAddChangeDetail>) => {
             const { id, checked } = e.detail;
             const workflow = this.workflows?.items.find(
-              (workflow) => workflow.id === id
+              (workflow) => workflow.id === id,
             );
             if (workflow) {
-              this.saveAutoAdd({
+              void this.saveAutoAdd({
                 id,
                 autoAddCollections: checked
                   ? union([this.collectionId], workflow.autoAddCollections)
@@ -498,13 +504,13 @@ export class CollectionItemsDialog extends TailwindElement {
               size=${this.workflows!.pageSize}
               totalCount=${this.workflows!.total}
               @page-change=${(e: PageChangeEvent) => {
-                this.fetchCrawls({
+                void this.fetchCrawls({
                   page: e.detail.page,
                 });
               }}
             >
             </btrix-pagination>
-          `
+          `,
         )}
       </footer> `;
   };
@@ -534,37 +540,27 @@ export class CollectionItemsDialog extends TailwindElement {
     `;
   }
 
-  renderArchivedItem = (item: Crawl | Upload) => html`
-    <btrix-archived-item-list-item
-      class="cursor-pointer select-none"
-      .item=${item}
-      role="button"
-      @click=${async (e: MouseEvent) =>
-        (e.currentTarget as HTMLElement).querySelector("sl-checkbox")?.click()}
-    >
-      ${this.renderCheckbox(item)}
-    </btrix-archived-item-list-item>
-  `;
-
-  private renderCheckbox = (item: ArchivedItem) => {
+  renderArchivedItem = (item: ArchivedItem) => {
     const isInCollection = item.collectionIds.includes(this.collectionId);
     return html`
-      <div slot="checkbox" class="pl-3">
-        <sl-checkbox
-          class="flex"
-          ?checked=${isInCollection}
-          @sl-change=${(e: CustomEvent) => {
-            this.selection = {
-              ...this.selection,
-              [item.id]: (e.currentTarget as SlCheckbox).checked,
-            };
-          }}
-        ></sl-checkbox>
-      </div>
+      <btrix-archived-item-list-item
+        .item=${item}
+        checkbox
+        ?checked=${isInCollection}
+        @btrix-checkbox-change=${(
+          e: CustomEvent<CheckboxChangeEventDetail>,
+        ) => {
+          this.selection = {
+            ...this.selection,
+            [item.id]: e.detail.checked,
+          };
+        }}
+      >
+      </btrix-archived-item-list-item>
     `;
   };
 
-  private renderSave = () => {
+  private readonly renderSave = () => {
     const { add, remove } = this.difference;
     const addCount = add.length;
     const removeCount = remove.length;
@@ -577,14 +573,14 @@ export class CollectionItemsDialog extends TailwindElement {
         messages.push(
           addCount === 1
             ? msg(str`Adding 1 item`)
-            : msg(str`Adding ${addCount.toLocaleString()} items`)
+            : msg(str`Adding ${addCount.toLocaleString()} items`),
         );
       }
       if (removeCount) {
         messages.push(
           removeCount === 1
             ? msg(str`Removing 1 item`)
-            : msg(str`Removing ${removeCount.toLocaleString()} items`)
+            : msg(str`Removing ${removeCount.toLocaleString()} items`),
         );
       }
 
@@ -598,21 +594,21 @@ export class CollectionItemsDialog extends TailwindElement {
         size="small"
         ?disabled=${this.isSubmitting || !hasChange}
         ?loading=${this.isSubmitting}
-        @click=${() => this.save()}
+        @click=${() => void this.save()}
       >
         ${msg("Save Selection")}
       </sl-button>
     `;
   };
 
-  private renderLoading = () => html`
-    <div class="w-full flex items-center justify-center my-24 text-3xl">
+  private readonly renderLoading = () => html`
+    <div class="my-24 flex w-full items-center justify-center text-3xl">
       <sl-spinner></sl-spinner>
     </div>
   `;
 
   private close() {
-    this.dialog.hide();
+    void this.dialog.hide();
   }
 
   private reset() {
@@ -640,7 +636,7 @@ export class CollectionItemsDialog extends TailwindElement {
   private selectAllItems(items: ArchivedItem[]) {
     const selection = { ...this.selection };
     items.forEach((item) => {
-      if (!selection.hasOwnProperty(item.id)) {
+      if (!Object.prototype.hasOwnProperty.call(selection, item.id)) {
         selection[item.id] = true;
       }
     });
@@ -668,8 +664,8 @@ export class CollectionItemsDialog extends TailwindElement {
           {
             method: "POST",
             body: JSON.stringify({ crawlIds: add }),
-          }
-        )
+          },
+        ),
       );
     }
     if (remove.length) {
@@ -680,8 +676,8 @@ export class CollectionItemsDialog extends TailwindElement {
           {
             method: "POST",
             body: JSON.stringify({ crawlIds: remove }),
-          }
-        )
+          },
+        ),
       );
     }
 
@@ -697,10 +693,10 @@ export class CollectionItemsDialog extends TailwindElement {
         variant: "success",
         icon: "check2-circle",
       });
-    } catch (e: any) {
+    } catch (e) {
       this.notify.toast({
-        message: e.isApiError
-          ? (e.message as string)
+        message: isApiError(e)
+          ? e.message
           : msg("Something unexpected went wrong"),
         variant: "danger",
         icon: "exclamation-octagon",
@@ -711,9 +707,9 @@ export class CollectionItemsDialog extends TailwindElement {
   }
 
   private async initSelection() {
-    this.fetchCrawls({ page: 1, pageSize: DEFAULT_PAGE_SIZE });
-    this.fetchUploads({ page: 1, pageSize: DEFAULT_PAGE_SIZE });
-    this.fetchSearchValues();
+    void this.fetchCrawls({ page: 1, pageSize: DEFAULT_PAGE_SIZE });
+    void this.fetchUploads({ page: 1, pageSize: DEFAULT_PAGE_SIZE });
+    void this.fetchSearchValues();
 
     const [crawls, uploads] = await Promise.all([
       this.getCrawls({
@@ -804,7 +800,7 @@ export class CollectionItemsDialog extends TailwindElement {
       collectionId?: string;
       firstSeed?: string;
     } & APIPaginationQuery &
-      APISortQuery = {}
+      APISortQuery = {},
   ) {
     const query = queryString.stringify(
       {
@@ -813,11 +809,11 @@ export class CollectionItemsDialog extends TailwindElement {
       },
       {
         arrayFormat: "comma",
-      }
+      },
     );
     const data = await this.api.fetch<APIPaginatedList<Crawl>>(
       `/orgs/${this.orgId}/crawls?${query}`,
-      this.authState!
+      this.authState!,
     );
 
     return data;
@@ -829,14 +825,14 @@ export class CollectionItemsDialog extends TailwindElement {
       name?: string;
       firstSeed?: string;
     } & APIPaginationQuery &
-      APISortQuery = {}
+      APISortQuery = {},
   ) {
     const query = queryString.stringify({
       ...params,
     });
     const data = await this.api.fetch<APIPaginatedList<Workflow>>(
       `/orgs/${this.orgId}/crawlconfigs?${query}`,
-      this.authState!
+      this.authState!,
     );
 
     return data;
@@ -848,7 +844,7 @@ export class CollectionItemsDialog extends TailwindElement {
       collectionId?: string;
       name?: string;
     } & APIPaginationQuery &
-      APISortQuery = {}
+      APISortQuery = {},
   ) {
     const query = queryString.stringify({
       state: "complete",
@@ -856,7 +852,7 @@ export class CollectionItemsDialog extends TailwindElement {
     });
     const data = await this.api.fetch<APIPaginatedList<Upload>>(
       `/orgs/${this.orgId}/uploads?${query}`,
-      this.authState!
+      this.authState!,
     );
 
     return data;
@@ -866,12 +862,12 @@ export class CollectionItemsDialog extends TailwindElement {
     if (searchType === "workflow") {
       return this.api.fetch<SearchValues>(
         `/orgs/${this.orgId}/crawlconfigs/search-values`,
-        this.authState!
+        this.authState!,
       );
     }
     return this.api.fetch<SearchValues>(
       `/orgs/${this.orgId}/all-crawls/search-values?crawlType=${searchType}`,
-      this.authState!
+      this.authState!,
     );
   }
 
@@ -888,7 +884,7 @@ export class CollectionItemsDialog extends TailwindElement {
           body: JSON.stringify({
             autoAddCollections: autoAddCollections,
           }),
-        }
+        },
       );
       this.notify.toast({
         message: msg(str`Updated.`),
@@ -900,7 +896,7 @@ export class CollectionItemsDialog extends TailwindElement {
       console.debug(e);
       this.notify.toast({
         message: msg(
-          "Something unexpected went wrong, couldn't save auto-add setting."
+          "Something unexpected went wrong, couldn't save auto-add setting.",
         ),
         variant: "warning",
         icon: "exclamation-circle",

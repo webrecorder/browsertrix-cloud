@@ -1,6 +1,7 @@
 """
 BaseMigration class to subclass in each migration module
 """
+
 import os
 from pymongo.errors import OperationFailure
 

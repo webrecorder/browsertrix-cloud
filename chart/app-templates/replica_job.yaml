@@ -13,7 +13,7 @@ spec:
   template:
     spec:
       restartPolicy: Never
-      priorityClassName: bg-jobs
+      priorityClassName: bg-job
       podFailurePolicy:
         rules:
         - action: FailJob

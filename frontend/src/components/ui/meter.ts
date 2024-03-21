@@ -1,15 +1,16 @@
-import type { PropertyValues } from "lit";
-import { LitElement, html, css } from "lit";
+import { css, html, LitElement, type PropertyValues } from "lit";
 import {
+  customElement,
   property,
   query,
   queryAssignedElements,
-  customElement,
 } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 import { when } from "lit/directives/when.js";
 import debounce from "lodash/fp/debounce";
+
+import type { UnderlyingFunction } from "@/types/utils";
 
 @customElement("btrix-meter-bar")
 export class MeterBar extends LitElement {
@@ -117,13 +118,13 @@ export class Meter extends LitElement {
   valueText?: string;
 
   @query(".valueBar")
-  private valueBar?: HTMLElement;
+  private readonly valueBar?: HTMLElement;
 
   @query(".labels")
-  private labels?: HTMLElement;
+  private readonly labels?: HTMLElement;
 
   @query(".maxText")
-  private maxText?: HTMLElement;
+  private readonly maxText?: HTMLElement;
 
   // postcss-lit-disable-next-line
   static styles = css`
@@ -176,7 +177,7 @@ export class Meter extends LitElement {
   `;
 
   @queryAssignedElements({ selector: "btrix-meter-bar" })
-  bars?: Array<HTMLElement>;
+  bars?: HTMLElement[];
 
   updated(changedProperties: PropertyValues<this>) {
     if (changedProperties.has("value") || changedProperties.has("max")) {
@@ -192,13 +193,20 @@ export class Meter extends LitElement {
     return html`
       <div
         class="meter"
-        role="${"meter" as any}"
+        role="${
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          "meter" as any
+        }"
         aria-valuenow=${boundedValue}
         aria-valuetext=${ifDefined(this.valueText)}
         aria-valuemin=${this.min}
         aria-valuemax=${max}
       >
-        <sl-resize-observer @sl-resize=${this.onTrackResize}>
+        <sl-resize-observer
+          @sl-resize=${this.onTrackResize as UnderlyingFunction<
+            typeof this.onTrackResize
+          >}
+        >
           <div class="track">
             <div class="valueBar" style="width:${barWidth}">
               <slot @slotchange=${this.handleSlotchange}></slot>
@@ -224,12 +232,14 @@ export class Meter extends LitElement {
     `;
   }
 
-  private onTrackResize = debounce(100)((e: CustomEvent) => {
-    const { entries } = e.detail;
-    const entry = entries[0];
-    const trackWidth = entry.contentBoxSize[0].inlineSize;
-    this.repositionLabels(trackWidth);
-  }) as any;
+  private readonly onTrackResize = debounce(100)(
+    (e: CustomEvent<{ entries: ResizeObserverEntry[] }>) => {
+      const { entries } = e.detail;
+      const entry = entries[0];
+      const trackWidth = entry.contentBoxSize[0].inlineSize;
+      this.repositionLabels(trackWidth);
+    },
+  );
 
   private repositionLabels(trackWidth?: number) {
     if (!this.valueBar || !this.maxText) return;

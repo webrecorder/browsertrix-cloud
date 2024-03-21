@@ -1,13 +1,13 @@
-Welcome to Browsertrix Cloud!
+Welcome to Browsertrix!
 ~~~
 <html>
 <body>
 <p>Hello!</p>
 
-<p>Welcome to Browsertrix Cloud!</p>
+<p>Welcome to Browsertrix!</p>
 
 {% if sender %}
-<p>You have been invited by {{ sender }} to join "{{ org_name }}" on Browsertrix Cloud!
+<p>You have been invited by {{ sender }} to join "{{ org_name }}" on Browsertrix!
 </p>
 {% endif %}
 
@@ -22,11 +22,11 @@ Welcome to Browsertrix Cloud!
 <p>When you first access your account, you’ll be directed to your Dashboard. It contains information you may want to view frequently including: Storage Usage, Crawling Info,  Collections, and Monthly Usage History. From there, you can click <i>+ Create New</i> to create your first Crawl Workflow!
 
 
-<p>For more info, check out the <b><a href="https://docs.browsertrix.cloud/user-guide/">Browsertrix Cloud User Guide</a></b></p>
+<p>For more info, check out the <b><a href="https://docs.browsertrix.cloud/user-guide/">Browsertrix User Guide</a></b></p>
 
 
 <p>
-We want you to get the most from your Browsertrix Cloud experience!
+We want you to get the most from your Browsertrix experience!
 </p>
 
 <p>Let us know if you need any questions or feedback.</p>
@@ -39,10 +39,10 @@ You can connect with our team at <a href="mailto:{{ support_email }}">{{ support
 ~~~
 Hello!
 
-Welcome to Browsertrix Cloud!
+Welcome to Browsertrix!
 
 {% if sender %}
-You have been invited by {{ sender }} to join their organization, "{{ org_name }}" on Browsertrix Cloud!
+You have been invited by {{ sender }} to join their organization, "{{ org_name }}" on Browsertrix!
 
 {% else %}
 
@@ -51,13 +51,13 @@ You can join by clicking here: {{ invite_url }}
 
 When you first access your account, you’ll be directed to your Dashboard. It contains information you may want to view frequently including: Storage Usage, Crawling Info,  Collections, and Monthly Usage History.
 
-For more info, check out Browsertrix Cloud User Guide at: https://docs.browsertrix.cloud/user-guide/
+For more info, check out Browsertrix User Guide at: https://docs.browsertrix.cloud/user-guide/
 
 
 If you ever need to reset your password, go here: {{ origin }}/log-in/forgot-password
 
 
-We want you to get the most from your Browsertrix Cloud experience. Let us know if you need any questions or feedback.
+We want you to get the most from your Browsertrix experience. Let us know if you need any questions or feedback.
 You can connect with our team at {{ support_email }}.
 
 

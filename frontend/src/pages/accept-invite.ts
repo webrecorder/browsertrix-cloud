@@ -1,9 +1,10 @@
-import { state, property, customElement } from "lit/decorators.js";
-import { msg, str, localized } from "@lit/localize";
+import { localized, msg, str } from "@lit/localize";
+import { customElement, property, state } from "lit/decorators.js";
 
-import LiteElement, { html } from "@/utils/LiteElement";
-import type { AuthState } from "@/utils/AuthService";
 import { ROUTES } from "@/routes";
+import { isApiError } from "@/utils/api";
+import type { AuthState } from "@/utils/AuthService";
+import LiteElement, { html } from "@/utils/LiteElement";
 
 type InviteInfo = {
   inviterEmail: string;
@@ -43,13 +44,13 @@ export class AcceptInvite extends LiteElement {
 
   private get isLoggedIn(): boolean {
     return Boolean(
-      this.authState && this.email && this.authState.username === this.email
+      this.authState && this.email && this.authState.username === this.email,
     );
   }
 
   firstUpdated() {
     if (this.isLoggedIn) {
-      this.getInviteInfo();
+      void this.getInviteInfo();
     } else {
       this.notify({
         message: msg("Log in to continue."),
@@ -60,8 +61,8 @@ export class AcceptInvite extends LiteElement {
 
       this.navTo(
         `/log-in?redirectUrl=${encodeURIComponent(
-          `${window.location.pathname}${window.location.search}`
-        )}`
+          `${window.location.pathname}${window.location.search}`,
+        )}`,
       );
     }
   }
@@ -81,7 +82,7 @@ export class AcceptInvite extends LiteElement {
 
     const hasInviteInfo = Boolean(this.inviteInfo.inviterEmail);
     const placeholder = html`<span
-      class="inline-block bg-gray-100 rounded-full"
+      class="inline-block rounded-full bg-gray-100"
       style="width: 6em"
       >&nbsp;</span
     >`;
@@ -91,24 +92,24 @@ export class AcceptInvite extends LiteElement {
     }
 
     return html`
-      <article class="w-full p-5 grid gap-5 justify-center text-center">
+      <article class="grid w-full justify-center gap-5 p-5 text-center">
         ${serverError}
 
-        <main class="md:bg-white md:shadow-xl md:rounded-lg md:px-12 md:py-12">
+        <main class="md:rounded-lg md:bg-white md:px-12 md:py-12 md:shadow-xl">
           <div class="mb-3 text-sm text-gray-400">
             ${msg("Invited by ")}
             ${this.inviteInfo.inviterName ||
             this.inviteInfo.inviterEmail ||
             placeholder}
           </div>
-          <p class="text-xl font-semibold mb-5">
+          <p class="mb-5 text-xl font-semibold">
             ${msg(
               html`You've been invited to join
-                <span class="text-primary break-words"
+                <span class="break-words text-primary"
                   >${hasInviteInfo
-                    ? this.inviteInfo.orgName || msg("Browsertrix Cloud")
+                    ? this.inviteInfo.orgName || msg("Browsertrix")
                     : placeholder}</span
-                >`
+                >`,
             )}
           </p>
 
@@ -129,7 +130,7 @@ export class AcceptInvite extends LiteElement {
     try {
       const data = await this.apiFetch<InviteInfo>(
         `/users/me/invite/${this.token}`,
-        this.authState
+        this.authState,
       );
 
       this.inviteInfo = {
@@ -162,8 +163,8 @@ export class AcceptInvite extends LiteElement {
       });
 
       this.navTo(ROUTES.home);
-    } catch (err: any) {
-      if (err.isApiError && err.message === "Invalid Invite Code") {
+    } catch (err) {
+      if (isApiError(err) && err.message === "Invalid Invite Code") {
         this.serverError = msg("This invitation is not valid");
       } else {
         this.serverError = msg("Something unexpected went wrong");

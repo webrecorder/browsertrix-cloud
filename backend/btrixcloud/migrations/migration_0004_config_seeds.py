@@ -1,6 +1,7 @@
 """
 Migration 0004 - Ensuring all config.seeds are Seeds not HttpUrls
 """
+
 from pydantic import HttpUrl
 
 from btrixcloud.models import Crawl, CrawlConfig, ScopeType, Seed
@@ -13,8 +14,9 @@ MIGRATION_VERSION = "0004"
 class Migration(BaseMigration):
     """Migration class."""
 
-    def __init__(self, mdb, migration_version=MIGRATION_VERSION):
-        super().__init__(mdb, migration_version)
+    # pylint: disable=unused-argument
+    def __init__(self, mdb, **kwargs):
+        super().__init__(mdb, migration_version=MIGRATION_VERSION)
 
     async def migrate_up(self):
         """Perform migration up.
@@ -100,12 +102,14 @@ class Migration(BaseMigration):
         # Test migration
         async for config_dict in crawl_configs.find({}):
             config = CrawlConfig.from_dict(config_dict)
-            for seed in config.config.seeds:
+            seeds = config.config.seeds or []
+            for seed in seeds:
                 assert isinstance(seed, Seed)
                 assert seed.url
 
         async for crawl_dict in crawls.find({}):
             crawl = Crawl.from_dict(crawl_dict)
-            for seed in crawl.config.seeds:
+            seeds = crawl.config.seeds or []
+            for seed in seeds:
                 assert isinstance(seed, Seed)
                 assert seed.url

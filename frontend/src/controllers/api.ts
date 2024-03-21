@@ -1,9 +1,8 @@
-import type { ReactiveController, ReactiveControllerHost } from "lit";
 import { msg } from "@lit/localize";
+import type { ReactiveController, ReactiveControllerHost } from "lit";
 
-import type { Auth } from "@/utils/AuthService";
-import AuthService from "@/utils/AuthService";
-import { APIError } from "@/utils/api";
+import { APIError, type Detail } from "@/utils/api";
+import AuthService, { type Auth } from "@/utils/AuthService";
 
 export type QuotaUpdateDetail = { reached: boolean };
 
@@ -40,7 +39,7 @@ export class APIController implements ReactiveController {
   async fetch<T = unknown>(
     path: string,
     auth: Auth,
-    options?: RequestInit
+    options?: RequestInit,
   ): Promise<T> {
     const { headers, ...opts } = options || {};
     const resp = await fetch("/api" + path, {
@@ -62,7 +61,7 @@ export class APIController implements ReactiveController {
             detail: { reached: storageQuotaReached },
             bubbles: true,
             composed: true,
-          })
+          }),
         );
       }
       if (typeof executionMinutesQuotaReached === "boolean") {
@@ -73,18 +72,20 @@ export class APIController implements ReactiveController {
               detail: { reached: executionMinutesQuotaReached },
               bubbles: true,
               composed: true,
-            }
-          )
+            },
+          ),
         );
       }
 
-      return body;
+      return body as T;
     }
 
     let errorDetail;
     try {
       errorDetail = (await resp.json()).detail;
-    } catch {}
+    } catch {
+      /* empty */
+    }
 
     let errorMessage: string = msg("Unknown API error");
 
@@ -101,7 +102,7 @@ export class APIController implements ReactiveController {
               detail: { reached: true },
               bubbles: true,
               composed: true,
-            })
+            }),
           );
           errorMessage = msg("Storage quota reached");
           break;
@@ -114,12 +115,13 @@ export class APIController implements ReactiveController {
                 detail: { reached: true },
                 bubbles: true,
                 composed: true,
-              }
-            )
+              },
+            ),
           );
           errorMessage = msg("Monthly execution minutes quota reached");
           break;
         }
+        break;
       }
       case 404: {
         errorMessage = msg("Not found");
@@ -144,7 +146,7 @@ export class APIController implements ReactiveController {
     throw new APIError({
       message: errorMessage,
       status: resp.status,
-      details: errorDetail,
+      details: errorDetail as Detail[],
     });
   }
 }

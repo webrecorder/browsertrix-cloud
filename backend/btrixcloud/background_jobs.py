@@ -1,4 +1,5 @@
 """k8s background jobs"""
+
 import asyncio
 from datetime import datetime
 from typing import Optional, Tuple, Union, List, Dict, TYPE_CHECKING, cast
@@ -402,11 +403,11 @@ class BackgroundJobOps:
                 profile = await self.profile_ops.get_profile(UUID(job.object_id), org)
                 return BaseFile(**profile.resource.dict())
 
-            item_res = await self.base_crawl_ops.get_crawl_raw(job.object_id, org)
-            matching_file = [
-                f for f in item_res.get("files", []) if f["filename"] == job.file_path
-            ][0]
-            return BaseFile(**matching_file)
+            item_res = await self.base_crawl_ops.get_base_crawl(job.object_id, org)
+            matching_file = [f for f in item_res.files if f.filename == job.file_path][
+                0
+            ]
+            return matching_file
         # pylint: disable=broad-exception-caught, raise-missing-from
         except Exception:
             raise HTTPException(status_code=404, detail="file_not_found")

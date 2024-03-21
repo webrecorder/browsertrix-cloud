@@ -17,8 +17,8 @@ disk_utilization_threshold: 90
 # crawler logging flags
 crawler_logging_opts: "stats,behaviors,debug"
 
-# to enable, set to a value other than 'false'
-crawler_extract_full_text: false
+# to enable, set to one or more comma separate values: to-warc,to-pages,final-to-warc
+crawler_extract_full_text: to-warc
 
 # max pages per crawl
 # set to non-zero value to enforce global max pages per crawl limit
@@ -86,7 +86,7 @@ default_org: "My Organization"
 
 # API Image
 # =========================================
-backend_image: "docker.io/webrecorder/browsertrix-backend:1.9.0-beta.2"
+backend_image: "docker.io/webrecorder/browsertrix-backend:1.10.0-beta.0"
 backend_pull_policy: "Always"
 
 backend_password_secret: "PASSWORD!"
@@ -117,7 +117,7 @@ profile_browser_idle_seconds: 60
 
 # Nginx Image
 # =========================================
-frontend_image: "docker.io/webrecorder/browsertrix-frontend:1.9.0-beta.2"
+frontend_image: "docker.io/webrecorder/browsertrix-frontend:1.10.0-beta.0"
 frontend_pull_policy: "Always"
 
 frontend_cpu: "10m"
@@ -129,6 +129,8 @@ frontend_memory: "64Mi"
 # use for deployments on localhost when not using ingress
 # if using ingress, this value is ignored
 local_service_port: 30870
+
+frontend_alias: "http://browsertrix-cloud-frontend"
 
 
 # MongoDB Image
@@ -219,6 +221,11 @@ crawler_extra_memory_per_browser: 768Mi
 # if not set, defaults to the following, but can be overridden directly:
 # crawler_memory = crawler_memory_base + crawler_memory_per_extra_browser * (crawler_browser_instances - 1)
 # crawler_memory:
+
+# optional: defaults to crawler_memory_base and crawler_cpu_base if not set
+# profile_browser_memory:
+#
+# profile_browser_cpu:
 
 # Other Crawler Settings
 # ----------------------

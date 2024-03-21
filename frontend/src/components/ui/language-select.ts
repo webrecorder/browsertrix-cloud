@@ -1,19 +1,18 @@
-import { LitElement, html, css } from "lit";
-import { property, customElement } from "lit/decorators.js";
-import { ifDefined } from "lit/directives/if-defined.js";
 import { localized, msg } from "@lit/localize";
-import sortBy from "lodash/fp/sortBy";
-import ISO6391 from "iso-639-1";
-import type { LanguageCode } from "iso-639-1";
 import type { SlSelect } from "@shoelace-style/shoelace";
+import ISO6391, { type LanguageCode } from "iso-639-1";
+import { css, html, LitElement } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { ifDefined } from "lit/directives/if-defined.js";
+import sortBy from "lodash/fp/sortBy";
 
 const languages = sortBy("name")(
-  ISO6391.getLanguages(ISO6391.getAllCodes())
-) as unknown as Array<{
+  ISO6391.getLanguages(ISO6391.getAllCodes()),
+) as unknown as {
   code: LanguageCode;
   name: string;
   nativeName: string;
-}>;
+}[];
 
 /**
  * Choose language from dropdown.
@@ -62,7 +61,7 @@ export class LanguageSelect extends LitElement {
               detail: {
                 value: (e.target as SlSelect).value,
               },
-            })
+            }),
           );
         }}
       >
@@ -72,7 +71,7 @@ export class LanguageSelect extends LitElement {
             <sl-option value=${code}>
               ${name} <span class="secondaryText">(${nativeName})</span>
             </sl-option>
-          `
+          `,
         )}
       </sl-select>
     `;

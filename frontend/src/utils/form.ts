@@ -11,7 +11,7 @@ export type MaxLengthValidator = {
 
 export function getHelpText(maxLength: number, currentLength: number) {
   const helpText = msg(
-    str`Maximum ${numberFormatter.format(maxLength)} characters`
+    str`Maximum ${numberFormatter.format(maxLength)} characters`,
   );
 
   if (currentLength > maxLength) {
@@ -44,7 +44,7 @@ export function maxLengthValidator(maxLength: number): MaxLengthValidator {
     el.setCustomValidity(
       el.value.length > maxLength
         ? msg(str`Please shorten this text to ${maxLength} or less characters.`)
-        : ""
+        : "",
     );
     el.helpText = helpText;
   };

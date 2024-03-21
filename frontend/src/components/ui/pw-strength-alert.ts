@@ -1,8 +1,8 @@
-import { LitElement, html, css } from "lit";
-import { msg, localized } from "@lit/localize";
-import { property, customElement } from "lit/decorators.js";
-import { when } from "lit/directives/when.js";
+import { localized, msg } from "@lit/localize";
 import type { Score, ZxcvbnResult } from "@zxcvbn-ts/core";
+import { css, html, LitElement } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { when } from "lit/directives/when.js";
 
 /**
  * Show results of password strength estimate
@@ -88,7 +88,11 @@ export class PasswordStrengthAlert extends LitElement {
     if (!this.result) return;
 
     const { score, feedback } = this.result;
-    let scoreProps = {
+    let scoreProps: {
+      icon: string;
+      label: string;
+      variant: "primary" | "neutral" | "danger" | "success" | "warning";
+    } = {
       icon: "exclamation-triangle",
       label: msg("Very weak password"),
       variant: "danger",
@@ -122,7 +126,7 @@ export class PasswordStrengthAlert extends LitElement {
       scoreProps.label = msg("Please choose a stronger password");
     }
     return html`
-      <sl-alert variant=${scoreProps.variant as any} open>
+      <sl-alert variant=${scoreProps.variant} open>
         <div class="score">
           <sl-icon class="icon" name=${scoreProps.icon}></sl-icon>
           <p class="label">${scoreProps.label}</p>
@@ -131,7 +135,7 @@ export class PasswordStrengthAlert extends LitElement {
         <div class="feedback">
           ${when(
             feedback.warning,
-            () => html` <p class="text">${feedback.warning}</p> `
+            () => html` <p class="text">${feedback.warning}</p> `,
           )}
           ${when(feedback.suggestions.length, () =>
             feedback.suggestions.length === 1
@@ -141,19 +145,19 @@ export class PasswordStrengthAlert extends LitElement {
               : html`<p class="text">${msg("Suggestions:")}</p>
                   <ul>
                     ${feedback.suggestions.map(
-                      (text) => html`<li>${text}</li>`
+                      (text) => html`<li>${text}</li>`,
                     )}
-                  </ul>`
+                  </ul>`,
           )}
           ${when(
             score >= this.min && score < this.optimal,
             () => html`
               <p class="text">
                 ${msg(
-                  "Tip: To generate very strong passwords, consider using a password manager."
+                  "Tip: To generate very strong passwords, consider using a password manager.",
                 )}
               </p>
-            `
+            `,
           )}
         </div>
       </sl-alert>

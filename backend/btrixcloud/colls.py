@@ -1,6 +1,7 @@
 """
 Collections API
 """
+
 from collections import Counter
 from datetime import datetime
 from uuid import UUID, uuid4
@@ -19,6 +20,7 @@ from .models import (
     CollIdName,
     UpdateColl,
     AddRemoveCrawlList,
+    BaseCrawl,
     CrawlOutWithResources,
     Organization,
     PaginatedResponse,
@@ -329,17 +331,18 @@ class CollectionOps:
         total_size = 0
         tags = []
 
-        async for crawl in self.crawls.find({"collectionIds": collection_id}):
-            if crawl["state"] not in SUCCESSFUL_STATES:
+        async for crawl_raw in self.crawls.find({"collectionIds": collection_id}):
+            crawl = BaseCrawl.from_dict(crawl_raw)
+            if crawl.state not in SUCCESSFUL_STATES:
                 continue
             crawl_count += 1
-            files = crawl.get("files", [])
+            files = crawl.files or []
             for file in files:
-                total_size += file.get("size", 0)
-            if crawl.get("stats"):
-                page_count += crawl.get("stats", {}).get("done", 0)
-            if crawl.get("tags"):
-                tags.extend(crawl.get("tags"))
+                total_size += file.size
+            if crawl.stats:
+                page_count += crawl.stats.done
+            if crawl.tags:
+                tags.extend(crawl.tags)
 
         sorted_tags = [tag for tag, count in Counter(tags).most_common()]
 

@@ -1,4 +1,4 @@
-import { LitElement, html, css } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 
@@ -55,7 +55,7 @@ export class DescListItem extends LitElement {
   `;
 
   @property({ type: String })
-  label: string = "";
+  label = "";
 
   render() {
     return html`<div class="item">

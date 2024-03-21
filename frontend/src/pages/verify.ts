@@ -1,9 +1,8 @@
-import { state, property, customElement } from "lit/decorators.js";
-import { msg, localized } from "@lit/localize";
+import { localized, msg } from "@lit/localize";
+import { customElement, property, state } from "lit/decorators.js";
 
-import type { AuthState } from "@/utils/AuthService";
+import AuthService, { type AuthState } from "@/utils/AuthService";
 import LiteElement, { html } from "@/utils/LiteElement";
-import AuthService from "@/utils/AuthService";
 
 /**
  * @fires user-info-change
@@ -22,7 +21,7 @@ export class Verify extends LiteElement {
 
   firstUpdated() {
     if (this.token) {
-      this.verify();
+      void this.verify();
     }
   }
 
@@ -44,12 +43,16 @@ export class Verify extends LiteElement {
       }),
     });
 
-    const data = await resp.json();
+    const data = (await resp.json()) as {
+      email: string;
+      is_verified: boolean;
+      detail?: string;
+    };
 
     switch (resp.status) {
       case 200:
         return this.onVerificationComplete(data);
-      case 400:
+      case 400: {
         const { detail } = data;
         if (detail === "verify_user_bad_token") {
           this.serverError = msg("This verification email is not valid.");
@@ -59,6 +62,8 @@ export class Verify extends LiteElement {
         if (detail === "verify_user_already_verified") {
           return this.onVerificationComplete(data);
         }
+        // falls through
+      }
       default:
         this.serverError = msg("Something unexpected went wrong");
         break;
@@ -89,7 +94,7 @@ export class Verify extends LiteElement {
             detail: {
               isVerified: data.is_verified,
             },
-          })
+          }),
         );
       }
 

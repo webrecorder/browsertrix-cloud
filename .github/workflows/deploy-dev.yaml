@@ -15,19 +15,44 @@ jobs:
         with:
           driver-opts: network=host
 
-      - name: Login to Regsitry
+      - name: Login to Registry
         uses: docker/login-action@v2
         with:
           registry: ${{ secrets.DO_REGISTRY }}
           username: ${{ secrets.DO_API_TOKEN }}
           password: ${{ secrets.DO_API_TOKEN }}
 
-      -
-        name: Set Env Vars
+      - name: Set Env Vars
         run: |
           echo VERSION=`cat version.txt` >> $GITHUB_ENV
           echo GIT_COMMIT_HASH=`git rev-parse --short HEAD` >> $GITHUB_ENV
           echo GIT_BRANCH_NAME=`git rev-parse --abbrev-ref HEAD` >> $GITHUB_ENV
+
+      - name: Checkout values file from ops repo
+        uses: actions/checkout@v4
+        with:
+          repository: "webrecorder/browsertrix-cloud-ops"
+          path: "browsertrix-cloud-ops"
+          ssh-key: ${{ secrets.DEPLOY_KEY_OPS_REPO }}
+          sparse-checkout: |
+            scripts/decrypt-values.py
+            values/btrix-dev-values.yml
+            poetry.lock
+            pyproject.toml
+          sparse-checkout-cone-mode: false
+
+      - name: Install poetry
+        run: pipx install poetry
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "poetry"
+
+      - name: Install vault decryption dependencies
+        working-directory: browsertrix-cloud-ops
+        run: |
+          poetry install
 
       - name: Build Backend
         uses: docker/build-push-action@v3
@@ -57,12 +82,10 @@ jobs:
       - name: Get Kubeconfig
         env:
           KUBECONFIG_DATA: ${{ secrets.KUBECONFIG_DATA }}
-          DEV_VALUES: ${{ secrets.DEV_VALUES }}
 
         run: |
           printf "$KUBECONFIG_DATA" >> ./.kubeconfig
           chmod 400 ./.kubeconfig
-          printf "$DEV_VALUES" >> ./dev-values.yaml
 
       - name: Install Kubectl
         uses: azure/setup-kubectl@v3
@@ -71,6 +94,13 @@ jobs:
         uses: azure/setup-helm@v3
         with:
           version: 3.10.2
+
+      - name: Decrypt values file
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        working-directory: browsertrix-cloud-ops
+        run: |
+          poetry run python scripts/decrypt-values.py values/btrix-dev-values.yml ../dev-values.yaml
 
       - name: Start Cluster with Helm
         run: |

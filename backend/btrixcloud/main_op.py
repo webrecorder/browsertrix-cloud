@@ -21,6 +21,7 @@ from .profiles import ProfileOps
 from .storages import init_storages_api
 from .webhooks import EventWebhookOps
 from .background_jobs import BackgroundJobOps
+from .pages import PageOps
 
 app_root = FastAPI()
 
@@ -76,16 +77,20 @@ def main():
     coll_ops = CollectionOps(mdb, crawl_manager, org_ops, event_webhook_ops)
 
     crawl_ops = CrawlOps(
+        crawl_manager,
         mdb,
         user_manager,
         org_ops,
-        crawl_manager,
         crawl_config_ops,
         coll_ops,
         storage_ops,
         event_webhook_ops,
         background_job_ops,
     )
+
+    page_ops = PageOps(mdb, crawl_ops, org_ops, storage_ops)
+
+    crawl_ops.set_page_ops(page_ops)
 
     background_job_ops.set_ops(crawl_ops, profile_ops)
 
@@ -98,6 +103,7 @@ def main():
         storage_ops,
         event_webhook_ops,
         background_job_ops,
+        page_ops,
     )
 
 
@@ -106,5 +112,5 @@ def main():
 async def startup():
     """init on startup"""
     register_exit_handler()
-    oper = main()
-    await oper.async_init()
+    settings = main()
+    await settings.async_init()

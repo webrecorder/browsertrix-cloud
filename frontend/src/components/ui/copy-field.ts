@@ -1,8 +1,9 @@
+import { localized } from "@lit/localize";
 import { css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { localized } from "@lit/localize";
-import { TailwindElement } from "@/classes/TailwindElement";
 import { classMap } from "lit/directives/class-map.js";
+
+import { TailwindElement } from "@/classes/TailwindElement";
 
 /**
  * Copy text to clipboard on click
@@ -57,20 +58,21 @@ export class CopyField extends TailwindElement {
     return html`
       <div role="group">
         <label
-          class="text-neutral-800 font-sans mb-1.5 text-xs leading-[1.4] inline-block ${classMap(
-            { hidden: !this.label && !this._slottedChildren }
-          )}"
+          class="${classMap({
+            hidden: !this.label && !this._slottedChildren,
+          })} mb-1.5 inline-block font-sans text-xs leading-[1.4] text-neutral-800"
           ><slot name="label">${this.label}</slot></label
         >
         <div
-          class="rounded border inline-flex items-stretch justify-start relative w-full ${classMap(
-            { "bg-slate-50": this.filled, "font-monostyle": this.monostyle }
-          )}"
+          class="${classMap({
+            "bg-slate-50": this.filled,
+            "font-monostyle": this.monostyle,
+          })} relative inline-flex w-full items-stretch justify-start rounded border"
         >
           <slot name="prefix"></slot>
           <span
             aria-hidden=${this.hideContentFromScreenReaders}
-            class="flex-auto px-1.5 mx-1.5 text-neutral-700 self-center select-all overflow-x-auto whitespace-nowrap"
+            class="mx-1.5 flex-auto select-all self-center overflow-x-auto whitespace-nowrap px-1.5 text-neutral-700"
           >
             ${this.value}
           </span>

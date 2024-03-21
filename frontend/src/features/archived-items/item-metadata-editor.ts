@@ -1,35 +1,36 @@
-import { state, property, customElement } from "lit/decorators.js";
-import { msg, localized } from "@lit/localize";
+import { localized, msg } from "@lit/localize";
 import { serialize } from "@shoelace-style/shoelace/dist/utilities/form.js";
 import Fuse from "fuse.js";
+import { customElement, property, state } from "lit/decorators.js";
 
 import type {
-  Tags,
   TagInputEvent,
+  Tags,
   TagsChangeEvent,
 } from "@/components/ui/tag-input";
-import type { AuthState } from "@/utils/AuthService";
-import LiteElement, { html } from "@/utils/LiteElement";
-import { maxLengthValidator } from "@/utils/form";
+import { type CollectionsChangeEvent } from "@/features/collections/collections-add";
 import type { ArchivedItem } from "@/types/crawler";
+import type { AuthState } from "@/utils/AuthService";
+import { maxLengthValidator } from "@/utils/form";
+import LiteElement, { html } from "@/utils/LiteElement";
 
 /**
  * Usage:
  * ```ts
- * <btrix-crawl-metadata-editor
+ * <btrix-item-metadata-editor
  *   .authState=${this.authState}
  *   .crawl=${this.crawl}
  *   ?open=${this.open}
  *   @request-close=${this.requestClose}
  *   @updated=${this.updated}
- * ></btrix-crawl-metadata-editor>
+ * ></btrix-item-metadata-editor>
  * ```
  *
  * @event request-close
  * @event updated
  */
 @localized()
-@customElement("btrix-crawl-metadata-editor")
+@customElement("btrix-item-metadata-editor")
 export class CrawlMetadataEditor extends LiteElement {
   @property({ type: Object })
   authState?: AuthState;
@@ -41,16 +42,13 @@ export class CrawlMetadataEditor extends LiteElement {
   open = false;
 
   @state()
-  private canEditName = false;
+  private isSubmittingUpdate = false;
 
   @state()
-  private isSubmittingUpdate: boolean = false;
+  private isDialogVisible = false;
 
   @state()
-  private isDialogVisible: boolean = false;
-
-  @state()
-  private includeName: boolean = false;
+  private includeName = false;
 
   @state()
   private tagOptions: Tags = [];
@@ -62,21 +60,21 @@ export class CrawlMetadataEditor extends LiteElement {
   private collectionsToSave: string[] = [];
 
   // For fuzzy search:
-  private fuse = new Fuse([], {
+  private readonly fuse = new Fuse<string>([], {
     shouldSort: false,
     threshold: 0.2, // stricter; default is 0.6
   });
 
-  private validateCrawlDescriptionMax = maxLengthValidator(500);
+  private readonly validateCrawlDescriptionMax = maxLengthValidator(500);
 
   willUpdate(changedProperties: Map<string, never>) {
     if (changedProperties.has("open") && this.open) {
-      this.fetchTags();
+      void this.fetchTags();
     }
     if (changedProperties.has("crawl") && this.crawl) {
       this.includeName = this.crawl.type === "upload";
-      this.tagsToSave = this.crawl.tags || [];
-      this.collectionsToSave = this.crawl.collectionIds || [];
+      this.tagsToSave = this.crawl.tags;
+      this.collectionsToSave = this.crawl.collectionIds;
     }
   }
 
@@ -113,7 +111,7 @@ export class CrawlMetadataEditor extends LiteElement {
             `
           : ``}
         <sl-textarea
-          class="mb-3 with-max-help-text"
+          class="with-max-help-text mb-3"
           name="crawlDescription"
           label=${msg("Description")}
           value=${this.crawl.description || ""}
@@ -137,7 +135,7 @@ export class CrawlMetadataEditor extends LiteElement {
             .orgId=${this.crawl.oid}
             .configId=${"temp"}
             label=${msg("Add to Collection")}
-            @collections-change=${(e: CustomEvent) =>
+            @collections-change=${(e: CollectionsChangeEvent) =>
               (this.collectionsToSave = e.detail.collections)}
           >
           </btrix-collections-add>
@@ -164,7 +162,7 @@ export class CrawlMetadataEditor extends LiteElement {
     this.dispatchEvent(new CustomEvent("request-close"));
   }
 
-  private onTagInput = (e: TagInputEvent) => {
+  private readonly onTagInput = (e: TagInputEvent) => {
     const { value } = e.detail;
     if (!value) return;
     this.tagOptions = this.fuse.search(value).map(({ item }) => item);
@@ -173,10 +171,9 @@ export class CrawlMetadataEditor extends LiteElement {
   private async fetchTags() {
     if (!this.crawl) return;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO fixme
-      const tags = await this.apiFetch<any>(
+      const tags = await this.apiFetch<string[]>(
         `/orgs/${this.crawl.oid}/crawlconfigs/tags`,
-        this.authState!
+        this.authState!,
       );
 
       // Update search/filter collection
@@ -235,7 +232,7 @@ export class CrawlMetadataEditor extends LiteElement {
         {
           method: "PATCH",
           body: JSON.stringify(params),
-        }
+        },
       );
 
       if (!data.updated) {

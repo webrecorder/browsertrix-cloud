@@ -1,63 +1,51 @@
-""" btrixjob operator (working for metacontroller) """
+""" CrawlOperator """
 
-import asyncio
 import traceback
 import os
 from pprint import pprint
-from typing import Optional, DefaultDict, TYPE_CHECKING
-
-from collections import defaultdict
+from typing import Optional, Any
+from datetime import datetime
 
 import json
-from uuid import UUID
-from fastapi import HTTPException
 
-import yaml
 import humanize
-
-from pydantic import BaseModel, Field
 
 from kubernetes.utils import parse_quantity
 from redis import asyncio as exceptions
 
-from .utils import (
-    from_k8s_date,
-    to_k8s_date,
-    dt_now,
-)
-from .k8sapi import K8sAPI
-
-from .models import (
+from btrixcloud.models import (
     NON_RUNNING_STATES,
     RUNNING_STATES,
     RUNNING_AND_STARTING_ONLY,
     RUNNING_AND_STARTING_STATES,
     SUCCESSFUL_STATES,
+    FAILED_STATES,
+    CrawlStats,
     CrawlFile,
     CrawlCompleteIn,
     StorageRef,
+    PagesAndResources,
 )
 
-if TYPE_CHECKING:
-    from .crawlconfigs import CrawlConfigOps
-    from .crawls import CrawlOps
-    from .orgs import OrgOps
-    from .colls import CollectionOps
-    from .storages import StorageOps
-    from .webhooks import EventWebhookOps
-    from .users import UserManager
-    from .background_jobs import BackgroundJobOps
-    from redis.asyncio.client import Redis
-else:
-    CrawlConfigOps = CrawlOps = OrgOps = CollectionOps = Redis = object
-    StorageOps = EventWebhookOps = UserManager = BackgroundJobOps = object
+from btrixcloud.utils import (
+    from_k8s_date,
+    to_k8s_date,
+    dt_now,
+)
 
-CMAP = "ConfigMap.v1"
-PVC = "PersistentVolumeClaim.v1"
-POD = "Pod.v1"
+from .baseoperator import BaseOperator, Redis
+from .models import (
+    CrawlSpec,
+    CrawlStatus,
+    MCBaseRequest,
+    MCSyncData,
+    POD,
+    CMAP,
+    PVC,
+    CJS,
+    BTRIX_API,
+)
 
-BTRIX_API = "btrix.cloud/v1"
-CJS = f"CrawlJob.{BTRIX_API}"
 
 METRICS_API = "metrics.k8s.io/v1beta1"
 METRICS = f"PodMetrics.{METRICS_API}"
@@ -73,309 +61,39 @@ STARTING_TIME_SECS = 60
 EXEC_TIME_UPDATE_SECS = 60
 
 
+# pylint: disable=too-many-public-methods, too-many-locals, too-many-branches, too-many-statements
+# pylint: disable=invalid-name, too-many-lines, too-many-return-statements
 # ============================================================================
-class MCBaseRequest(BaseModel):
-    """base metacontroller model, used for customize hook"""
+class CrawlOperator(BaseOperator):
+    """CrawlOperator Handler"""
 
-    parent: dict
-    controller: dict
-
-
-# ============================================================================
-class MCSyncData(MCBaseRequest):
-    """sync / finalize metacontroller model"""
-
-    children: dict
-    related: dict
-    finalizing: bool = False
-
-
-# ============================================================================
-class MCDecoratorSyncData(BaseModel):
-    """sync for decoratorcontroller model"""
-
-    object: dict
-    controller: dict
-
-    attachments: dict
-    related: dict
-    finalizing: bool = False
-
-
-# ============================================================================
-class CrawlSpec(BaseModel):
-    """spec from k8s CrawlJob object"""
-
-    id: str
-    cid: UUID
-    oid: UUID
-    scale: int = 1
-    storage: StorageRef
-    started: str
-    crawler_channel: str
-    stopping: bool = False
-    scheduled: bool = False
-    timeout: int = 0
-    max_crawl_size: int = 0
-
-
-# ============================================================================
-class PodResourcePercentage(BaseModel):
-    """Resource usage percentage ratios"""
-
-    memory: float = 0
-    cpu: float = 0
-    storage: float = 0
-
-
-# ============================================================================
-class PodResources(BaseModel):
-    """Pod Resources"""
-
-    memory: int = 0
-    cpu: float = 0
-    storage: int = 0
-
-    def __init__(self, *a, **kw):
-        if "memory" in kw:
-            kw["memory"] = int(parse_quantity(kw["memory"]))
-        if "cpu" in kw:
-            kw["cpu"] = float(parse_quantity(kw["cpu"]))
-        if "storage" in kw:
-            kw["storage"] = int(parse_quantity(kw["storage"]))
-        super().__init__(*a, **kw)
-
-
-# ============================================================================
-class PodInfo(BaseModel):
-    """Aggregate pod status info held in CrawlJob"""
-
-    exitTime: Optional[str] = None
-    exitCode: Optional[int] = None
-    isNewExit: Optional[bool] = Field(default=None, exclude=True)
-    reason: Optional[str] = None
-
-    allocated: PodResources = PodResources()
-    used: PodResources = PodResources()
-
-    newCpu: Optional[int] = None
-    newMemory: Optional[int] = None
-
-    def dict(self, *a, **kw):
-        res = super().dict(*a, **kw)
-        percent = {
-            "memory": self.get_percent_memory(),
-            "cpu": self.get_percent_cpu(),
-            "storage": self.get_percent_storage(),
-        }
-        res["percent"] = percent
-        return res
-
-    def get_percent_memory(self) -> float:
-        """compute percent memory used"""
-        return (
-            float(self.used.memory) / float(self.allocated.memory)
-            if self.allocated.memory
-            else 0
-        )
-
-    def get_percent_cpu(self) -> float:
-        """compute percent cpu used"""
-        return (
-            float(self.used.cpu) / float(self.allocated.cpu)
-            if self.allocated.cpu
-            else 0
-        )
-
-    def get_percent_storage(self) -> float:
-        """compute percent storage used"""
-        return (
-            float(self.used.storage) / float(self.allocated.storage)
-            if self.allocated.storage
-            else 0
-        )
-
-    def should_restart_pod(self):
-        """return true if pod should be restarted"""
-        if self.newMemory and self.newMemory != self.allocated.memory:
-            return True
-
-        if self.newCpu and self.newCpu != self.allocated.cpu:
-            return True
-
-        return False
-
-
-# ============================================================================
-class CrawlStatus(BaseModel):
-    """status from k8s CrawlJob object"""
-
-    state: str = "starting"
-    pagesFound: int = 0
-    pagesDone: int = 0
-    size: int = 0
-    # human readable size string
-    sizeHuman: str = ""
-    scale: int = 1
-    filesAdded: int = 0
-    filesAddedSize: int = 0
-    finished: Optional[str] = None
-    stopping: bool = False
-    stopReason: Optional[str] = None
-    initRedis: bool = False
-    crawlerImage: Optional[str] = None
-    lastActiveTime: str = ""
-    podStatus: Optional[DefaultDict[str, PodInfo]] = defaultdict(
-        lambda: PodInfo()  # pylint: disable=unnecessary-lambda
-    )
-    # placeholder for pydantic 2.0 -- will require this version
-    # podStatus: Optional[
-    #    DefaultDict[str, Annotated[PodInfo, Field(default_factory=PodInfo)]]
-    # ]
-    restartTime: Optional[str]
-    canceled: bool = False
-
-    # updated on pod exits and at regular interval
-    # Crawl Execution Time -- time all crawler pods have been running
-    # used to track resource usage and enforce execution minutes limit
-    crawlExecTime: int = 0
-
-    # Elapsed Exec Time -- time crawl has been running in at least one pod
-    # used for crawl timeouts
-    elapsedCrawlTime: int = 0
-
-    # last exec time update
-    lastUpdatedTime: str = ""
-
-    # any pods exited
-    anyCrawlPodNewExit: Optional[bool] = Field(default=False, exclude=True)
-
-    # don't include in status, use by metacontroller
-    resync_after: Optional[int] = Field(default=None, exclude=True)
-
-
-# ============================================================================
-# pylint: disable=too-many-statements, too-many-public-methods, too-many-branches, too-many-nested-blocks
-# pylint: disable=too-many-instance-attributes, too-many-locals, too-many-lines, too-many-arguments
-class BtrixOperator(K8sAPI):
-    """BtrixOperator Handler"""
-
-    crawl_config_ops: CrawlConfigOps
-    crawl_ops: CrawlOps
-    orgs_ops: OrgOps
-    coll_ops: CollectionOps
-    storage_ops: StorageOps
-    event_webhook_ops: EventWebhookOps
-    background_job_ops: BackgroundJobOps
-    user_ops: UserManager
-
-    def __init__(
-        self,
-        crawl_config_ops,
-        crawl_ops,
-        org_ops,
-        coll_ops,
-        storage_ops,
-        event_webhook_ops,
-        background_job_ops,
-    ):
-        super().__init__()
-
-        self.crawl_config_ops = crawl_config_ops
-        self.crawl_ops = crawl_ops
-        self.org_ops = org_ops
-        self.coll_ops = coll_ops
-        self.storage_ops = storage_ops
-        self.background_job_ops = background_job_ops
-        self.event_webhook_ops = event_webhook_ops
-
-        self.user_ops = crawl_config_ops.user_manager
-
-        self.config_file = "/config/config.yaml"
+    def __init__(self, *args):
+        super().__init__(*args)
 
         self.done_key = "crawls-done"
+        self.pages_key = "pages"
+        self.errors_key = "e"
 
         self.fast_retry_secs = int(os.environ.get("FAST_RETRY_SECS") or 0)
 
         self.log_failed_crawl_lines = int(os.environ.get("LOG_FAILED_CRAWL_LINES") or 0)
 
-        with open(self.config_file, encoding="utf-8") as fh_config:
-            self.shared_params = yaml.safe_load(fh_config)
+    def init_routes(self, app):
+        """init routes for this operator"""
 
-        self._has_pod_metrics = False
-        self.compute_crawler_resources()
+        @app.post("/op/crawls/sync")
+        async def mc_sync_crawls(data: MCSyncData):
+            return await self.sync_crawls(data)
 
-        # to avoid background tasks being garbage collected
-        # see: https://stackoverflow.com/a/74059981
-        self.bg_tasks = set()
+        # reuse sync path, but distinct endpoint for better logging
+        @app.post("/op/crawls/finalize")
+        async def mc_sync_finalize(data: MCSyncData):
+            return await self.sync_crawls(data)
 
-    def compute_crawler_resources(self):
-        """compute memory / cpu resources for crawlers"""
-        # pylint: disable=invalid-name
-        p = self.shared_params
-        num = max(int(p["crawler_browser_instances"]) - 1, 0)
-        if not p.get("crawler_cpu"):
-            base = parse_quantity(p["crawler_cpu_base"])
-            extra = parse_quantity(p["crawler_extra_cpu_per_browser"])
+        @app.post("/op/crawls/customize")
+        async def mc_related(data: MCBaseRequest):
+            return self.get_related(data)
 
-            # cpu is a floating value of cpu cores
-            p["crawler_cpu"] = float(base + num * extra)
-
-            print(f"cpu = {base} + {num} * {extra} = {p['crawler_cpu']}")
-        else:
-            print(f"cpu = {p['crawler_cpu']}")
-
-        if not p.get("crawler_memory"):
-            base = parse_quantity(p["crawler_memory_base"])
-            extra = parse_quantity(p["crawler_extra_memory_per_browser"])
-
-            # memory is always an int
-            p["crawler_memory"] = int(base + num * extra)
-
-            print(f"memory = {base} + {num} * {extra} = {p['crawler_memory']}")
-        else:
-            print(f"memory = {p['crawler_memory']}")
-
-    async def async_init(self):
-        """perform any async init here"""
-        self._has_pod_metrics = await self.is_pod_metrics_available()
-        print("Pod Metrics Available:", self._has_pod_metrics)
-
-    async def sync_profile_browsers(self, data: MCSyncData):
-        """sync profile browsers"""
-        spec = data.parent.get("spec", {})
-
-        expire_time = from_k8s_date(spec.get("expireTime"))
-        browserid = spec.get("id")
-
-        if dt_now() >= expire_time:
-            self.run_task(self.delete_profile_browser(browserid))
-            return {"status": {}, "children": []}
-
-        params = {}
-        params.update(self.shared_params)
-        params["id"] = browserid
-        params["userid"] = spec.get("userid", "")
-
-        oid = spec.get("oid")
-        storage = StorageRef(spec.get("storageName"))
-
-        storage_path = storage.get_storage_extra_path(oid)
-        storage_secret = storage.get_storage_secret_name(oid)
-
-        params["storage_path"] = storage_path
-        params["storage_secret"] = storage_secret
-        params["profile_filename"] = spec.get("profileFilename", "")
-        params["crawler_image"] = spec["crawlerImage"]
-
-        params["url"] = spec.get("startUrl", "about:blank")
-        params["vnc_password"] = spec.get("vncPassword")
-
-        children = self.load_from_yaml("profilebrowser.yaml", params)
-
-        return {"status": {}, "children": children}
-
-    # pylint: disable=too-many-return-statements, invalid-name
     async def sync_crawls(self, data: MCSyncData):
         """sync crawls"""
 
@@ -386,61 +104,15 @@ class BtrixOperator(K8sAPI):
         cid = spec["cid"]
         oid = spec["oid"]
 
-        redis_url = self.get_redis_url(crawl_id)
+        redis_url = self.k8s.get_redis_url(crawl_id)
 
         params = {}
-        params.update(self.shared_params)
+        params.update(self.k8s.shared_params)
         params["id"] = crawl_id
         params["cid"] = cid
         params["userid"] = spec.get("userid", "")
 
         pods = data.children[POD]
-
-        # if finalizing, crawl is being deleted
-        if data.finalizing:
-            if not status.finished:
-                # if can't cancel, already finished
-                if not await self.cancel_crawl(
-                    crawl_id, UUID(cid), UUID(oid), status, data.children[POD]
-                ):
-                    # instead of fetching the state (that was already set)
-                    # return exception to ignore this request, keep previous
-                    # finished state
-                    raise HTTPException(status_code=400, detail="out_of_sync_status")
-
-            return await self.finalize_response(
-                crawl_id,
-                UUID(oid),
-                status,
-                spec,
-                data.children,
-                params,
-            )
-
-        # just in case, finished but not deleted, can only get here if
-        # do_crawl_finished_tasks() doesn't reach the end or taking too long
-        if status.finished:
-            print(
-                f"warn crawl {crawl_id} finished but not deleted, post-finish taking too long?"
-            )
-            self.run_task(self.delete_crawl_job(crawl_id))
-            return await self.finalize_response(
-                crawl_id,
-                UUID(oid),
-                status,
-                spec,
-                data.children,
-                params,
-            )
-
-        try:
-            configmap = data.related[CMAP][f"crawl-config-{cid}"]["data"]
-        # pylint: disable=bare-except, broad-except
-        except:
-            # fail crawl if config somehow missing, shouldn't generally happen
-            await self.fail_crawl(crawl_id, UUID(cid), UUID(oid), status, pods)
-
-            return self._empty_response(status)
 
         crawl = CrawlSpec(
             id=crawl_id,
@@ -454,12 +126,55 @@ class BtrixOperator(K8sAPI):
             timeout=spec.get("timeout") or 0,
             max_crawl_size=int(spec.get("maxCrawlSize") or 0),
             scheduled=spec.get("manual") != "1",
+            qa_source_crawl_id=spec.get("qaSourceCrawlId"),
         )
+
+        # if finalizing, crawl is being deleted
+        if data.finalizing:
+            if not status.finished:
+                # if can't cancel, already finished
+                await self.cancel_crawl(crawl, status, data.children[POD])
+                # instead of fetching the state (that was already set)
+                # return exception to ignore this request, keep previous
+                # finished state
+                # raise HTTPException(status_code=400, detail="out_of_sync_status")
+
+            return await self.finalize_response(
+                crawl,
+                status,
+                spec,
+                data.children,
+                params,
+            )
+
+        # just in case, finished but not deleted, can only get here if
+        # do_crawl_finished_tasks() doesn't reach the end or taking too long
+        if status.finished:
+            print(
+                f"warn crawl {crawl_id} finished but not deleted, post-finish taking too long?"
+            )
+            self.run_task(self.k8s.delete_crawl_job(crawl.id))
+            return await self.finalize_response(
+                crawl,
+                status,
+                spec,
+                data.children,
+                params,
+            )
+
+        try:
+            configmap = data.related[CMAP][f"crawl-config-{cid}"]["data"]
+        # pylint: disable=bare-except, broad-except
+        except:
+            # fail crawl if config somehow missing, shouldn't generally happen
+            await self.fail_crawl(crawl, status, pods)
+
+            return self._empty_response(status)
 
         # shouldn't get here, crawl should already be finalizing when canceled
         # just in case, handle canceled-but-not-finalizing here
         if status.state == "canceled":
-            await self.delete_crawl_job(crawl.id)
+            await self.k8s.delete_crawl_job(crawl.id)
             return {"status": status.dict(exclude_none=True), "children": []}
 
         # first, check storage quota, and fail immediately if quota reached
@@ -471,9 +186,7 @@ class BtrixOperator(K8sAPI):
                 and not data.children[PVC]
                 and await self.org_ops.storage_quota_reached(crawl.oid)
             ):
-                await self.mark_finished(
-                    crawl.id, crawl.cid, crawl.oid, status, "skipped_quota_reached"
-                )
+                await self.mark_finished(crawl, status, "skipped_quota_reached")
                 return self._empty_response(status)
 
         if status.state in ("starting", "waiting_org_limit"):
@@ -481,7 +194,7 @@ class BtrixOperator(K8sAPI):
                 return self._empty_response(status)
 
             await self.set_state(
-                "starting", status, crawl.id, allowed_from=["waiting_org_limit"]
+                "starting", status, crawl, allowed_from=["waiting_org_limit"]
             )
 
         if len(pods):
@@ -501,8 +214,7 @@ class BtrixOperator(K8sAPI):
 
             if status.finished:
                 return await self.finalize_response(
-                    crawl_id,
-                    UUID(oid),
+                    crawl,
                     status,
                     spec,
                     data.children,
@@ -510,21 +222,29 @@ class BtrixOperator(K8sAPI):
                 )
 
             await self.increment_pod_exec_time(
-                pods, status, crawl.id, crawl.oid, EXEC_TIME_UPDATE_SECS
+                pods, crawl, status, EXEC_TIME_UPDATE_SECS
             )
 
         else:
             status.scale = crawl.scale
-            status.lastUpdatedTime = to_k8s_date(dt_now())
+            now = dt_now()
+            await self.crawl_ops.inc_crawl_exec_time(
+                crawl.db_crawl_id, crawl.is_qa, 0, now
+            )
+            status.lastUpdatedTime = to_k8s_date(now)
 
         children = self._load_redis(params, status, data.children)
 
         storage_path = crawl.storage.get_storage_extra_path(oid)
         storage_secret = crawl.storage.get_storage_secret_name(oid)
 
+        if not crawl.is_qa:
+            params["profile_filename"] = configmap["PROFILE_FILENAME"]
+        else:
+            storage_path += "qa/"
+
         params["storage_path"] = storage_path
         params["storage_secret"] = storage_secret
-        params["profile_filename"] = configmap["PROFILE_FILENAME"]
 
         # only resolve if not already set
         # not automatically updating image for existing crawls
@@ -538,6 +258,8 @@ class BtrixOperator(K8sAPI):
         params["storage_filename"] = configmap["STORE_FILENAME"]
         params["restart_time"] = spec.get("restartTime")
 
+        params["warc_prefix"] = spec.get("warcPrefix")
+
         params["redis_url"] = redis_url
 
         if spec.get("restartTime") != status.restartTime:
@@ -547,6 +269,10 @@ class BtrixOperator(K8sAPI):
             params["force_restart"] = True
         else:
             params["force_restart"] = False
+
+        if crawl.qa_source_crawl_id:
+            params["qa_source_crawl_id"] = crawl.qa_source_crawl_id
+            children.extend(await self._load_qa_configmap(params, data.children))
 
         for i in range(0, status.scale):
             children.extend(self._load_crawler(params, i, status, data.children))
@@ -573,6 +299,25 @@ class BtrixOperator(K8sAPI):
 
         return self.load_from_yaml("redis.yaml", params)
 
+    async def _load_qa_configmap(self, params, children):
+        qa_source_crawl_id = params["qa_source_crawl_id"]
+        name = f"qa-replay-{qa_source_crawl_id}"
+
+        if name in children[CMAP]:
+            return [children[CMAP][name]]
+
+        pages, _ = await self.page_ops.list_pages(qa_source_crawl_id, page_size=1000)
+
+        crawl_replay = await self.crawl_ops.get_internal_crawl_out(qa_source_crawl_id)
+
+        res_and_pages = PagesAndResources(resources=crawl_replay.resources, pages=pages)
+
+        params["name"] = name
+        params["qa_source_replay_json"] = res_and_pages.json()
+        # params["qa_source_replay_json"] = crawl_replay.json(include={"resources"})
+
+        return self.load_from_yaml("qa_configmap.yaml", params)
+
     def _load_crawler(self, params, i, status, children):
         name = f"crawl-{params['id']}-{i}"
         has_pod = name in children[POD]
@@ -587,7 +332,10 @@ class BtrixOperator(K8sAPI):
         if params.get("do_restart"):
             print(f"Restart {name}")
 
-        params["priorityClassName"] = f"crawl-instance-{i}"
+        if params.get("qa_source_crawl_id"):
+            params["priorityClassName"] = f"qa-crawl-instance-{i}"
+        else:
+            params["priorityClassName"] = f"crawl-instance-{i}"
 
         return self.load_from_yaml("crawler.yaml", params)
 
@@ -661,7 +409,15 @@ class BtrixOperator(K8sAPI):
             src = pvc["spec"]["resources"]["requests"]
             resources.storage = int(parse_quantity(src.get("storage")))
 
-    async def set_state(self, state, status, crawl_id, allowed_from, **kwargs):
+    async def set_state(
+        self,
+        state: str,
+        status: CrawlStatus,
+        crawl: CrawlSpec,
+        allowed_from: list[str],
+        finished: Optional[datetime] = None,
+        stats: Optional[CrawlStats] = None,
+    ):
         """set status state and update db, if changed
         if allowed_from passed in, can only transition from allowed_from state,
         otherwise get current state from db and return
@@ -688,15 +444,22 @@ class BtrixOperator(K8sAPI):
         """
         if not allowed_from or status.state in allowed_from:
             res = await self.crawl_ops.update_crawl_state_if_allowed(
-                crawl_id, state=state, allowed_from=allowed_from, **kwargs
+                crawl.db_crawl_id,
+                crawl.is_qa,
+                state=state,
+                allowed_from=allowed_from,
+                finished=finished,
+                stats=stats,
             )
             if res:
-                print(f"Setting state: {status.state} -> {state}, {crawl_id}")
+                print(f"Setting state: {status.state} -> {state}, {crawl.id}")
                 status.state = state
                 return True
 
             # get actual crawl state
-            actual_state, finished = await self.crawl_ops.get_crawl_state(crawl_id)
+            actual_state, finished = await self.crawl_ops.get_crawl_state(
+                crawl.db_crawl_id, crawl.is_qa
+            )
             if actual_state:
                 status.state = actual_state
             if finished:
@@ -709,15 +472,9 @@ class BtrixOperator(K8sAPI):
 
         if status.state != state:
             print(
-                f"Not setting state: {status.state} -> {state}, {crawl_id} not allowed"
+                f"Not setting state: {status.state} -> {state}, {crawl.id} not allowed"
             )
         return False
-
-    def load_from_yaml(self, filename, params):
-        """load and parse k8s template from yaml file"""
-        return list(
-            yaml.safe_load_all(self.templates.env.get_template(filename).render(params))
-        )
 
     def get_related(self, data: MCBaseRequest):
         """return objects related to crawl pods"""
@@ -738,7 +495,7 @@ class BtrixOperator(K8sAPI):
             },
         ]
 
-        if self._has_pod_metrics:
+        if self.k8s.has_pod_metrics:
             related_resources.append(
                 {
                     "apiVersion": METRICS_API,
@@ -782,23 +539,21 @@ class BtrixOperator(K8sAPI):
             i += 1
 
         await self.set_state(
-            "waiting_org_limit", status, crawl.id, allowed_from=["starting"]
+            "waiting_org_limit", status, crawl, allowed_from=["starting"]
         )
         return False
 
     async def cancel_crawl(
         self,
-        crawl_id: str,
-        cid: UUID,
-        oid: UUID,
+        crawl: CrawlSpec,
         status: CrawlStatus,
         pods: dict,
     ) -> bool:
         """Mark crawl as canceled"""
-        if not await self.mark_finished(crawl_id, cid, oid, status, "canceled"):
+        if not await self.mark_finished(crawl, status, "canceled"):
             return False
 
-        await self.mark_for_cancelation(crawl_id)
+        await self.mark_for_cancelation(crawl.id)
 
         if not status.canceled:
             for name, pod in pods.items():
@@ -823,19 +578,15 @@ class BtrixOperator(K8sAPI):
 
     async def fail_crawl(
         self,
-        crawl_id: str,
-        cid: UUID,
-        oid: UUID,
+        crawl: CrawlSpec,
         status: CrawlStatus,
         pods: dict,
-        stats=None,
+        stats: Optional[CrawlStats] = None,
     ) -> bool:
         """Mark crawl as failed, log crawl state and print crawl logs, if possible"""
         prev_state = status.state
 
-        if not await self.mark_finished(
-            crawl_id, cid, oid, status, "failed", stats=stats
-        ):
+        if not await self.mark_finished(crawl, status, "failed", stats=stats):
             return False
 
         if not self.log_failed_crawl_lines or prev_state == "failed":
@@ -847,7 +598,7 @@ class BtrixOperator(K8sAPI):
             print(f"============== POD STATUS: {name} ==============")
             pprint(pods[name]["status"])
 
-        self.run_task(self.print_pod_logs(pod_names, self.log_failed_crawl_lines))
+        self.run_task(self.k8s.print_pod_logs(pod_names, self.log_failed_crawl_lines))
 
         return True
 
@@ -860,8 +611,7 @@ class BtrixOperator(K8sAPI):
 
     async def finalize_response(
         self,
-        crawl_id: str,
-        oid: UUID,
+        crawl: CrawlSpec,
         status: CrawlStatus,
         spec: dict,
         children: dict,
@@ -869,7 +619,7 @@ class BtrixOperator(K8sAPI):
     ):
         """ensure crawl id ready for deletion"""
 
-        redis_pod = f"redis-{crawl_id}"
+        redis_pod = f"redis-{crawl.id}"
         new_children = []
 
         finalized = False
@@ -880,7 +630,7 @@ class BtrixOperator(K8sAPI):
             # if has other pods, keep redis pod until they are removed
             if len(pods) > 1:
                 new_children = self._load_redis(params, status, children)
-                await self.increment_pod_exec_time(pods, status, crawl_id, oid)
+                await self.increment_pod_exec_time(pods, crawl, status)
 
         # keep pvs until pods are removed
         if new_children:
@@ -891,11 +641,14 @@ class BtrixOperator(K8sAPI):
             if status.finished:
                 ttl = spec.get("ttlSecondsAfterFinished", DEFAULT_TTL)
                 finished = from_k8s_date(status.finished)
-                if (dt_now() - finished).total_seconds() > ttl > 0:
-                    print("CrawlJob expired, deleting: " + crawl_id)
+                if (dt_now() - finished).total_seconds() > ttl >= 0:
+                    print("CrawlJob expired, deleting: " + crawl.id)
                     finalized = True
             else:
                 finalized = True
+
+        if finalized and crawl.is_qa:
+            await self.crawl_ops.qa_run_finished(crawl.db_crawl_id)
 
         return {
             "status": status.dict(exclude_none=True),
@@ -907,7 +660,7 @@ class BtrixOperator(K8sAPI):
         """init redis, ensure connectivity"""
         redis = None
         try:
-            redis = await self.get_redis_client(redis_url)
+            redis = await self.k8s.get_redis_client(redis_url)
             # test connection
             await redis.ping()
             return redis
@@ -942,34 +695,36 @@ class BtrixOperator(K8sAPI):
             if status.anyCrawlPodNewExit:
                 await self.log_crashes(crawl.id, status.podStatus, redis)
 
-            if not crawler_running:
+            if not crawler_running or not redis:
+                # if either crawler is not running or redis is inaccessible
                 if self.should_mark_waiting(status.state, crawl.started):
+                    # mark as waiting (if already running)
                     await self.set_state(
                         "waiting_capacity",
                         status,
-                        crawl.id,
+                        crawl,
                         allowed_from=RUNNING_AND_STARTING_ONLY,
                     )
 
-                # for now, don't reset redis once inited
-                if status.lastActiveTime and (
-                    (dt_now() - from_k8s_date(status.lastActiveTime)).total_seconds()
-                    > REDIS_TTL
-                ):
-                    print(
-                        f"Pausing redis, no running crawler pods for >{REDIS_TTL} secs"
-                    )
-                    status.initRedis = False
+                if not crawler_running and redis:
+                    # if crawler running, but no redis, stop redis instance until crawler
+                    # is running
+                    if status.lastActiveTime and (
+                        (
+                            dt_now() - from_k8s_date(status.lastActiveTime)
+                        ).total_seconds()
+                        > REDIS_TTL
+                    ):
+                        print(
+                            f"Pausing redis, no running crawler pods for >{REDIS_TTL} secs"
+                        )
+                        status.initRedis = False
+                elif crawler_running and not redis:
+                    # if crawler is running, but no redis, init redis
+                    status.initRedis = True
+                    status.lastActiveTime = to_k8s_date(dt_now())
 
-                # if still running, resync after N seconds
-                status.resync_after = self.fast_retry_secs
-                return status
-
-            status.initRedis = True
-            status.lastActiveTime = to_k8s_date(dt_now())
-
-            if not redis:
-                # if still running, resync after N seconds
+                # if no crawler / no redis, resync after N seconds
                 status.resync_after = self.fast_retry_secs
                 return status
 
@@ -979,7 +734,7 @@ class BtrixOperator(K8sAPI):
                 if await self.set_state(
                     "running",
                     status,
-                    crawl.id,
+                    crawl,
                     allowed_from=["starting", "waiting_capacity"],
                 ):
                     self.run_task(
@@ -989,7 +744,6 @@ class BtrixOperator(K8sAPI):
                     )
 
             file_done = await redis.lpop(self.done_key)
-
             while file_done:
                 msg = json.loads(file_done)
                 # add completed file
@@ -999,6 +753,25 @@ class BtrixOperator(K8sAPI):
 
                 # get next file done
                 file_done = await redis.lpop(self.done_key)
+
+            page_crawled = await redis.lpop(f"{crawl.id}:{self.pages_key}")
+            qa_run_id = crawl.id if crawl.is_qa else None
+
+            while page_crawled:
+                print("PAGE DATA", flush=True)
+                print(page_crawled, flush=True)
+                page_dict = json.loads(page_crawled)
+                await self.page_ops.add_page_to_db(
+                    page_dict, crawl.db_crawl_id, qa_run_id, crawl.oid
+                )
+                page_crawled = await redis.lpop(f"{crawl.id}:{self.pages_key}")
+
+            crawl_error = await redis.lpop(f"{crawl.id}:{self.errors_key}")
+            while crawl_error:
+                await self.crawl_ops.add_crawl_error(
+                    crawl.db_crawl_id, crawl.is_qa, crawl_error
+                )
+                crawl_error = await redis.lpop(f"{crawl.id}:{self.errors_key}")
 
             # ensure filesAdded and filesAddedSize always set
             status.filesAdded = int(await redis.get("filesAdded") or 0)
@@ -1095,19 +868,23 @@ class BtrixOperator(K8sAPI):
     async def increment_pod_exec_time(
         self,
         pods: dict[str, dict],
+        crawl: CrawlSpec,
         status: CrawlStatus,
-        crawl_id: str,
-        oid: UUID,
         min_duration=0,
     ) -> None:
         """inc exec time tracking"""
         now = dt_now()
 
-        if not status.lastUpdatedTime:
+        update_start_time = await self.crawl_ops.get_crawl_exec_last_update_time(
+            crawl.db_crawl_id
+        )
+
+        if not update_start_time:
+            await self.crawl_ops.inc_crawl_exec_time(
+                crawl.db_crawl_id, crawl.is_qa, 0, now
+            )
             status.lastUpdatedTime = to_k8s_date(now)
             return
-
-        update_start_time = from_k8s_date(status.lastUpdatedTime)
 
         reason = None
         update_duration = (now - update_start_time).total_seconds()
@@ -1182,8 +959,9 @@ class BtrixOperator(K8sAPI):
                 max_duration = max(duration, max_duration)
 
         if exec_time:
-            await self.crawl_ops.inc_crawl_exec_time(crawl_id, exec_time)
-            await self.org_ops.inc_org_time_stats(oid, exec_time, True)
+            await self.org_ops.inc_org_time_stats(
+                crawl.oid, exec_time, True, crawl.is_qa
+            )
             status.crawlExecTime += exec_time
             status.elapsedCrawlTime += max_duration
 
@@ -1192,6 +970,9 @@ class BtrixOperator(K8sAPI):
             flush=True,
         )
 
+        await self.crawl_ops.inc_crawl_exec_time(
+            crawl.db_crawl_id, crawl.is_qa, exec_time, now
+        )
         status.lastUpdatedTime = to_k8s_date(now)
 
     def should_mark_waiting(self, state, started):
@@ -1216,7 +997,7 @@ class BtrixOperator(K8sAPI):
             pod_info.used.storage = storage
 
             # if no pod metrics, get memory estimate from redis itself
-            if not self._has_pod_metrics:
+            if not self.k8s.has_pod_metrics:
                 stats = await redis.info("memory")
                 pod_info.used.memory = int(stats.get("used_memory_rss", 0))
 
@@ -1292,7 +1073,13 @@ class BtrixOperator(K8sAPI):
 
         await redis.incr("filesAddedSize", filecomplete.size)
 
-        await self.crawl_ops.add_crawl_file(crawl.id, crawl_file, filecomplete.size)
+        await self.crawl_ops.add_crawl_file(
+            crawl.db_crawl_id, crawl.is_qa, crawl_file, filecomplete.size
+        )
+
+        # no replicas for QA for now
+        if crawl.is_qa:
+            return True
 
         try:
             await self.background_job_ops.create_replica_jobs(
@@ -1336,7 +1123,9 @@ class BtrixOperator(K8sAPI):
 
         return None
 
-    async def get_redis_crawl_stats(self, redis: Redis, crawl_id: str):
+    async def get_redis_crawl_stats(
+        self, redis: Redis, crawl_id: str
+    ) -> tuple[CrawlStats, dict[str, Any]]:
         """get page stats"""
         try:
             # crawler >0.9.0, done key is a value
@@ -1349,7 +1138,7 @@ class BtrixOperator(K8sAPI):
         sizes = await redis.hgetall(f"{crawl_id}:size")
         archive_size = sum(int(x) for x in sizes.values())
 
-        stats = {"found": pages_found, "done": pages_done, "size": archive_size}
+        stats = CrawlStats(found=pages_found, done=pages_done, size=archive_size)
         return stats, sizes
 
     async def update_crawl_state(
@@ -1365,15 +1154,17 @@ class BtrixOperator(K8sAPI):
         stats, sizes = await self.get_redis_crawl_stats(redis, crawl.id)
 
         # need to add size of previously completed WACZ files as well!
-        stats["size"] += status.filesAddedSize
+        stats.size += status.filesAddedSize
 
         # update status
-        status.pagesDone = stats["done"]
-        status.pagesFound = stats["found"]
-        status.size = stats["size"]
+        status.pagesDone = stats.done
+        status.pagesFound = stats.found
+        status.size = stats.size
         status.sizeHuman = humanize.naturalsize(status.size)
 
-        await self.crawl_ops.update_running_crawl_stats(crawl.id, stats)
+        await self.crawl_ops.update_running_crawl_stats(
+            crawl.db_crawl_id, crawl.is_qa, stats
+        )
 
         for key, value in sizes.items():
             value = int(value)
@@ -1409,9 +1200,7 @@ class BtrixOperator(K8sAPI):
             # check if one-page crawls actually succeeded
             # if only one page found, and no files, assume failed
             if status.pagesFound == 1 and not status.filesAdded:
-                await self.fail_crawl(
-                    crawl.id, crawl.cid, crawl.oid, status, pods, stats
-                )
+                await self.fail_crawl(crawl, status, pods, stats)
                 return status
 
             if status.stopReason in ("stopped_by_user", "stopped_quota_reached"):
@@ -1419,21 +1208,15 @@ class BtrixOperator(K8sAPI):
             else:
                 state = "complete"
 
-            await self.mark_finished(
-                crawl.id, crawl.cid, crawl.oid, status, state, crawl, stats
-            )
+            await self.mark_finished(crawl, status, state, stats)
 
         # check if all crawlers failed
         elif status_count.get("failed", 0) >= crawl.scale:
             # if stopping, and no pages finished, mark as canceled
             if status.stopping and not status.pagesDone:
-                await self.mark_finished(
-                    crawl.id, crawl.cid, crawl.oid, status, "canceled", crawl, stats
-                )
+                await self.mark_finished(crawl, status, "canceled", stats)
             else:
-                await self.fail_crawl(
-                    crawl.id, crawl.cid, crawl.oid, status, pods, stats
-                )
+                await self.fail_crawl(crawl, status, pods, stats)
 
         # check for other statuses
         else:
@@ -1450,7 +1233,7 @@ class BtrixOperator(K8sAPI):
                 new_status = "pending-wait"
             if new_status:
                 await self.set_state(
-                    new_status, status, crawl.id, allowed_from=RUNNING_STATES
+                    new_status, status, crawl, allowed_from=RUNNING_STATES
                 )
 
         return status
@@ -1458,21 +1241,14 @@ class BtrixOperator(K8sAPI):
     # pylint: disable=too-many-arguments
     async def mark_finished(
         self,
-        crawl_id: str,
-        cid: UUID,
-        oid: UUID,
+        crawl: CrawlSpec,
         status: CrawlStatus,
         state: str,
-        crawl=None,
-        stats=None,
+        stats: Optional[CrawlStats] = None,
     ) -> bool:
         """mark crawl as finished, set finished timestamp and final state"""
 
         finished = dt_now()
-
-        kwargs = {"finished": finished}
-        if stats:
-            kwargs["stats"] = stats
 
         if state in SUCCESSFUL_STATES:
             allowed_from = RUNNING_STATES
@@ -1481,7 +1257,12 @@ class BtrixOperator(K8sAPI):
 
         # if set_state returns false, already set to same status, return
         if not await self.set_state(
-            state, status, crawl_id, allowed_from=allowed_from, **kwargs
+            state,
+            status,
+            crawl,
+            allowed_from=allowed_from,
+            finished=finished,
+            stats=stats,
         ):
             print("already finished, ignoring mark_finished")
             if not status.finished:
@@ -1491,44 +1272,63 @@ class BtrixOperator(K8sAPI):
 
         status.finished = to_k8s_date(finished)
 
-        if crawl and state in SUCCESSFUL_STATES:
+        if state in SUCCESSFUL_STATES:
             await self.inc_crawl_complete_stats(crawl, finished)
 
-        self.run_task(
-            self.do_crawl_finished_tasks(
-                crawl_id, cid, oid, status.filesAddedSize, state
-            )
-        )
+        # Regular Crawl Finished
+        if not crawl.is_qa:
+            self.run_task(self.do_crawl_finished_tasks(crawl, status, state))
+
+        # QA Run Finished
+        else:
+            self.run_task(self.do_qa_run_finished_tasks(crawl, state))
 
         return True
 
     # pylint: disable=too-many-arguments
     async def do_crawl_finished_tasks(
         self,
-        crawl_id: str,
-        cid: UUID,
-        oid: UUID,
-        files_added_size: int,
+        crawl: CrawlSpec,
+        status: CrawlStatus,
         state: str,
     ) -> None:
         """Run tasks after crawl completes in asyncio.task coroutine."""
-        await self.crawl_config_ops.stats_recompute_last(cid, files_added_size, 1)
-
-        if state in SUCCESSFUL_STATES and oid:
-            await self.org_ops.inc_org_bytes_stored(oid, files_added_size, "crawl")
-            await self.coll_ops.add_successful_crawl_to_collections(crawl_id, cid)
-
-        await self.event_webhook_ops.create_crawl_finished_notification(
-            crawl_id, oid, state
+        await self.crawl_config_ops.stats_recompute_last(
+            crawl.cid, status.filesAddedSize, 1
         )
 
-        # add crawl errors to db
-        await self.add_crawl_errors_to_db(crawl_id)
+        if state in SUCCESSFUL_STATES and crawl.oid:
+            await self.org_ops.inc_org_bytes_stored(
+                crawl.oid, status.filesAddedSize, "crawl"
+            )
+            await self.coll_ops.add_successful_crawl_to_collections(crawl.id, crawl.cid)
+
+        if state in FAILED_STATES:
+            await self.crawl_ops.delete_crawl_files(crawl.id, crawl.oid)
+            await self.page_ops.delete_crawl_pages(crawl.id, crawl.oid)
+
+        await self.event_webhook_ops.create_crawl_finished_notification(
+            crawl.id, crawl.oid, state
+        )
 
         # finally, delete job
-        await self.delete_crawl_job(crawl_id)
+        await self.k8s.delete_crawl_job(crawl.id)
 
-    async def inc_crawl_complete_stats(self, crawl, finished):
+    # pylint: disable=too-many-arguments
+    async def do_qa_run_finished_tasks(
+        self,
+        crawl: CrawlSpec,
+        state: str,
+    ) -> None:
+        """Run tasks after qa run completes in asyncio.task coroutine."""
+
+        if state in FAILED_STATES:
+            await self.page_ops.delete_qa_run_from_pages(crawl.db_crawl_id, crawl.id)
+
+        # finally, delete job
+        await self.k8s.delete_crawl_job(crawl.id)
+
+    async def inc_crawl_complete_stats(self, crawl: CrawlSpec, finished: datetime):
         """Increment Crawl Stats"""
 
         started = from_k8s_date(crawl.started)
@@ -1537,12 +1337,12 @@ class BtrixOperator(K8sAPI):
 
         print(f"Duration: {duration}", flush=True)
 
-        await self.org_ops.inc_org_time_stats(crawl.oid, duration)
+        await self.org_ops.inc_org_time_stats(crawl.oid, duration, False, crawl.is_qa)
 
     async def mark_for_cancelation(self, crawl_id):
         """mark crawl as canceled in redis"""
         try:
-            redis_url = self.get_redis_url(crawl_id)
+            redis_url = self.k8s.get_redis_url(crawl_id)
             redis = await self._get_redis(redis_url)
             if not redis:
                 return False
@@ -1552,220 +1352,3 @@ class BtrixOperator(K8sAPI):
         finally:
             if redis:
                 await redis.close()
-
-    async def add_crawl_errors_to_db(self, crawl_id, inc=100):
-        """Pull crawl errors from redis and write to mongo db"""
-        index = 0
-        redis = None
-        try:
-            redis_url = self.get_redis_url(crawl_id)
-            redis = await self._get_redis(redis_url)
-            if not redis:
-                return
-
-            # ensure this only runs once
-            if not await redis.setnx("errors-exported", "1"):
-                return
-
-            while True:
-                skip = index * inc
-                upper_bound = skip + inc - 1
-                errors = await redis.lrange(f"{crawl_id}:e", skip, upper_bound)
-                if not errors:
-                    break
-
-                await self.crawl_ops.add_crawl_errors(crawl_id, errors)
-
-                if len(errors) < inc:
-                    # If we have fewer than inc errors, we can assume this is the
-                    # last page of data to add.
-                    break
-                index += 1
-        # pylint: disable=bare-except
-        except:
-            # likely redis has already been deleted, so nothing to do
-            pass
-        finally:
-            if redis:
-                await redis.close()
-
-    def get_cronjob_crawl_related(self, data: MCBaseRequest):
-        """return configmap related to crawl"""
-        labels = data.parent.get("metadata", {}).get("labels", {})
-        cid = labels.get("btrix.crawlconfig")
-        return {
-            "relatedResources": [
-                {
-                    "apiVersion": "v1",
-                    "resource": "configmaps",
-                    "labelSelector": {"matchLabels": {"btrix.crawlconfig": cid}},
-                }
-            ]
-        }
-
-    async def sync_cronjob_crawl(self, data: MCDecoratorSyncData):
-        """create crawljobs from a job object spawned by cronjob"""
-
-        metadata = data.object["metadata"]
-        labels = metadata.get("labels", {})
-        cid = labels.get("btrix.crawlconfig")
-
-        name = metadata.get("name")
-        crawl_id = name
-
-        actual_state, finished = await self.crawl_ops.get_crawl_state(crawl_id)
-        if finished:
-            status = None
-            # mark job as completed
-            if not data.object["status"].get("succeeded"):
-                print("Cron Job Complete!", finished)
-                status = {
-                    "succeeded": 1,
-                    "startTime": metadata.get("creationTimestamp"),
-                    "completionTime": to_k8s_date(finished),
-                }
-
-            return {
-                "attachments": [],
-                "annotations": {"finished": finished},
-                "status": status,
-            }
-
-        configmap = data.related[CMAP][f"crawl-config-{cid}"]["data"]
-
-        oid = configmap.get("ORG_ID")
-        userid = configmap.get("USER_ID")
-
-        crawljobs = data.attachments[CJS]
-
-        org = await self.org_ops.get_org_by_id(UUID(oid))
-
-        crawl_id, crawljob = self.new_crawl_job_yaml(
-            cid,
-            userid=userid,
-            oid=oid,
-            storage=org.storage,
-            crawler_channel=configmap.get("CRAWLER_CHANNEL", "default"),
-            scale=int(configmap.get("INITIAL_SCALE", 1)),
-            crawl_timeout=int(configmap.get("CRAWL_TIMEOUT", 0)),
-            max_crawl_size=int(configmap.get("MAX_CRAWL_SIZE", "0")),
-            manual=False,
-            crawl_id=crawl_id,
-        )
-
-        attachments = list(yaml.safe_load_all(crawljob))
-
-        if crawl_id in crawljobs:
-            attachments[0]["status"] = crawljobs[CJS][crawl_id]["status"]
-
-        if not actual_state:
-            # pylint: disable=duplicate-code
-            crawlconfig = await self.crawl_config_ops.get_crawl_config(
-                UUID(cid), UUID(oid)
-            )
-            if not crawlconfig:
-                print(
-                    f"error: no crawlconfig {cid}. skipping scheduled job. old cronjob left over?"
-                )
-                return {"attachments": []}
-
-            # db create
-            user = await self.user_ops.get_by_id(UUID(userid))
-            if not user:
-                print(f"error: missing user for id {userid}")
-                return {"attachments": []}
-
-            await self.crawl_config_ops.add_new_crawl(
-                crawl_id, crawlconfig, user, manual=False
-            )
-            print("Scheduled Crawl Created: " + crawl_id)
-
-        return {
-            "attachments": attachments,
-        }
-
-    async def finalize_background_job(self, data: MCDecoratorSyncData) -> dict:
-        """handle finished background job"""
-
-        metadata = data.object["metadata"]
-        labels: dict[str, str] = metadata.get("labels", {})
-        oid: str = labels.get("btrix.org") or ""
-        job_type: str = labels.get("job_type") or ""
-        job_id: str = metadata.get("name")
-
-        status = data.object["status"]
-        success = status.get("succeeded") == 1
-        completion_time = status.get("completionTime")
-
-        finalized = True
-
-        finished = from_k8s_date(completion_time) if completion_time else dt_now()
-
-        try:
-            await self.background_job_ops.job_finished(
-                job_id, job_type, UUID(oid), success=success, finished=finished
-            )
-            # print(
-            #    f"{job_type} background job completed: success: {success}, {job_id}",
-            #    flush=True,
-            # )
-
-        # pylint: disable=broad-except
-        except Exception:
-            print("Update Background Job Error", flush=True)
-            traceback.print_exc()
-
-        return {"attachments": [], "finalized": finalized}
-
-    def run_task(self, func):
-        """add bg tasks to set to avoid premature garbage collection"""
-        task = asyncio.create_task(func)
-        self.bg_tasks.add(task)
-        task.add_done_callback(self.bg_tasks.discard)
-
-
-# ============================================================================
-def init_operator_api(app, *args):
-    """regsiters webhook handlers for metacontroller"""
-
-    oper = BtrixOperator(*args)
-
-    @app.post("/op/crawls/sync")
-    async def mc_sync_crawls(data: MCSyncData):
-        return await oper.sync_crawls(data)
-
-    # reuse sync path, but distinct endpoint for better logging
-    @app.post("/op/crawls/finalize")
-    async def mc_sync_finalize(data: MCSyncData):
-        return await oper.sync_crawls(data)
-
-    @app.post("/op/crawls/customize")
-    async def mc_related(data: MCBaseRequest):
-        return oper.get_related(data)
-
-    @app.post("/op/profilebrowsers/sync")
-    async def mc_sync_profile_browsers(data: MCSyncData):
-        return await oper.sync_profile_browsers(data)
-
-    @app.post("/op/cronjob/sync")
-    async def mc_sync_cronjob_crawls(data: MCDecoratorSyncData):
-        return await oper.sync_cronjob_crawl(data)
-
-    @app.post("/op/cronjob/customize")
-    async def mc_cronjob_related(data: MCBaseRequest):
-        return oper.get_cronjob_crawl_related(data)
-
-    # nop, but needed for metacontroller
-    @app.post("/op/backgroundjob/sync")
-    async def mc_sync_background_jobs():
-        return {"attachments": []}
-
-    @app.post("/op/backgroundjob/finalize")
-    async def mc_finalize_background_jobs(data: MCDecoratorSyncData):
-        return await oper.finalize_background_job(data)
-
-    @app.get("/healthz", include_in_schema=False)
-    async def healthz():
-        return {}
-
-    return oper

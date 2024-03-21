@@ -1,11 +1,14 @@
-import { state, property, customElement } from "lit/decorators.js";
+import { localized, msg, str } from "@lit/localize";
+import { type SlDropdown } from "@shoelace-style/shoelace";
+import { customElement, property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 import { when } from "lit/directives/when.js";
-import { msg, localized, str } from "@lit/localize";
 
+import type { Profile } from "./types";
+
+import { isApiError } from "@/utils/api";
 import type { AuthState } from "@/utils/AuthService";
 import LiteElement, { html } from "@/utils/LiteElement";
-import type { Profile } from "./types";
 
 /**
  * Usage:
@@ -55,18 +58,18 @@ export class BrowserProfilesDetail extends LiteElement {
 
   disconnectedCallback() {
     if (this.browserId) {
-      this.deleteBrowser(this.browserId);
+      void this.deleteBrowser(this.browserId);
     }
   }
 
   firstUpdated() {
-    this.fetchProfile();
+    void this.fetchProfile();
   }
 
   render() {
     return html`<div class="mb-7">
         <a
-          class="text-neutral-500 hover:text-neutral-600 text-sm font-medium"
+          class="text-sm font-medium text-neutral-500 hover:text-neutral-600"
           href=${`${this.orgBasePath}/browser-profiles`}
           @click=${this.navLink}
         >
@@ -80,10 +83,10 @@ export class BrowserProfilesDetail extends LiteElement {
         </a>
       </div>
 
-      <header class="md:flex items-center justify-between mb-3">
-        <h2 class="text-xl font-semibold md:h-9 mb-1">
+      <header class="mb-3 items-center justify-between md:flex">
+        <h2 class="mb-1 text-xl font-semibold md:h-9">
           ${this.profile?.name
-            ? html`${this.profile?.name}
+            ? html`${this.profile.name}
                 <sl-button
                   size="small"
                   variant="text"
@@ -91,7 +94,7 @@ export class BrowserProfilesDetail extends LiteElement {
                 >
                   ${msg("Edit")}
                 </sl-button>`
-            : html`<sl-skeleton class="md:h-9 w-80"></sl-skeleton>`}
+            : html`<sl-skeleton class="w-80 md:h-9"></sl-skeleton>`}
         </h2>
         <div>
           ${this.profile
@@ -102,7 +105,7 @@ export class BrowserProfilesDetail extends LiteElement {
         </div>
       </header>
 
-      <section class="rounded border p-4 mb-5">
+      <section class="mb-5 rounded border p-4">
         <dl class="grid grid-cols-3 gap-5">
           <div class="col-span-3 md:col-span-1">
             <dt class="text-sm text-0-600">${msg("Description")}</dt>
@@ -149,20 +152,19 @@ export class BrowserProfilesDetail extends LiteElement {
             </dt>
             <dd>
               <ul class="text-sm font-medium">
-                ${this.profile?.crawlconfigs.map(
-                  ({ id, name }) =>
-                    html`
-                      <li>
-                        <a
-                          class="text-neutral-600 hover:underline"
-                          href=${`/orgs/${
-                            this.profile!.oid
-                          }/workflows/crawl/${id}`}
-                        >
-                          ${name}
-                        </a>
-                      </li>
-                    `
+                ${this.profile?.crawlconfigs?.map(
+                  ({ id, name }) => html`
+                    <li>
+                      <a
+                        class="text-neutral-600 hover:underline"
+                        href=${`/orgs/${
+                          this.profile!.oid
+                        }/workflows/crawl/${id}`}
+                      >
+                        ${name}
+                      </a>
+                    </li>
+                  `,
                 )}
               </ul>
             </dd>
@@ -179,7 +181,7 @@ export class BrowserProfilesDetail extends LiteElement {
             this.browserId || this.isBrowserLoading,
             () => html`
               <div
-                class="border rounded-lg overflow-hidden h-screen flex flex-col"
+                class="flex h-screen flex-col overflow-hidden rounded-lg border"
               >
                 <btrix-profile-browser
                   class="flex-1"
@@ -194,25 +196,26 @@ export class BrowserProfilesDetail extends LiteElement {
                 </div>
               </div>
             `,
-            () => html`<div
-              class="border rounded-lg bg-neutral-50 aspect-4/3 flex flex-col items-center justify-center"
-            >
-              <p class="mb-4 text-neutral-600 max-w-prose">
-                ${msg(
-                  "Edit the profile to make changes or view its present configuration"
-                )}
-              </p>
-              <sl-button @click=${this.startBrowserPreview}
-                ><sl-icon slot="prefix" name="pencil-square"></sl-icon> ${msg(
-                  "Edit Browser Profile"
-                )}</sl-button
+            () =>
+              html`<div
+                class="flex aspect-4/3 flex-col items-center justify-center rounded-lg border bg-neutral-50"
               >
-            </div>`
+                <p class="mb-4 max-w-prose text-neutral-600">
+                  ${msg(
+                    "Edit the profile to make changes or view its present configuration",
+                  )}
+                </p>
+                <sl-button @click=${this.startBrowserPreview}
+                  ><sl-icon slot="prefix" name="pencil-square"></sl-icon> ${msg(
+                    "Edit Browser Profile",
+                  )}</sl-button
+                >
+              </div>`,
           )}
         </section>
         ${when(
           !(this.browserId || this.isBrowserLoading),
-          this.renderVisitedSites
+          this.renderVisitedSites,
         )}
       </div>
 
@@ -227,13 +230,13 @@ export class BrowserProfilesDetail extends LiteElement {
       </btrix-dialog> `;
   }
 
-  private renderVisitedSites = () => {
+  private readonly renderVisitedSites = () => {
     return html`
-      <section class="flex-grow-1 lg:w-80 lg:pl-6 flex flex-col">
+      <section class="flex-grow-1 flex flex-col lg:w-80 lg:pl-6">
         <header class="flex-0 mb-2">
           <h3 class="text-lg font-medium">${msg("Visited Sites")}</h3>
         </header>
-        <div class="border rounded-lg p-4 flex-1 overflow-auto">
+        <div class="flex-1 overflow-auto rounded-lg border p-4">
           <ul class="font-monostyle text-neutral-800">
             ${this.profile?.origins.map((origin) => html`<li>${origin}</li>`)}
           </ul>
@@ -246,9 +249,9 @@ export class BrowserProfilesDetail extends LiteElement {
     return html`
       <div class="flex justify-between p-4">
         <div class="max-w-prose">
-          <p class="text-xs text-neutral-500 mx-1">
+          <p class="mx-1 text-xs text-neutral-500">
             ${msg(
-              "Interact with the browsing tool to set up the browser profile.  Workflows that use this browser profile will behave as if they have logged into the same websites and have the same cookies that have been set here."
+              "Interact with the browsing tool to set up the browser profile.  Workflows that use this browser profile will behave as if they have logged into the same websites and have the same cookies that have been set here.",
             )}
           </p>
         </div>
@@ -277,51 +280,53 @@ export class BrowserProfilesDetail extends LiteElement {
         >
 
         <ul
-          class="text-left text-sm text-neutral-800 bg-white whitespace-nowrap"
+          class="whitespace-nowrap bg-white text-left text-sm text-neutral-800"
           role="menu"
         >
           <li
-            class="p-2 hover:bg-zinc-100 cursor-pointer"
+            class="cursor-pointer p-2 hover:bg-zinc-100"
             role="menuitem"
-            @click=${(e: any) => {
-              e.target.closest("sl-dropdown").hide();
+            @click=${(e: Event) => {
+              void (e.target as HTMLElement)
+                .closest<SlDropdown>("sl-dropdown")!
+                .hide();
               this.isEditDialogOpen = true;
             }}
           >
             <sl-icon
-              class="inline-block align-middle px-1"
+              class="inline-block px-1 align-middle"
               name="pencil"
             ></sl-icon>
-            <span class="inline-block align-middle pr-2"
-              >${msg("Edit name & description")}</span
+            <span class="inline-block pr-2 align-middle"
+              >${msg("Edit Name & Description")}</span
             >
           </li>
           <li
-            class="p-2 hover:bg-zinc-100 cursor-pointer"
+            class="cursor-pointer p-2 hover:bg-zinc-100"
             role="menuitem"
-            @click=${() => this.duplicateProfile()}
+            @click=${() => void this.duplicateProfile()}
           >
             <sl-icon
-              class="inline-block align-middle px-1"
+              class="inline-block px-1 align-middle"
               name="files"
             ></sl-icon>
-            <span class="inline-block align-middle pr-2"
-              >${msg("Duplicate profile")}</span
+            <span class="inline-block pr-2 align-middle"
+              >${msg("Duplicate Profile")}</span
             >
           </li>
           <hr />
           <li
-            class="p-2 text-danger hover:bg-danger hover:text-white cursor-pointer"
+            class="cursor-pointer p-2 text-danger hover:bg-danger hover:text-white"
             role="menuitem"
             @click=${() => {
-              this.deleteProfile();
+              void this.deleteProfile();
             }}
           >
             <sl-icon
-              class="inline-block align-middle px-1"
+              class="inline-block px-1 align-middle"
               name="trash3"
             ></sl-icon>
-            <span class="inline-block align-middle pr-2">${msg("Delete")}</span>
+            <span class="inline-block pr-2 align-middle">${msg("Delete")}</span>
           </li>
         </ul>
       </sl-dropdown>
@@ -385,7 +390,7 @@ export class BrowserProfilesDetail extends LiteElement {
 
       this.browserId = data.browserid;
       this.isBrowserLoading = false;
-    } catch (e: any) {
+    } catch (e) {
       this.isBrowserLoading = false;
 
       this.notify({
@@ -405,7 +410,7 @@ export class BrowserProfilesDetail extends LiteElement {
     if (prevBrowserId) {
       try {
         await this.deleteBrowser(prevBrowserId);
-      } catch (e: any) {
+      } catch (e) {
         // TODO Investigate DELETE is returning 404
         console.debug(e);
       }
@@ -432,12 +437,12 @@ export class BrowserProfilesDetail extends LiteElement {
         `${this.orgBasePath}/browser-profiles/profile/browser/${
           data.browserid
         }?name=${window.encodeURIComponent(
-          this.profile.name
+          this.profile.name,
         )}&description=${window.encodeURIComponent(
-          this.profile.description || ""
-        )}&profileId=${window.encodeURIComponent(this.profile.id)}&navigateUrl=`
+          this.profile.description || "",
+        )}&profileId=${window.encodeURIComponent(this.profile.id)}&navigateUrl=`,
       );
-    } catch (e: any) {
+    } catch (e) {
       this.isBrowserLoading = false;
 
       this.notify({
@@ -457,7 +462,7 @@ export class BrowserProfilesDetail extends LiteElement {
         this.authState!,
         {
           method: "DELETE",
-        }
+        },
       );
 
       if (data.error && data.crawlconfigs) {
@@ -466,7 +471,7 @@ export class BrowserProfilesDetail extends LiteElement {
             html`Could not delete <strong>${profileName}</strong>, in use by
               <strong
                 >${data.crawlconfigs.map(({ name }) => name).join(", ")}</strong
-              >. Please remove browser profile from Workflow to continue.`
+              >. Please remove browser profile from Workflow to continue.`,
           ),
           variant: "warning",
           icon: "exclamation-triangle",
@@ -490,7 +495,7 @@ export class BrowserProfilesDetail extends LiteElement {
     }
   }
 
-  private createBrowser({ url }: { url: string }) {
+  private async createBrowser({ url }: { url: string }) {
     const params = {
       url,
       profileId: this.profile!.id,
@@ -502,17 +507,17 @@ export class BrowserProfilesDetail extends LiteElement {
       {
         method: "POST",
         body: JSON.stringify(params),
-      }
+      },
     );
   }
 
-  private deleteBrowser(id: string) {
+  private async deleteBrowser(id: string) {
     return this.apiFetch(
       `/orgs/${this.orgId}/profiles/browser/${id}`,
       this.authState!,
       {
         method: "DELETE",
-      }
+      },
     );
   }
 
@@ -536,7 +541,7 @@ export class BrowserProfilesDetail extends LiteElement {
   private async getProfile() {
     const data = await this.apiFetch<Profile>(
       `/orgs/${this.orgId}/profiles/${this.profileId}`,
-      this.authState!
+      this.authState!,
     );
 
     return data;
@@ -548,8 +553,8 @@ export class BrowserProfilesDetail extends LiteElement {
     if (
       !window.confirm(
         msg(
-          "Save browser changes to profile? You will need to re-load the browsing tool to make additional changes."
-        )
+          "Save browser changes to profile? You will need to re-load the browsing tool to make additional changes.",
+        ),
       )
     ) {
       return;
@@ -569,10 +574,10 @@ export class BrowserProfilesDetail extends LiteElement {
         {
           method: "PATCH",
           body: JSON.stringify(params),
-        }
+        },
       );
 
-      if (data.updated === true) {
+      if (data.updated) {
         this.notify({
           message: msg("Successfully saved browser profile."),
           variant: "success",
@@ -614,10 +619,10 @@ export class BrowserProfilesDetail extends LiteElement {
         {
           method: "PATCH",
           body: JSON.stringify(params),
-        }
+        },
       );
 
-      if (data.updated === true) {
+      if (data.updated) {
         this.notify({
           message: msg("Successfully saved browser profile."),
           variant: "success",
@@ -632,13 +637,13 @@ export class BrowserProfilesDetail extends LiteElement {
       } else {
         throw data;
       }
-    } catch (e: any) {
+    } catch (e) {
       let message = msg("Sorry, couldn't save browser profile at this time.");
 
-      if (e.isApiError && e.statusCode === 403) {
+      if (isApiError(e) && e.statusCode === 403) {
         if (e.details === "storage_quota_reached") {
           message = msg(
-            "Your org does not have enough storage to save this browser profile."
+            "Your org does not have enough storage to save this browser profile.",
           );
         } else {
           message = msg("You do not have permission to edit browser profiles.");

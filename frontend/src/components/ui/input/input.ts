@@ -1,9 +1,10 @@
-import { html } from "lit";
-import { property, state, customElement } from "lit/decorators.js";
-import { ifDefined } from "lit/directives/if-defined.js";
 import { msg } from "@lit/localize";
+import { html } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { ifDefined } from "lit/directives/if-defined.js";
 
-import LiteElement from "../../../utils/LiteElement";
+import LiteElement from "@/utils/LiteElement";
+
 import "./input.css";
 
 /**
@@ -24,7 +25,7 @@ export class Input extends LiteElement {
   label?: string;
 
   @property({ type: String })
-  id: string = "customInput";
+  id = "customInput";
 
   @property({ type: String })
   name?: string;
@@ -36,13 +37,13 @@ export class Input extends LiteElement {
   placeholder?: string;
 
   @property()
-  value?: any;
+  value?: string;
 
   @property()
-  autocomplete?: any;
+  autocomplete?: AutoFill;
 
-  @property()
-  required?: any;
+  @property({ type: Boolean })
+  required?: boolean;
 
   @property({ type: Number })
   minlength?: number;
@@ -57,7 +58,7 @@ export class Input extends LiteElement {
   helpText?: string;
 
   @state()
-  isPasswordVisible: boolean = false;
+  isPasswordVisible = false;
   render() {
     return html`
       <div class="sl-label">
@@ -70,8 +71,12 @@ export class Input extends LiteElement {
           name=${ifDefined(this.name)}
           type=${this.type === "password" && this.isPasswordVisible
             ? "text"
-            : ifDefined(this.type as any)}
-          autocomplete=${ifDefined(this.autocomplete)}
+            : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (ifDefined(this.type) as unknown as any)}
+          autocomplete=${
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ifDefined(this.autocomplete) as unknown as any
+          }
           placeholder=${ifDefined(this.placeholder)}
           value=${ifDefined(this.value)}
           minlength=${ifDefined(this.minlength)}
@@ -101,11 +106,11 @@ export class Input extends LiteElement {
   handleKeyDown(event: KeyboardEvent) {
     // Enable submit on enter when using <sl-button type="submit">
     if (event.key === "Enter") {
-      const form = this.closest("form") as HTMLFormElement;
+      const form = this.closest("form");
       if (form) {
-        const submitButton = form.querySelector(
-          'sl-button[type="submit"]'
-        ) as HTMLButtonElement;
+        const submitButton = form.querySelector<HTMLButtonElement>(
+          'sl-button[type="submit"]',
+        );
         if (submitButton) {
           submitButton.click();
         }

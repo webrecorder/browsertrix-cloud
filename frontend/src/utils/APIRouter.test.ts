@@ -1,6 +1,7 @@
 import { expect } from "@esm-bundle/chai";
 
 import APIRouter from "./APIRouter";
+
 import { ROUTES } from "@/routes";
 
 describe("APIRouter", () => {
@@ -18,7 +19,7 @@ describe("APIRouter", () => {
     it("matches join", () => {
       const apiRouter = new APIRouter(ROUTES);
       const viewState = apiRouter.match(
-        "/join/_fake_token_?email=_fake_email_"
+        "/join/_fake_token_?email=_fake_email_",
       );
 
       expect(viewState.route).to.equal("join");
@@ -31,7 +32,7 @@ describe("APIRouter", () => {
     it("matches join with email comment", () => {
       const apiRouter = new APIRouter(ROUTES);
       const viewState = apiRouter.match(
-        "/join/_fake_token_?email=fake+comment@email.com"
+        "/join/_fake_token_?email=fake+comment@email.com",
       );
 
       expect(viewState.route).to.equal("join");
@@ -44,7 +45,7 @@ describe("APIRouter", () => {
     it("matches join with encoded email", () => {
       const apiRouter = new APIRouter(ROUTES);
       const viewState = apiRouter.match(
-        "/join/_fake_token_?email=fake%2Bcomment%40email.com"
+        "/join/_fake_token_?email=fake%2Bcomment%40email.com",
       );
 
       expect(viewState.route).to.equal("join");

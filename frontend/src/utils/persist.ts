@@ -14,12 +14,12 @@ export const persist = (storage: Storage): StateOptions => ({
     storage.setItem(`${STORAGE_KEY_PREFIX}.${stateVar.key}`, JSON.stringify(v));
     stateVar.notifyObservers(
       `${STORAGE_KEY_PREFIX}.${stateVar.key}`,
-      stateVar.value
+      stateVar.value,
     );
   },
   get(stateVar: ReadonlyStateVar) {
     const stored = storage.getItem(`${STORAGE_KEY_PREFIX}.${stateVar.key}`);
-    return stored ? JSON.parse(stored) : undefined;
+    return stored ? (JSON.parse(stored) as unknown) : undefined;
   },
   init(stateVar: ReadonlyStateVar, valueInit?: unknown) {
     return stateVar.options.get(stateVar) || valueInit;

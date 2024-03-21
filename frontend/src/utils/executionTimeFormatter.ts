@@ -1,4 +1,5 @@
 import { html, nothing } from "lit";
+
 import { getLocale } from "./localization";
 
 /**
@@ -14,7 +15,7 @@ import { getLocale } from "./localization";
 export function humanizeSeconds(
   seconds: number,
   locale?: string,
-  displaySeconds = false
+  displaySeconds = false,
 ) {
   if (seconds < 0) {
     throw new Error("humanizeSeconds in unimplemented for negative times");
@@ -81,7 +82,7 @@ export const humanizeExecutionSeconds = (
      * @default "up"
      */
     round?: "up" | "down";
-  }
+  },
 ) => {
   const {
     style = "long",

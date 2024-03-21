@@ -20,6 +20,11 @@ spec:
     updateStrategy:
       method: InPlace
 
+  - apiVersion: v1
+    resource: configmaps
+    updateStrategy:
+      method: OnDelete
+
   hooks:
     sync:
       webhook:

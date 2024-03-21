@@ -1,6 +1,7 @@
 """
 Organization API handling
 """
+
 # pylint: disable=too-many-lines
 
 import math
@@ -21,6 +22,7 @@ from .models import (
     SUCCESSFUL_STATES,
     RUNNING_STATES,
     STARTING_STATES,
+    BaseCrawl,
     Organization,
     StorageRef,
     OrgQuotas,
@@ -520,18 +522,22 @@ class OrgOps:
             {"_id": org.id}, {"$set": {"origin": origin}}
         )
 
-    async def inc_org_time_stats(self, oid, duration, is_exec_time=False):
+    async def inc_org_time_stats(self, oid, duration, is_exec_time=False, is_qa=False):
         """inc crawl duration stats for org
 
         Overage is applied only to crawlExecSeconds - monthlyExecSeconds,
         giftedExecSeconds, and extraExecSeconds are added to only up to quotas
+
+        If is_qa is true, also update seperate qa only counter
         """
-        # pylint: disable=too-many-return-statements
+        # pylint: disable=too-many-return-statements, too-many-locals
         key = "crawlExecSeconds" if is_exec_time else "usage"
         yymm = datetime.utcnow().strftime("%Y-%m")
-        await self.orgs.find_one_and_update(
-            {"_id": oid}, {"$inc": {f"{key}.{yymm}": duration}}
-        )
+        inc_query = {f"{key}.{yymm}": duration}
+        if is_qa:
+            qa_key = "qaCrawlExecSeconds" if is_exec_time else "qaUsage"
+            inc_query[f"{qa_key}.{yymm}"] = duration
+        await self.orgs.find_one_and_update({"_id": oid}, {"$inc": inc_query})
 
         if not is_exec_time:
             return
@@ -630,17 +636,17 @@ class OrgOps:
         upload_count = 0
         page_count = 0
 
-        async for item in self.crawls_db.find({"oid": org.id}):
-            if item["state"] not in SUCCESSFUL_STATES:
+        async for item_data in self.crawls_db.find({"oid": org.id}):
+            item = BaseCrawl.from_dict(item_data)
+            if item.state not in SUCCESSFUL_STATES:
                 continue
             archived_item_count += 1
-            type_ = item.get("type")
-            if type_ == "crawl":
+            if item.type == "crawl":
                 crawl_count += 1
-            if type_ == "upload":
+            if item.type == "upload":
                 upload_count += 1
-            if item.get("stats"):
-                page_count += item.get("stats", {}).get("done", 0)
+            if item.stats:
+                page_count += item.stats.done
 
         profile_count = await self.profiles_db.count_documents({"oid": org.id})
         workflows_running_count = await self.crawls_db.count_documents(

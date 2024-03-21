@@ -2,7 +2,7 @@
 
 *Playbook Path: [ansible/playbooks/install_microk8s.yml](https://github.com/webrecorder/browsertrix-cloud/blob/main/ansible/playbooks/do_setup.yml)*
 
-This playbook provides an easy way to install Browsertrix Cloud on DigitalOcean. It automatically sets up Browsertrix with LetsEncrypt certificates.
+This playbook provides an easy way to install Browsertrix on DigitalOcean. It automatically sets up Browsertrix with LetsEncrypt certificates.
 
 ### Requirements
 
@@ -13,7 +13,7 @@ To run this ansible playbook, you need to:
 - `doctl` command line client configured (run `doctl auth init`)
 - Create a [DigitalOcean Spaces](https://docs.digitalocean.com/reference/api/spaces-api/) API Key which will also need to be set in your terminal sessions environment variables, which should be set as `DO_AWS_ACCESS_KEY` and `DO_AWS_SECRET_KEY`
 - Configure a DNS A Record and CNAME record.
-- Have a working python and pip configuration through your OS Package Manager
+- Have a working Python and pip configuration through your OS Package Manager
 
 #### Install
 

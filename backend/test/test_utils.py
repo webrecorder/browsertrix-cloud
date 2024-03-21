@@ -1,4 +1,5 @@
 """utils tests"""
+
 import pytest
 
 from btrixcloud.utils import slug_from_name

@@ -1,4 +1,4 @@
-import { LitElement, html, css } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
 /**
@@ -11,6 +11,7 @@ export class TableRow extends LitElement {
       grid-column: var(--btrix-table-grid-column);
       display: grid;
       grid-template-columns: subgrid;
+      position: relative;
     }
   `;
 

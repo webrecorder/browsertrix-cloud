@@ -1,13 +1,16 @@
-import { state, property, customElement } from "lit/decorators.js";
-import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
+import { localized, msg, str } from "@lit/localize";
+import { type PropertyValues, type TemplateResult } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
-import { msg, localized, str } from "@lit/localize";
+import { html as staticHtml, unsafeStatic } from "lit/static-html.js";
 import RegexColorize from "regex-colorize";
 
+import type { Exclusion } from "./queue-exclusion-form";
+
+import { type PageChangeEvent } from "@/components/ui/pagination";
 import type { SeedConfig } from "@/pages/org/types";
 import LiteElement, { html } from "@/utils/LiteElement";
-import { regexEscape } from "@/utils/string";
-import type { Exclusion } from "./queue-exclusion-form";
+import { regexEscape, regexUnescape } from "@/utils/string";
 
 export type ExclusionChangeEvent = CustomEvent<{
   index: number;
@@ -54,7 +57,7 @@ export class QueueExclusionTable extends LiteElement {
   labelClassName?: string;
 
   @property({ type: Number })
-  pageSize: number = 5;
+  pageSize = 5;
 
   @property({ type: Boolean })
   editable = false;
@@ -66,7 +69,7 @@ export class QueueExclusionTable extends LiteElement {
   private results: Exclusion[] = [];
 
   @state()
-  private page: number = 1;
+  private page = 1;
 
   @state()
   private exclusionToRemove?: string;
@@ -75,10 +78,10 @@ export class QueueExclusionTable extends LiteElement {
     return this.exclusions?.length;
   }
 
-  willUpdate(changedProperties: Map<string, any>) {
+  willUpdate(changedProperties: PropertyValues<this> & Map<string, unknown>) {
     if (changedProperties.get("exclusions") && this.exclusions) {
       if (
-        changedProperties.get("exclusions").toString() ===
+        changedProperties.get("exclusions")!.toString() ===
         this.exclusions.toString()
       ) {
         // Check list equality
@@ -112,12 +115,13 @@ export class QueueExclusionTable extends LiteElement {
 
     this.results = this.exclusions
       .slice((this.page - 1) * this.pageSize, this.page * this.pageSize)
-      .map((str: any) => {
+      .map((str: string) => {
+        // if escaped version of string, with '\' removed matches string, then consider it
+        // to be matching text, otherwise, regex
+        const isText = regexEscape(str.replace(/\\/g, "")) === str;
         return {
-          // if escaped version of string, with '\' removed matches string, then consider it
-          // to be matching text, otherwise, regex
-          type: regexEscape(str.replace(/\\/g, "")) === str ? "text" : "regex",
-          value: str,
+          type: isText ? "text" : "regex",
+          value: isText ? regexUnescape(str) : str,
         };
       });
   }
@@ -138,7 +142,7 @@ export class QueueExclusionTable extends LiteElement {
           --sl-input-border-width: 0;
         }
       </style>
-      <div class="flex items-center justify-between mb-2 leading-tight">
+      <div class="mb-2 flex items-center justify-between leading-tight">
         <div class=${ifDefined(this.labelClassName)}>
           ${this.label ?? msg("Exclusions")}
         </div>
@@ -148,7 +152,7 @@ export class QueueExclusionTable extends LiteElement {
               size=${this.pageSize}
               totalCount=${this.total}
               compact
-              @page-change=${(e: CustomEvent) => {
+              @page-change=${(e: PageChangeEvent) => {
                 this.page = e.detail.page;
               }}
             >
@@ -156,18 +160,18 @@ export class QueueExclusionTable extends LiteElement {
           : ""}
       </div>
       <table
-        class="w-full leading-none border-separate"
+        class="w-full border-separate leading-none"
         style="border-spacing: 0;"
       >
-        <thead class="text-xs font-mono text-neutral-600 uppercase">
+        <thead class="font-mono text-xs uppercase text-neutral-600">
           <tr class="h-10 text-left">
-            <th class="font-normal px-2 w-40 bg-slate-50 ${typeColClass}">
+            <th class="${typeColClass} w-40 bg-slate-50 px-2 font-normal">
               ${msg("Exclusion Type")}
             </th>
-            <th class="font-normal px-2 bg-slate-50 ${valueColClass}">
+            <th class="${valueColClass} bg-slate-50 px-2 font-normal">
               ${msg("Exclusion Value")}
             </th>
-            <th class="font-normal px-2 w-10 bg-slate-50 ${actionColClass}">
+            <th class="${actionColClass} w-10 bg-slate-50 px-2 font-normal">
               <span class="sr-only">Row actions</span>
             </th>
           </tr>
@@ -179,10 +183,10 @@ export class QueueExclusionTable extends LiteElement {
     `;
   }
 
-  private renderItem = (
+  private readonly renderItem = (
     exclusion: Exclusion,
     pageIndex: number,
-    arr: Exclusion[]
+    arr: Exclusion[],
   ) => {
     const index = (this.page - 1) * this.pageSize + pageIndex;
     const [typeColClass, valueColClass, actionColClass] =
@@ -190,17 +194,17 @@ export class QueueExclusionTable extends LiteElement {
 
     return html`
       <tr
-        class="h-10 ${this.exclusionToRemove === exclusion.value
+        class="${this.exclusionToRemove === exclusion.value
           ? "text-neutral-200"
-          : "text-neutral-600"}"
+          : "text-neutral-600"} h-10"
       >
-        <td class="whitespace-nowrap ${typeColClass}">
+        <td class="${typeColClass} whitespace-nowrap">
           ${this.renderType({ exclusion, index })}
         </td>
-        <td class="font-mono ${valueColClass}">
+        <td class="${valueColClass} font-mono">
           ${this.renderValue({ exclusion, index })}
         </td>
-        <td class="text-[1rem] text-center ${actionColClass}">
+        <td class="${actionColClass} text-center text-[1rem]">
           <btrix-button
             icon
             @click=${() => this.removeExclusion(exclusion, index)}
@@ -257,7 +261,7 @@ export class QueueExclusionTable extends LiteElement {
     exclusion: Exclusion;
     index: number;
   }) {
-    let value: any = exclusion.value;
+    let value: string | TemplateResult = exclusion.value;
 
     if (this.editable) {
       return html`
@@ -307,7 +311,7 @@ export class QueueExclusionTable extends LiteElement {
 
     if (exclusion.type === "regex") {
       value = staticHtml`<span class="regex">${unsafeStatic(
-        new RegexColorize().colorizeText(exclusion.value)
+        new RegexColorize().colorizeText(exclusion.value) as string,
       )}</span>`;
     }
 
@@ -317,7 +321,7 @@ export class QueueExclusionTable extends LiteElement {
   private getColumnClassNames(
     index: number,
     count: number,
-    isHeader?: boolean
+    isHeader?: boolean,
   ) {
     let typeColClass = "border-t border-x";
     let valueColClass = "border-t border-r";
@@ -365,7 +369,7 @@ export class QueueExclusionTable extends LiteElement {
     const typeSelectElem = inputElem.closest("tr")?.querySelector("sl-select");
     const exclusionType = typeSelectElem?.value;
     return {
-      type: exclusionType as Exclusion["type"],
+      type: exclusionType as Exclusion["type"] | undefined,
       value: inputElem.value,
     };
   }
@@ -379,10 +383,10 @@ export class QueueExclusionTable extends LiteElement {
       return;
     }
     const siblingValues = Array.from(siblingElems).map(
-      (elem) => (elem as SLInputElement).value
+      (elem) => (elem as SLInputElement).value,
     );
     const { type, value } = this.getCurrentValues(inputElem);
-    const formattedValue = formatValue(type, value);
+    const formattedValue = formatValue(type!, value);
     if (siblingValues.includes(formattedValue)) {
       return msg("Exclusion already exists. Please edit or remove to continue");
     }
@@ -400,9 +404,9 @@ export class QueueExclusionTable extends LiteElement {
       try {
         // Check if valid regex
         new RegExp(value);
-      } catch (err: any) {
+      } catch (err) {
         return msg(
-          "Please enter a valid Regular Expression constructor pattern"
+          "Please enter a valid Regular Expression constructor pattern",
         );
       }
     }
@@ -414,17 +418,15 @@ export class QueueExclusionTable extends LiteElement {
     // Check if any sibling inputs are now valid
     // after fixing duplicate values
     const inputElem = e.target as HTMLInputElement;
-    const table = inputElem.closest("table") as HTMLTableElement;
-    Array.from(table?.querySelectorAll("sl-input[data-invalid]")).map(
-      (elem) => {
-        if (elem !== inputElem) {
-          const validityMessage =
-            this.getInputDuplicateValidity(elem as SLInputElement) || "";
-          (elem as SLInputElement).setCustomValidity(validityMessage);
-          (elem as SLInputElement).reportValidity();
-        }
+    const table = inputElem.closest("table")!;
+    Array.from(table.querySelectorAll("sl-input[data-invalid]")).map((elem) => {
+      if (elem !== inputElem) {
+        const validityMessage =
+          this.getInputDuplicateValidity(elem as SLInputElement) || "";
+        (elem as SLInputElement).setCustomValidity(validityMessage);
+        (elem as SLInputElement).reportValidity();
       }
-    );
+    });
   }
 
   private removeExclusion({ value, type }: Exclusion, index: number) {
@@ -436,7 +438,7 @@ export class QueueExclusionTable extends LiteElement {
           regex: formatValue(type, value),
           index,
         },
-      }) as ExclusionRemoveEvent
+      }) as ExclusionRemoveEvent,
     );
   }
 
@@ -455,7 +457,7 @@ export class QueueExclusionTable extends LiteElement {
           index,
           regex: formatValue(type, value),
         },
-      }) as ExclusionChangeEvent
+      }) as ExclusionChangeEvent,
     );
   }
 

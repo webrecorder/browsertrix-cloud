@@ -4,6 +4,7 @@ Migration 0007 - Workflows changes
 - Rename colls to autoAddCollections 
 - Re-calculate workflow crawl stats to populate crawlSuccessfulCount
 """
+
 from btrixcloud.crawlconfigs import stats_recompute_all
 from btrixcloud.migrations import BaseMigration
 
@@ -14,8 +15,9 @@ MIGRATION_VERSION = "0007"
 class Migration(BaseMigration):
     """Migration class."""
 
-    def __init__(self, mdb, migration_version=MIGRATION_VERSION):
-        super().__init__(mdb, migration_version)
+    # pylint: disable=unused-argument
+    def __init__(self, mdb, **kwargs):
+        super().__init__(mdb, migration_version=MIGRATION_VERSION)
 
     async def migrate_up(self):
         """Perform migration up."""

@@ -2,7 +2,7 @@
 
 ## Crawl Type
 
-The first step in creating a new [crawl workflow](../crawl-workflows) is to choose what type of crawl you want to run. Crawl types are fixed and cannot be converted or changed later.
+The first step in creating a new [crawl workflow](crawl-workflows.md) is to choose what type of crawl you want to run. Crawl types are fixed and cannot be converted or changed later.
 
 `URL List`{ .badge-blue }
 :   The crawler visits every URL specified in a list, and optionally every URL linked on those pages.
@@ -120,7 +120,7 @@ Adds a hard limit on the number of pages that will be crawled. The crawl will be
 
 ### Crawl Time Limit
 
-The crawl will be gracefully stopped after this set period of time.
+The crawl will be gracefully stopped after this set period of elapsed time.
 
 ### Crawl Size Limit
 
@@ -132,11 +132,11 @@ Increasing the amount of crawler instances will speed up crawls by using additio
 
 ### Page Load Timeout
 
-Limits amount of time to wait for a page to load. Behaviors will run after this timeout only if the page is partially or fully loaded.
+Limits amount of elapsed time to wait for a page to load. Behaviors will run after this timeout only if the page is partially or fully loaded.
 
 ### Behavior Timeout
 
-Limits how long behaviors can run on each page.
+Limits amount of elapsed time behaviors have to complete.
 
 ### Auto Scroll Behavior
 
@@ -144,13 +144,13 @@ When enabled, the browser will automatically scroll to the end of the page.
 
 ### Delay Before Next Page
 
-Waits on the page for a set period of time after any behaviors have finished running. This can be helpful to avoid rate limiting however it will slow down your crawl.
+Waits on the page for a set period of elapsed time after any behaviors have finished running. This can be helpful to avoid rate limiting however it will slow down your crawl.
 
 ## Browser Settings
 
 ### Browser Profile
 
-Sets the [_Browser Profile_](../browser-profiles) to be used for this crawl.
+Sets the [_Browser Profile_](browser-profiles.md) to be used for this crawl.
 
 ### Crawler Release Channel
 
@@ -219,4 +219,4 @@ Apply tags to the workflow. Tags applied to the workflow will propagate to every
 
 ### Collection Auto-Add
 
-Search for and specify [collections](../collections) that this crawl workflow should automatically add content to as soon as crawling finishes. Canceled and Failed crawls will not be automatically added to collections.
+Search for and specify [collections](collections.md) that this crawl workflow should automatically add content to as soon as crawling finishes. Canceled and Failed crawls will not be automatically added to collections.

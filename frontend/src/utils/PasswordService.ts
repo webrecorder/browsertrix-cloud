@@ -1,5 +1,4 @@
-import type { OptionsType } from "@zxcvbn-ts/core";
-import { zxcvbn, zxcvbnOptions } from "@zxcvbn-ts/core";
+import { zxcvbn, zxcvbnOptions, type OptionsType } from "@zxcvbn-ts/core";
 
 const loadOptions = async (): Promise<OptionsType> => {
   const zxcvbnCommonPackage = await import(
@@ -23,9 +22,9 @@ const loadOptions = async (): Promise<OptionsType> => {
  * Test and estimate password strength
  */
 export default class PasswordService {
-  static readonly PASSWORD_MINLENGTH = 8;
-  static readonly PASSWORD_MAXLENGTH = 64;
-  static readonly PASSWORD_MIN_SCORE = 3;
+  static readonly PASSWORD_MINLENGTH = 8 as const;
+  static readonly PASSWORD_MAXLENGTH = 64 as const;
+  static readonly PASSWORD_MIN_SCORE = 3 as const;
 
   static options?: OptionsType;
 
@@ -56,7 +55,7 @@ export default class PasswordService {
   static async checkStrength(
     password: string,
     // User input to check, e.g. emails
-    userInputs?: string[]
+    userInputs?: string[],
   ) {
     return zxcvbn(password, userInputs);
   }

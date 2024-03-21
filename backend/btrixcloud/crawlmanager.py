@@ -96,9 +96,11 @@ class CrawlManager(K8sAPI):
             "replica_secret_name": replica_storage.get_storage_secret_name(oid),
             "replica_file_path": replica_file_path,
             "replica_endpoint": replica_endpoint,
-            "primary_secret_name": primary_storage.get_storage_secret_name(oid)
-            if primary_storage
-            else None,
+            "primary_secret_name": (
+                primary_storage.get_storage_secret_name(oid)
+                if primary_storage
+                else None
+            ),
             "primary_file_path": primary_file_path if primary_file_path else None,
             "primary_endpoint": primary_endpoint if primary_endpoint else None,
             "BgJobType": BgJobType,
@@ -117,6 +119,7 @@ class CrawlManager(K8sAPI):
         run_now: bool,
         out_filename: str,
         profile_filename: str,
+        warc_prefix: str,
     ) -> Optional[str]:
         """add new crawl, store crawl config in configmap"""
 
@@ -137,7 +140,10 @@ class CrawlManager(K8sAPI):
 
         if run_now:
             crawl_id = await self.create_crawl_job(
-                crawlconfig, storage, str(crawlconfig.modifiedBy)
+                crawlconfig,
+                storage,
+                str(crawlconfig.modifiedBy),
+                warc_prefix,
             )
 
         await self._update_scheduled_job(crawlconfig)
@@ -149,6 +155,7 @@ class CrawlManager(K8sAPI):
         crawlconfig: CrawlConfig,
         storage: StorageRef,
         userid: str,
+        warc_prefix: str,
     ) -> str:
         """create new crawl job from config"""
         cid = str(crawlconfig.id)
@@ -167,6 +174,38 @@ class CrawlManager(K8sAPI):
             crawlconfig.crawlTimeout,
             crawlconfig.maxCrawlSize,
             manual=True,
+            warc_prefix=warc_prefix,
+        )
+
+    async def create_qa_crawl_job(
+        self,
+        crawlconfig: CrawlConfig,
+        storage: StorageRef,
+        userid: str,
+        qa_source: str,
+    ) -> str:
+        """create new QA Run crawl job with qa source crawl id"""
+        cid = str(crawlconfig.id)
+
+        storage_secret = storage.get_storage_secret_name(str(crawlconfig.oid))
+
+        await self.has_storage_secret(storage_secret)
+
+        ts_now = dt_now().strftime("%Y%m%d%H%M%S")
+        crawl_id = f"qa-{ts_now}-{cid[:12]}"
+
+        return await self.new_crawl_job(
+            cid,
+            userid,
+            crawlconfig.oid,
+            storage,
+            crawlconfig.crawlerChannel,
+            1,
+            0,
+            0,
+            warc_prefix="qa",
+            crawl_id=crawl_id,
+            qa_source=qa_source,
         )
 
     async def update_crawl_config(

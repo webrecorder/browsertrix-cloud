@@ -1,10 +1,11 @@
 /**
  * Store and access application-wide state
  */
-import { use, locked, options } from "lit-shared-state";
+import { locked, options, use } from "lit-shared-state";
+
+import { persist } from "./persist";
 
 import type { CurrentUser } from "@/types/user";
-import { persist } from "./persist";
 
 export { use };
 
@@ -30,7 +31,7 @@ class AppState {
           ...acc,
           [org.id]: org.slug,
         }),
-        {}
+        {},
       );
       return slugLookup;
     }

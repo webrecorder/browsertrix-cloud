@@ -1,10 +1,10 @@
-import { state, property, customElement } from "lit/decorators.js";
-import { msg, localized, str } from "@lit/localize";
+import { localized, msg, str } from "@lit/localize";
+import { customElement, property, state } from "lit/decorators.js";
 
+import type { CurrentUser } from "@/types/user";
+import { needLogin } from "@/utils/auth";
 import type { AuthState } from "@/utils/AuthService";
 import LiteElement, { html } from "@/utils/LiteElement";
-import { needLogin } from "@/utils/auth";
-import type { CurrentUser } from "@/types/user";
 
 @localized()
 @customElement("btrix-users-invite")
@@ -33,7 +33,7 @@ export class UsersInvite extends LiteElement {
     }
     return html`<div class="grid gap-4">
       <header class="text-xl font-semibold">
-        <h1 class="inline-block mr-2">${msg("Users")}</h1>
+        <h1 class="mr-2 inline-block">${msg("Users")}</h1>
         <sl-tag class="uppercase" variant="primary" size="small"
           >${msg("admin")}</sl-tag
         >
@@ -41,13 +41,13 @@ export class UsersInvite extends LiteElement {
 
       ${successMessage}
 
-      <main class="border rounded-lg p-4 md:p-8 md:pt-6">
-        <h2 class="text-lg font-medium mb-4">${msg("Invite Users")}</h2>
+      <main class="rounded-lg border p-4 md:p-8 md:pt-6">
+        <h2 class="mb-4 text-lg font-medium">${msg("Invite Users")}</h2>
         <btrix-invite-form
           .authState=${this.authState}
           .orgs=${this.userInfo?.orgs || []}
           .defaultOrg=${this.userInfo?.orgs.find(
-            (org) => org.default === true
+            (org) => org.default === true,
           ) ?? null}
           @success=${this.onSuccess}
         ></btrix-invite-form>

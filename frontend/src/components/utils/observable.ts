@@ -1,9 +1,10 @@
-import { LitElement, html } from "lit";
-import { query, customElement } from "lit/decorators.js";
+import { html, LitElement } from "lit";
+import { customElement, query } from "lit/decorators.js";
 
-export type IntersectEvent = CustomEvent<{
+type IntersectionEventDetail = {
   entry: IntersectionObserverEntry;
-}>;
+};
+export type IntersectEvent = CustomEvent<IntersectionEventDetail>;
 
 /**
  * Observe element with Intersection Observer API.
@@ -20,7 +21,7 @@ export type IntersectEvent = CustomEvent<{
 @customElement("btrix-observable")
 export class Observable extends LitElement {
   @query(".target")
-  private target?: HTMLElement;
+  private readonly target?: HTMLElement;
 
   private observer?: IntersectionObserver;
 
@@ -37,11 +38,11 @@ export class Observable extends LitElement {
     this.observer?.observe(this.target!);
   }
 
-  private handleIntersect = ([entry]: IntersectionObserverEntry[]) => {
+  private readonly handleIntersect = ([entry]: IntersectionObserverEntry[]) => {
     this.dispatchEvent(
-      <IntersectEvent>new CustomEvent("intersect", {
+      new CustomEvent<IntersectionEventDetail>("intersect", {
         detail: { entry },
-      })
+      }),
     );
   };
 

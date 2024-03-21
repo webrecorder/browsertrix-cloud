@@ -39,6 +39,15 @@ MIN_UPLOAD_PART_SIZE = 10000000
 class UploadOps(BaseCrawlOps):
     """upload ops"""
 
+    async def get_upload(
+        self,
+        crawlid: str,
+        org: Optional[Organization] = None,
+    ) -> UploadedCrawl:
+        """Get crawl data for internal use"""
+        res = await self.get_crawl_raw(crawlid, org, "upload")
+        return UploadedCrawl.from_dict(res)
+
     # pylint: disable=too-many-arguments, too-many-instance-attributes, too-many-public-methods, too-many-function-args
     # pylint: disable=too-many-arguments, too-many-locals, duplicate-code, invalid-name
     async def upload_stream(
@@ -60,7 +69,7 @@ class UploadOps(BaseCrawlOps):
         prev_upload = None
         if replaceId:
             try:
-                prev_upload = await self.get_crawl_raw(replaceId, org, "upload")
+                prev_upload = await self.get_upload(replaceId, org)
             except HTTPException:
                 # not found
                 replaceId = None
@@ -371,7 +380,7 @@ def init_uploads_api(app, user_dep, *args):
         response_model=CrawlOut,
     )
     async def get_upload(crawlid: str, org: Organization = Depends(org_crawl_dep)):
-        return await ops.get_crawl(crawlid, org, "upload")
+        return await ops.get_crawl_out(crawlid, org, "upload")
 
     @app.get(
         "/orgs/all/uploads/{crawl_id}/replay.json",
@@ -382,7 +391,7 @@ def init_uploads_api(app, user_dep, *args):
         if not user.is_superuser:
             raise HTTPException(status_code=403, detail="Not Allowed")
 
-        return await ops.get_crawl(crawl_id, None, "upload")
+        return await ops.get_crawl_out(crawl_id, None, "upload")
 
     @app.get(
         "/orgs/{oid}/uploads/{crawl_id}/replay.json",
@@ -390,7 +399,7 @@ def init_uploads_api(app, user_dep, *args):
         response_model=CrawlOutWithResources,
     )
     async def get_upload_replay(crawl_id, org: Organization = Depends(org_viewer_dep)):
-        return await ops.get_crawl(crawl_id, org, "upload")
+        return await ops.get_crawl_out(crawl_id, org, "upload")
 
     @app.patch("/orgs/{oid}/uploads/{crawl_id}", tags=["uploads"])
     async def update_uploads_api(

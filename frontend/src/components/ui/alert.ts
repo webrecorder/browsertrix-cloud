@@ -1,5 +1,5 @@
-import { LitElement, html, css } from "lit";
-import { property, customElement } from "lit/decorators.js";
+import { css, html, LitElement } from "lit";
+import { customElement, property } from "lit/decorators.js";
 
 /**
  * Alert used inline, e.g. for form server errors

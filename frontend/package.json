@@ -1,19 +1,20 @@
 {
   "name": "browsertrix-frontend",
-  "version": "1.9.0-beta.2",
+  "version": "1.10.0-beta.0",
   "main": "index.ts",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
     "@cheap-glitch/mi-cron": "^1.0.1",
+    "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
     "@lit/localize": "^0.12.1",
     "@novnc/novnc": "^1.4.0-beta",
     "@rollup/plugin-commonjs": "^18.0.0",
-    "@shoelace-style/shoelace": "^2.8.0",
+    "@shoelace-style/shoelace": "~2.10.0",
     "@types/color": "^3.0.2",
     "@types/lodash": "^4.14.178",
     "@types/sinon": "^10.0.6",
-    "@typescript-eslint/eslint-plugin": "^6.12.0",
-    "@typescript-eslint/parser": "^6.12.0",
+    "@typescript-eslint/eslint-plugin": "^6.20.0",
+    "@typescript-eslint/parser": "^6.20.0",
     "@wysimark/standalone": "3.0.20",
     "@xstate/fsm": "^1.6.2",
     "@zxcvbn-ts/core": "^3.0.4",
@@ -28,11 +29,13 @@
     "del-cli": "^4.0.1",
     "dotenv": "^10.0.0",
     "dotenv-webpack": "^7.0.3",
-    "eslint": "^8.54.0",
-    "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-lit": "^1.10.1",
-    "eslint-plugin-wc": "^1.3.2",
-    "eslint-webpack-plugin": "^3.1.1",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.1",
+    "eslint-plugin-import-x": "^0.4.1",
+    "eslint-plugin-lit": "^1.11.0",
+    "eslint-plugin-wc": "^2.0.4",
+    "eslint-webpack-plugin": "^4.0.1",
     "fork-ts-checker-webpack-plugin": "^6.2.6",
     "fuse.js": "^6.5.3",
     "glob": "^8.1.0",
@@ -52,17 +55,17 @@
     "postcss-lit": "^1.1.1",
     "postcss-loader": "^6.1.1",
     "postinstall-postinstall": "^2.1.0",
-    "prettier": "^2.4.1",
+    "prettier": "^3.2.4",
     "pretty-ms": "^7.0.1",
     "query-string": "^8.1.0",
     "regex-colorize": "^0.0.3",
     "slugify": "^1.6.6",
     "style-loader": "^3.3.0",
-    "tailwindcss": "^3.2.7",
+    "tailwindcss": "^3.4.1",
     "terser-webpack-plugin": "^5.3.9",
     "ts-loader": "^9.2.6",
     "tsconfig-paths-webpack-plugin": "^4.1.0",
-    "typescript": "^4.5.2",
+    "typescript": "^5.3.3",
     "update-dotenv": "^1.1.1",
     "url-pattern": "^1.0.3",
     "webpack": "^5.88.0",
@@ -80,9 +83,11 @@
     "build:analyze": "BUNDLE_ANALYZER=true webpack --config webpack.prod.js",
     "start": "webpack serve --mode=development --config webpack.dev.js",
     "serve": "node scripts/serve.js",
-    "lint": "eslint --fix \"src/**/*.{ts,js}\"",
+    "lint": "eslint --fix .",
+    "lint:check": "eslint .",
     "lint:lit-analyzer": "lit-analyzer",
-    "format": "prettier --write \"src/**/*.{ts,js,html,css,json}\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "localize:prepare": "yarn localize:extract && yarn localize:build",
     "localize:extract": "lit-localize extract",
     "localize:build": "lit-localize build"
@@ -90,10 +95,11 @@
   "devDependencies": {
     "@lit/localize-tools": "^0.7.1",
     "@web/dev-server-esbuild": "^0.3.3",
-    "@web/dev-server-import-maps": "^0.0.6",
-    "@web/dev-server-rollup": "^0.3.21",
+    "@web/dev-server-import-maps": "^0.2.0",
+    "@web/dev-server-rollup": "^0.6.1",
     "husky": "^8.0.3",
     "lint-staged": "^13.1.0",
+    "prettier-plugin-tailwindcss": "^0.5.11",
     "rollup-plugin-typescript-paths": "^1.4.0",
     "sinon": "^12.0.1",
     "ts-lit-plugin": "^2.0.1",
@@ -113,7 +119,7 @@
       "prettier --write",
       "eslint --fix --quiet"
     ],
-    "*.{html,css,json}": "prettier --write"
+    "*.{html,css,json,webmanifest}": "prettier --write"
   },
   "husky": {
     "hooks": {
@@ -121,10 +127,14 @@
     }
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "resolutions": {
     "**/playwright": "1.32.1",
-    "**/lit": "3.1.1"
-  }
+    "**/lit": "3.1.1",
+    "@web/dev-server-esbuild/esbuild": "^0.19.5"
+  },
+  "browserslist": [
+    "defaults"
+  ]
 }

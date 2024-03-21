@@ -1,15 +1,16 @@
 // cSpell:words wysimark
 
-import { LitElement, html } from "lit";
-import { state, property, customElement } from "lit/decorators.js";
-import { guard } from "lit/directives/guard.js";
 import { createWysimark } from "@wysimark/standalone";
+import { html, LitElement, type PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { guard } from "lit/directives/guard.js";
 
 import { getHelpText } from "@/utils/form";
 
-export type MarkdownChangeEvent = CustomEvent<{
+type MarkdownChangeDetail = {
   value: string;
-}>;
+};
+export type MarkdownChangeEvent = CustomEvent<MarkdownChangeDetail>;
 
 /**
  * Edit and preview text in markdown
@@ -35,7 +36,7 @@ export class MarkdownEditor extends LitElement {
     return this;
   }
 
-  protected updated(changedProperties: Map<string, any>) {
+  protected updated(changedProperties: PropertyValues<this>) {
     if (changedProperties.has("initialValue") && this.initialValue) {
       this.value = this.initialValue;
       this.initEditor();
@@ -94,7 +95,7 @@ export class MarkdownEditor extends LitElement {
               }
             </style>
             <div class="markdown-editor font-sm"></div>
-          `
+          `,
         )}
         ${this.maxlength
           ? html`<div class="form-help-text">
@@ -111,18 +112,18 @@ export class MarkdownEditor extends LitElement {
       minHeight: "12rem",
       onChange: async () => {
         const value = editor.getMarkdown();
-        const input = this.querySelector(
-          `input[name=${this.name}]`
-        ) as HTMLTextAreaElement;
-        input.value = value;
+        const input = this.querySelector<HTMLTextAreaElement>(
+          `input[name=${this.name}]`,
+        );
+        input!.value = value;
         this.value = value;
         await this.updateComplete;
         this.dispatchEvent(
-          <MarkdownChangeEvent>new CustomEvent("on-change", {
+          new CustomEvent<MarkdownChangeDetail>("on-change", {
             detail: {
               value: value,
             },
-          })
+          }),
         );
       },
     });

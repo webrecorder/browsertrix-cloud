@@ -27,7 +27,8 @@
   cursor: inherit;
   appearance: none;
   -webkit-appearance: none;
-  transition: var(--sl-transition-fast) border,
+  transition:
+    var(--sl-transition-fast) border,
     var(--sl-transition-fast) box-shadow,
     var(--sl-transition-fast) background-color;
 }

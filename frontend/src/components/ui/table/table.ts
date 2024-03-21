@@ -1,13 +1,22 @@
-import { LitElement, html, css } from "lit";
+import { css, html, LitElement } from "lit";
 import {
   customElement,
-  query,
   property,
   queryAssignedElements,
 } from "lit/decorators.js";
 
-import { TailwindElement } from "@/classes/TailwindElement";
 import { type TableHead } from "./table-head";
+import tableCSS from "./table.stylesheet.css";
+
+import { theme } from "@/theme";
+
+// Add table CSS to theme CSS to make it available throughout the app,
+// to both shadow and light dom components.
+// TODO Remove once all `LiteElement`s are migrated over to `TailwindElement`
+tableCSS.split("}").forEach((rule: string) => {
+  if (!rule.trim()) return;
+  theme.insertRule(`${rule}}`);
+});
 
 /**
  * Low-level component for displaying content as a table.
@@ -34,7 +43,7 @@ import { type TableHead } from "./table-head";
  * ```
  *
  * Table columns will be automatically sized according to its content.
- * To specify column size, use `--btrix-table-grid-auto-columns`.
+ * To specify column size, use `grid-template-columns`.
  *
  * @slot head
  * @slot
@@ -44,10 +53,9 @@ import { type TableHead } from "./table-head";
  * @cssproperty --btrix-cell-padding-left
  * @cssproperty --btrix-cell-padding-right
  * @cssproperty --btrix-cell-padding-bottom
- * @cssproperty --btrix-table-grid-auto-columns
  */
 @customElement("btrix-table")
-export class Table extends TailwindElement {
+export class Table extends LitElement {
   static styles = css`
     :host {
       --btrix-cell-gap: 0;
@@ -57,7 +65,6 @@ export class Table extends TailwindElement {
       --btrix-cell-padding-right: 0;
 
       display: grid;
-      grid-auto-columns: var(--btrix-table-grid-auto-columns, auto);
     }
   `;
 
@@ -65,20 +72,20 @@ export class Table extends TailwindElement {
   role = "table";
 
   @queryAssignedElements({ selector: "btrix-table-head" })
-  private head!: Array<TableHead>;
+  private readonly head!: TableHead[];
 
   render() {
     return html`<slot @slotchange=${this.onSlotChange}></slot>`;
   }
 
   private async onSlotChange() {
-    const headEl = this.head[0];
+    const headEl = this.head[0] as TableHead | undefined;
     if (!headEl) return;
     await headEl.updateComplete;
 
     this.style.setProperty(
       "--btrix-table-grid-column",
-      `span ${headEl.colCount}`
+      `span ${headEl.colCount}`,
     );
   }
 }

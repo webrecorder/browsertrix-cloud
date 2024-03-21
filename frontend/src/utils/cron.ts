@@ -27,7 +27,7 @@ export function getScheduleInterval(schedule: string): ScheduleInterval {
  **/
 export function humanizeNextDate(
   schedule: string,
-  options: { length?: "short" } = {}
+  options: { length?: "short" } = {},
 ): string {
   const nextDate = parseCron.nextDate(schedule);
 
@@ -61,7 +61,7 @@ export function humanizeNextDate(
 export function humanizeSchedule(
   schedule: string,
   options: { length?: "short" } = {},
-  numberFormatter = numberUtils.numberFormatter
+  numberFormatter = numberUtils.numberFormatter,
 ): string {
   const interval = getScheduleInterval(schedule);
   const parsed = parseCron(schedule);
@@ -93,7 +93,7 @@ export function humanizeSchedule(
       case "monthly": {
         const { format } = numberFormatter();
         intervalMsg = msg(
-          str`Monthly on the ${format(days[0], { ordinal: true })}`
+          str`Monthly on the ${format(days[0], { ordinal: true })}`,
         );
 
         break;
@@ -116,12 +116,12 @@ export function humanizeSchedule(
       case "weekly":
         intervalMsg = msg(
           str`Every ${formattedWeekDay}
-            at ${formattedTime}`
+            at ${formattedTime}`,
         );
         break;
       case "monthly":
         intervalMsg = msg(
-          str`On day ${nextDate.getDate()} of the month at ${formattedTime}`
+          str`On day ${nextDate.getDate()} of the month at ${formattedTime}`,
         );
         break;
       default:

@@ -1,6 +1,6 @@
-site_name: Browsertrix Cloud Docs
+site_name: Browsertrix Docs
 repo_url: https://github.com/webrecorder/browsertrix-cloud/
-repo_name: Browsertrix Cloud
+repo_name: Browsertrix
 edit_uri: edit/main/docs/
 extra_css:
     - stylesheets/extra.css
@@ -19,9 +19,12 @@ theme:
     - navigation.footer
     - content.code.copy
     - content.action.edit
+    - content.tooltips
+    - search.suggest
   palette:
     scheme: webrecorder
-  logo: assets/brand/btrix-logo.svg
+  logo: assets/brand/browsertrix-icon-white.svg
+  favicon: assets/brand/favicon.svg
 
   icon:
     admonition:
@@ -48,6 +51,7 @@ nav:
       - deploy/index.md
       - deploy/local.md
       - deploy/remote.md
+      - deploy/customization.md
       - Ansible:
         - deploy/ansible/digitalocean.md
         - deploy/ansible/microk8s.md
@@ -79,8 +83,8 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
       options:
         custom_icons:
           - docs/overrides/.icons
@@ -104,3 +108,6 @@ extra:
     - icon: bootstrap/youtube
       link: https://www.youtube.com/@webrecorder
 copyright: "Creative Commons Attribution 4.0 International (CC BY 4.0)"
+
+plugins:
+  - search

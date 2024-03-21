@@ -1,4 +1,4 @@
-import { LitElement, html, css } from "lit";
+import { css, html, LitElement } from "lit";
 import {
   customElement,
   property,
@@ -34,7 +34,7 @@ export class TableHead extends LitElement {
     selector: "btrix-table-header-cell",
     flatten: true,
   })
-  private headerCells!: Array<TableHeaderCell>;
+  private readonly headerCells!: TableHeaderCell[];
 
   render() {
     return html`<btrix-table-row>

@@ -195,12 +195,12 @@ class EventWebhookOps:
         body: Union[CrawlFinishedBody, UploadFinishedBody],
     ):
         """Create webhook notification for finished crawl/upload."""
-        crawl = await self.crawl_ops.get_crawl(crawl_id, org)
+        crawl = await self.crawl_ops.get_crawl_out(crawl_id, org)
         if not crawl:
             print(f"Crawl {crawl_id} not found, skipping event webhook", flush=True)
             return
 
-        body.resources = crawl.resources
+        body.resources = crawl.resources or []
 
         notification = WebhookNotification(
             id=uuid4(),

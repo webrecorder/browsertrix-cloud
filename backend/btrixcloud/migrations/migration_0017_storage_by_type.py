@@ -1,6 +1,7 @@
 """
 Migration 0017 - Calculate and store org storage usage by type
 """
+
 from btrixcloud.migrations import BaseMigration
 
 
@@ -11,8 +12,9 @@ MIGRATION_VERSION = "0017"
 class Migration(BaseMigration):
     """Migration class."""
 
-    def __init__(self, mdb, migration_version=MIGRATION_VERSION):
-        super().__init__(mdb, migration_version)
+    # pylint: disable=unused-argument
+    def __init__(self, mdb, **kwargs):
+        super().__init__(mdb, migration_version=MIGRATION_VERSION)
 
     async def migrate_up(self):
         """Perform migration up.

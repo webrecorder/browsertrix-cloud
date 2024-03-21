@@ -1,7 +1,7 @@
-import { css } from "lit";
 import SlDialog from "@shoelace-style/shoelace/dist/components/dialog/dialog.js";
 import dialogStyles from "@shoelace-style/shoelace/dist/components/dialog/dialog.styles.js";
-import { customElement } from "lit/decorators.js";
+import { css } from "lit";
+import { customElement, queryAssignedElements } from "lit/decorators.js";
 
 /**
  * <sl-dialog> with custom CSS
@@ -55,4 +55,17 @@ export class Dialog extends SlDialog {
     // same version of `@lit/reactive-element` as Shoelace -- at the time of
     // writing, that's `@lit/reactive-element@2.0.2`)
   ] as typeof SlDialog.styles;
+
+  @queryAssignedElements({ selector: "form", flatten: true })
+  readonly formElems!: HTMLFormElement[];
+
+  /**
+   * Submit form using external buttons to bypass
+   * incorrect `getRootNode` in Chrome.
+   *
+   * TODO refactor dialog instances that self implements `form.requestSubmit`
+   */
+  submit = () => {
+    this.formElems[0]?.requestSubmit();
+  };
 }

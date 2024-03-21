@@ -1,5 +1,6 @@
-import { LitElement, html, css, unsafeCSS } from "lit";
+import { css, html, LitElement, unsafeCSS } from "lit";
 import { customElement, property } from "lit/decorators.js";
+
 import caretDownFillSvg from "~assets/images/caret-down-fill.svg";
 import caretRightFillSvg from "~assets/images/caret-right-fill.svg";
 
@@ -128,7 +129,7 @@ export class Details extends LitElement {
       this.dispatchEvent(
         new CustomEvent("on-toggle", {
           detail: { open: isOpen },
-        })
+        }),
       );
     }
   }

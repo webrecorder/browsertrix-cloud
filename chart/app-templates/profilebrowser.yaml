@@ -78,8 +78,8 @@ spec:
 
       resources:
         limits:
-          memory: "{{ crawler_memory }}"
+          memory: "{{ profile_memory }}"
 
         requests:
-          cpu: "{{ crawler_cpu }}"
-          memory: "{{ crawler_memory }}"
+          cpu: "{{ profile_cpu }}"
+          memory: "{{ profile_memory }}"

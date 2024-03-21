@@ -1,0 +1,11 @@
+{
+  "name": "Browsertrix",
+  "short_name": "Browsertrix",
+  "display": "browser",
+  "background_color": "#fff",
+  "description": "Automated Browser-Based Crawling at Scale.",
+  "icons": [
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512" }
+  ]
+}

@@ -4,7 +4,7 @@ import appState from "@/utils/state";
 
 export type NavigateEventDetail = {
   url: string;
-  state?: object;
+  state?: { [key: string]: unknown };
 };
 
 export interface NavigateEventMap {
@@ -17,7 +17,7 @@ const NAVIGATE_EVENT_NAME: keyof NavigateEventMap = "btrix-navigate";
  * Manage app navigation
  */
 export class NavigateController implements ReactiveController {
-  private host: ReactiveControllerHost & EventTarget;
+  private readonly host: ReactiveControllerHost & EventTarget;
 
   get orgBasePath() {
     const slug = appState.orgSlug;
@@ -35,7 +35,7 @@ export class NavigateController implements ReactiveController {
   hostConnected() {}
   hostDisconnected() {}
 
-  to = (url: string, state?: object): void => {
+  to = (url: string, state?: { [key: string]: unknown }): void => {
     const evt = new CustomEvent<NavigateEventDetail>(NAVIGATE_EVENT_NAME, {
       detail: { url, state },
       bubbles: true,

@@ -22,7 +22,7 @@ crawler_channels:
     image: "docker.io/webrecorder/browsertrix-crawler:latest"
 
   - id: test
-    image: "docker.io/webrecorder/browsertrix-crawler:latest"
+    image: "docker.io/webrecorder/browsertrix-crawler:1.1.0-beta.1"
 
 mongo_auth:
   # specify either username + password (for local mongo)

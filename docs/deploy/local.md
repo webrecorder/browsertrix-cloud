@@ -1,10 +1,10 @@
 # Local Deployment
 
-To try out the latest release of Browsertrix Cloud on your local machine, you'll first need to have a working Kubernetes cluster.
+To try out the latest release of Browsertrix on your local machine, you'll first need to have a working Kubernetes cluster.
 
 ## Installing Kubernetes
 
-Before running Browsertrix Cloud, you'll need to set up a running [Kubernetes](https://kubernetes.io/) cluster.
+Before running Browsertrix, you'll need to set up a running [Kubernetes](https://kubernetes.io/) cluster.
 
 Today, there are numerous ways to deploy Kubernetes fairly easily, and we recommend trying one of the single-node options, which include Docker Desktop, microk8s, minikube, and k3s.
 
@@ -16,7 +16,7 @@ Here are some environment specific instructions for setting up a local cluster f
 
 ??? info "Docker Desktop (recommended for macOS and Windows)"
 
-    For macOS and Windows, we recommend testing out Browsertrix Cloud using Kubernetes support in Docker Desktop as that will be one of the simplest options.
+    For macOS and Windows, we recommend testing out Browsertrix using Kubernetes support in Docker Desktop as that will be one of the simplest options.
 
     1. [Install Docker Desktop](https://www.docker.com/products/docker-desktop/) if not already installed.
 
@@ -54,9 +54,9 @@ Here are some environment specific instructions for setting up a local cluster f
 
     3. Set `KUBECONFIG` to point to the config for K3S: `export KUBECONFIG=/etc/rancher/k3s/k3s.yaml` to ensure Helm will use the correct version.
 
-## Launching Browsertrix Cloud with Helm
+## Launching Browsertrix with Helm
 
-Once you have a running Kubernetes cluster with one of the options above, and Helm 3 installed, install the latest release of Browsertrix Cloud directly from the latest GitHub release.
+Once you have a running Kubernetes cluster with one of the options above, and Helm 3 installed, install the latest release of Browsertrix directly from the latest GitHub release.
 
 <insert-version></insert-version>
 
@@ -80,7 +80,7 @@ https://github.com/webrecorder/browsertrix-cloud/releases/download/VERSION/brows
     **Note:** Subsequent commands will also use `microk8s helm3` instead of `helm`.
 
 
-The default setup includes the full Browsertrix Cloud system, with frontend, backend api, db (via MongoDB), and storage (via Minio)
+The default setup includes the full Browsertrix system, with frontend, backend api, db (via MongoDB), and storage (via Minio)
 
 An admin user with name `admin@example.com` and password `PASSW0RD!` will be automatically created.
 
@@ -100,7 +100,7 @@ helm upgrade --install btrix https://github.com/webrecorder/browsertrix-cloud/re
 -f ./chart/examples/local-config.yaml
 ```
 
-The above examples assumes running from a cloned Browsertrix Cloud repo, however the config file can be saved anywhere and specified with `-f <extra-config.yaml>`.
+The above examples assumes running from a cloned Browsertrix repo, however the config file can be saved anywhere and specified with `-f <extra-config.yaml>`.
 
 
 ## Waiting for Cluster to Start
@@ -117,7 +117,7 @@ REVISION: 1
 TEST SUITE: None
 ```
 
-After that, especially on first run, it may take a few minutes for the Browsertrix Cloud cluster to start, as all images need to be downloaded locally.
+After that, especially on first run, it may take a few minutes for the Browsertrix cluster to start, as all images need to be downloaded locally.
 
 You can try running the following command to wait for all pods to be initialized: 
 
@@ -127,7 +127,7 @@ kubectl wait --for=condition=ready pod --all --timeout=300s
 
 The command will exit when all pods have been loaded, or if there is an error and it times out.
 
-If the command succeeds, you should be able to access Browsertrix Cloud by loading: [http://localhost:30870/](http://localhost:30870/) in your browser.
+If the command succeeds, you should be able to access Browsertrix by loading: [http://localhost:30870/](http://localhost:30870/) in your browser.
 
 ??? info "Minikube (on macOS)"
 
@@ -152,7 +152,7 @@ The outputs of these commands are helpful when reporting an issue [on GitHub](ht
 
 ## Updating the Cluster
 
-To update the cluster, for example to update to new version `NEWVERSION`, re-run the same command again, which will pull the latest images. In this way, you can upgrade to the latest release of Browsertrix Cloud. The upgrade will preserve the database and current archives.
+To update the cluster, for example to update to new version `NEWVERSION`, re-run the same command again, which will pull the latest images. In this way, you can upgrade to the latest release of Browsertrix. The upgrade will preserve the database and current archives.
 
 ```shell
 helm upgrade --install btrix https://github.com/webrecorder/browsertrix-cloud/releases/download/NEWVERSION/browsertrix-cloud-NEWVERSION.tgz
@@ -172,4 +172,4 @@ To fully delete all persistent data (db + archives) created in the cluster, run 
 
 ## Deploying for Local Development
 
-These instructions are intended for deploying the cluster from the latest releases published on GitHub. See [setting up cluster for local development](../develop/local-dev-setup.md) for additional customizations related to developing Browsertrix Cloud and deploying from local images.
+These instructions are intended for deploying the cluster from the latest releases published on GitHub. See [setting up cluster for local development](../develop/local-dev-setup.md) for additional customizations related to developing Browsertrix and deploying from local images.

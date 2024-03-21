@@ -1,4 +1,4 @@
-import { LitElement, html, css } from "lit";
+import { css, html, LitElement } from "lit";
 import {
   customElement,
   property,
@@ -7,9 +7,10 @@ import {
 
 import { truncate } from "@/utils/css";
 
-export type FileRemoveEvent = CustomEvent<{
+type FileRemoveDetail = {
   file: File;
-}>;
+};
+export type FileRemoveEvent = CustomEvent<FileRemoveDetail>;
 
 /**
  * @event on-remove FileRemoveEvent
@@ -106,15 +107,15 @@ export class FileListItem extends LitElement {
     </div>`;
   }
 
-  private onRemove = async () => {
+  private readonly onRemove = async () => {
     if (!this.file) return;
     await this.updateComplete;
     this.dispatchEvent(
-      <FileRemoveEvent>new CustomEvent("on-remove", {
+      new CustomEvent<FileRemoveDetail>("on-remove", {
         detail: {
           file: this.file,
         },
-      })
+      }),
     );
   };
 }
@@ -141,7 +142,7 @@ export class FileList extends LitElement {
   ];
 
   @queryAssignedElements({ selector: "btrix-file-list-item" })
-  listItems!: Array<HTMLElement>;
+  listItems!: HTMLElement[];
 
   render() {
     return html`<div class="list" role="list">

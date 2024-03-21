@@ -1,4 +1,5 @@
 import { LitElement } from "lit";
+
 import { theme } from "@/theme";
 
 export class TailwindElement extends LitElement {

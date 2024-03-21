@@ -1,4 +1,4 @@
-import type { AccessCode, UserRole, OrgData } from "./org";
+import type { AccessCode, OrgData, UserRole } from "./org";
 
 export type UserOrg = OrgData & {
   default?: boolean;

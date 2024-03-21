@@ -1,8 +1,8 @@
-import { css, html } from "lit";
-import { property, customElement } from "lit/decorators.js";
-import { ifDefined } from "lit/directives/if-defined.js";
 import SLTag from "@shoelace-style/shoelace/dist/components/tag/tag.js";
 import tagStyles from "@shoelace-style/shoelace/dist/components/tag/tag.styles.js";
+import { css, html } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { ifDefined } from "lit/directives/if-defined.js";
 
 /**
  * Customized <sl-tag>
@@ -42,7 +42,9 @@ export class Tag extends SLTag {
 
       .tag,
       .tag__remove {
-        transition: background-color 0.1s, color 0.1s;
+        transition:
+          background-color 0.1s,
+          color 0.1s;
       }
 
       .tag {
@@ -89,7 +91,7 @@ export class Tag extends SLTag {
         padding: 0 0.125rem 0 0.5rem;
       }
     `,
-  ] as any;
+  ] as (typeof SLTag)["styles"];
 
   @property({ type: String, noAccessor: true })
   tabindex?: string;
@@ -100,7 +102,7 @@ export class Tag extends SLTag {
     const template = super.render();
     return html`<span
       tabindex="${ifDefined(
-        this.tabindex != null ? Number(this.tabIndex) : undefined
+        this.tabindex != null ? Number(this.tabIndex) : undefined,
       )}"
       >${template}</span
     >`;
