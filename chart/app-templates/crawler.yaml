@@ -49,6 +49,17 @@ spec:
 
   restartPolicy: OnFailure
 
+  {% set crawler_uid = crawler_uid|default(201400007) %}
+  {% set crawler_gid = crawler_gid|default(201400007) %}
+  {% set crawler_fsgroup = crawler_fsgroup|default(crawler_gid) %}
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: {{ crawler_uid}}
+    runAsGroup: {{ crawler_gid}}
+    fsGroup: {{ crawler_fsgroup }}
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true 
+
   terminationGracePeriodSeconds: {{ termination_grace_secs }}
   volumes:
     - name: crawl-config
@@ -61,6 +72,10 @@ spec:
     - name: crawl-data
       persistentVolumeClaim:
         claimName: {{ name }}
+
+    - name: browser-workdir
+      emptyDir:
+        sizeLimit: 10Gi
 
   affinity:
 {% if crawler_node_type %}
@@ -125,6 +140,9 @@ spec:
         - --writePagesToRedis
        {% endif %}
       volumeMounts:
+        - name: browser-workdir
+          mountPath: /tmp
+
         - name: crawl-config
           mountPath: /tmp/crawl-config.json
           subPath: crawl-config.json
@@ -132,7 +150,6 @@ spec:
 
         - name: crawl-data
           mountPath: /crawls
-
       envFrom:
         - configMapRef:
             name: shared-crawler-config
@@ -146,6 +163,9 @@ spec:
       {% endif %}
 
       env:
+        - name: HOME
+          value: /tmp
+
         - name: CRAWL_ID
           value: "{{ id }}"
 
