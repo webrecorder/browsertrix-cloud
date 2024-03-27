@@ -55,6 +55,7 @@ export type OrgParams = {
     itemId?: string;
     itemPageId?: string;
     qaTab?: QATab;
+    qaRunId?: string;
     workflowId?: string;
     collectionId?: string;
   };
@@ -372,7 +373,7 @@ export class Org extends LiteElement {
   private renderOrgNavBar() {
     return html`
       <div
-        class="mx-auto box-border w-full max-w-screen-desktop overflow-x-hidden"
+        class="mx-auto box-border w-full max-w-screen-desktop overflow-x-hidden overscroll-contain"
       >
         <nav class="-mx-3 flex items-end overflow-x-auto px-3">
           ${this.renderNavTab({
@@ -532,6 +533,7 @@ export class Org extends LiteElement {
           orgId=${this.orgId}
           itemId=${params.itemId}
           itemPageId=${ifDefined(params.itemPageId)}
+          qaRunId=${ifDefined(params.qaRunId)}
           tab=${params.qaTab}
           ?isCrawler=${this.isCrawler}
         ></btrix-archived-item-qa>`;

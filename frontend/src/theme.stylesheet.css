@@ -238,6 +238,22 @@
   .textarea-wrap::part(textarea) {
     white-space: pre;
   }
+
+  /** Render label to the side of the input **/
+  .label-same-line::part(form-control) {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--sl-spacing-x-small);
+    align-items: center;
+  }
+
+  .label-same-line::part(form-control-label) {
+    margin: 0;
+  }
+
+  .label-same-line::part(form-control-help-text) {
+    grid-column-start: 2;
+  }
 }
 
 @layer utilities {

@@ -27,6 +27,7 @@ import("./relative-duration");
 import("./search-combobox");
 import("./section-heading");
 import("./select-crawler");
+import("./tab-group");
 import("./tab-list");
 import("./table");
 import("./tag-input");

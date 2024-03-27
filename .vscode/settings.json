@@ -19,6 +19,7 @@
   "cSpell.words": [
     "Browsertrix",
     "btrix",
+    "clsx",
     "Elems",
     "favicons",
     "hoverable",
@@ -48,5 +49,9 @@
   ],
   "eslint.workingDirectories": ["./frontend"],
   "eslint.nodePath": "./frontend/node_modules",
-  "tailwindCSS.experimental.classRegex": ["tw`([^`]*)"]
+  "tailwindCSS.experimental.classRegex": ["tw`([^`]*)", "clsx\\(([^)]*)\\)"],
+  "html.customData": [
+    "./node_modules/@shoelace-style/shoelace/dist/vscode.html-custom-data.json"
+  ],
+  "prettier.configPath": "./prettier.config.js"
 }

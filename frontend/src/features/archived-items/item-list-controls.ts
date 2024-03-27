@@ -38,7 +38,7 @@ export class ItemListControls extends TailwindElement {
   static styles = css``;
 
   @property({ type: Array })
-  searchKeys: string[] = ["name"];
+  searchKeys: ("name" | "firstSeed")[] = ["name"];
 
   @property({ type: Object })
   keyLabels?: { [key: string]: string };
@@ -56,7 +56,7 @@ export class ItemListControls extends TailwindElement {
   filterBy: FilterBy = {};
 
   @state()
-  private searchOptions: FilterBy[] = [];
+  private searchOptions: ({ name: string } | { firstSeed: string })[] = [];
 
   private get selectedSearchFilterKey() {
     return this.searchKeys.find((key) => Boolean(this.filterBy[key]));
@@ -65,9 +65,13 @@ export class ItemListControls extends TailwindElement {
   protected willUpdate(changedProperties: PropertyValues<this>): void {
     if (changedProperties.has("searchValues") && this.searchValues) {
       // Update search/filter collection
-      const toSearchItem = (key: string) => (value: string) => ({
-        [key]: value,
-      });
+      const toSearchItem =
+        <K extends PropertyKey>(key: K) =>
+        (value: string) =>
+          ({
+            [key]: value,
+          }) as { [key in K]: string };
+
       this.searchOptions = [
         ...this.searchValues.names.map(toSearchItem("name")),
         ...this.searchValues.firstSeeds.map(toSearchItem("firstSeed")),

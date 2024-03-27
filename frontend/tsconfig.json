@@ -28,6 +28,7 @@
       "@/*": ["./src/*"],
       "~assets/*": ["./src/assets/*"],
     },
+    "lib": ["DOM", "DOM.Iterable", "ES2021.WeakRef"],
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules"],

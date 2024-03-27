@@ -797,10 +797,14 @@ export class App extends LiteElement {
   onNavigateTo = (event: CustomEvent<NavigateEventDetail>) => {
     event.stopPropagation();
 
-    this.navigate(event.detail.url, event.detail.state);
+    const { url, state, resetScroll } = event.detail;
 
-    // Scroll to top of page
-    window.scrollTo({ top: 0 });
+    this.navigate(url, state);
+
+    if (resetScroll) {
+      // Scroll to top of page
+      window.scrollTo({ top: 0 });
+    }
   };
 
   onUserInfoChange(event: CustomEvent<Partial<CurrentUser>>) {

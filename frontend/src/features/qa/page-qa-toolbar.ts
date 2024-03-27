@@ -1,7 +1,6 @@
 import { localized, msg, str } from "@lit/localize";
 import type { SlTextarea } from "@shoelace-style/shoelace";
-import { merge } from "immutable";
-import { css, html, type PropertyValues } from "lit";
+import { css, html } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 import { keyed } from "lit/directives/keyed.js";
@@ -11,11 +10,22 @@ import { TailwindElement } from "@/classes/TailwindElement";
 import type { Dialog } from "@/components/ui/dialog";
 import { APIController } from "@/controllers/api";
 import { NotifyController } from "@/controllers/notify";
-import type { ArchivedItemPage } from "@/types/crawler";
+import type {
+  ArchivedItemPage,
+  ArchivedItemPageComment,
+} from "@/types/crawler";
 import { type AuthState } from "@/utils/AuthService";
+
+export type UpdateItemPageDetail = {
+  id: ArchivedItemPage["id"];
+  approved?: ArchivedItemPage["approved"];
+  notes?: ArchivedItemPage["notes"];
+};
 
 /**
  * Manage crawl QA page review
+ *
+ * @fires btrix-update-item-page
  */
 @localized()
 @customElement("btrix-page-qa-toolbar")
@@ -169,8 +179,8 @@ export class PageQAToolbar extends TailwindElement {
   @property({ type: String })
   pageId?: string;
 
-  @state()
-  private page?: ArchivedItemPage;
+  @property({ type: Object })
+  page?: ArchivedItemPage;
 
   @state()
   private showComments = false;
@@ -183,14 +193,6 @@ export class PageQAToolbar extends TailwindElement {
 
   private readonly api = new APIController(this);
   private readonly notify = new NotifyController(this);
-
-  protected willUpdate(
-    changedProperties: PropertyValues<this> | Map<PropertyKey, unknown>,
-  ): void {
-    if (changedProperties.has("pageId") && this.pageId) {
-      void this.fetchPage();
-    }
-  }
 
   render() {
     const disabled = !this.page;
@@ -254,7 +256,6 @@ export class PageQAToolbar extends TailwindElement {
         label=${msg("Page Review Comments")}
         ?open=${this.showComments}
         @sl-hide=${() => (this.showComments = false)}
-        @sl-after-hide=${async () => this.fetchPage()}
       >
         ${keyed(this.showComments, this.renderComments())}
         </p>
@@ -345,13 +346,8 @@ export class PageQAToolbar extends TailwindElement {
           body: JSON.stringify({ approved }),
         },
       );
-      this.page = merge<ArchivedItemPage>(this.page, { approved });
 
-      this.notify.toast({
-        message: msg("Updated page review."),
-        variant: "success",
-        icon: "check2-circle",
-      });
+      this.dispatchPageUpdate({ approved });
     } catch (e: unknown) {
       console.debug(e);
       this.notify.toast({
@@ -380,10 +376,15 @@ export class PageQAToolbar extends TailwindElement {
 
       this.showComments = false;
 
-      this.notify.toast({
-        message: msg("Updated comments."),
-        variant: "success",
-        icon: "check2-circle",
+      const comment: ArchivedItemPageComment = {
+        id: "",
+        created: "",
+        modified: "",
+        userName: "",
+        text: value,
+      };
+      void this.dispatchPageUpdate({
+        notes: this.page?.notes ? [...this.page.notes, comment] : [comment],
       });
     } catch (e: unknown) {
       console.debug(e);
@@ -407,12 +408,8 @@ export class PageQAToolbar extends TailwindElement {
         },
       );
 
-      void this.fetchPage();
-
-      this.notify.toast({
-        message: msg("Successfully deleted comment."),
-        variant: "success",
-        icon: "check2-circle",
+      void this.dispatchPageUpdate({
+        notes: this.page?.notes?.filter(({ id }) => id === commentId) || [],
       });
     } catch {
       this.notify.toast({
@@ -423,23 +420,16 @@ export class PageQAToolbar extends TailwindElement {
     }
   }
 
-  private async fetchPage(): Promise<void> {
+  private async dispatchPageUpdate(page: Partial<UpdateItemPageDetail>) {
     if (!this.pageId) return;
-    try {
-      this.page = await this.getPage(this.pageId);
-    } catch {
-      this.notify.toast({
-        message: msg("Sorry, couldn't retrieve archived item at this time."),
-        variant: "danger",
-        icon: "exclamation-octagon",
-      });
-    }
-  }
 
-  private async getPage(pageId: string): Promise<ArchivedItemPage> {
-    return this.api.fetch<ArchivedItemPage>(
-      `/orgs/${this.orgId}/crawls/${this.itemId}/pages/${pageId}`,
-      this.authState!,
+    this.dispatchEvent(
+      new CustomEvent<UpdateItemPageDetail>("btrix-update-item-page", {
+        detail: {
+          id: this.pageId,
+          ...page,
+        },
+      }),
     );
   }
 }

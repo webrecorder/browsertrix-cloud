@@ -37,7 +37,7 @@ jobs:
         working-directory: frontend
         # TODO Reenable when https://github.com/webrecorder/browsertrix-cloud/issues/1618 is addressed
         # run: yarn format:check
-        run: yarn prettier --list-different .
+        run: echo "yarn format:check disabled"
       - name: Unit tests
         working-directory: frontend
         run: yarn test

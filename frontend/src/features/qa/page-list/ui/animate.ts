@@ -1,0 +1,74 @@
+// Pulled from https://github.com/shoelace-style/shoelace/blob/next/src/internal/animate.ts
+
+/**
+ * Animates an element using keyframes. Returns a promise that resolves after the animation completes or gets canceled.
+ */
+export async function animateTo(
+  el: HTMLElement,
+  keyframes: Keyframe[],
+  options?: KeyframeAnimationOptions,
+) {
+  return new Promise((resolve) => {
+    if (options?.duration === Infinity) {
+      throw new Error("Promise-based animations must be finite.");
+    }
+
+    const animation = el.animate(keyframes, {
+      ...options,
+      duration: prefersReducedMotion() ? 0 : options!.duration,
+    });
+
+    animation.addEventListener("cancel", resolve, { once: true });
+    animation.addEventListener("finish", resolve, { once: true });
+  });
+}
+
+/** Parses a CSS duration and returns the number of milliseconds. */
+export function parseDuration(delay: number | string) {
+  delay = delay.toString().toLowerCase();
+
+  if (delay.indexOf("ms") > -1) {
+    return parseFloat(delay);
+  }
+
+  if (delay.indexOf("s") > -1) {
+    return parseFloat(delay) * 1000;
+  }
+
+  return parseFloat(delay);
+}
+
+/** Tells if the user has enabled the "reduced motion" setting in their browser or OS. */
+export function prefersReducedMotion() {
+  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+  return query.matches;
+}
+
+/**
+ * Stops all active animations on the target element. Returns a promise that resolves after all animations are canceled.
+ */
+export async function stopAnimations(el: HTMLElement) {
+  return Promise.all(
+    el.getAnimations().map(async (animation) => {
+      return new Promise((resolve) => {
+        animation.cancel();
+        requestAnimationFrame(resolve);
+      });
+    }),
+  );
+}
+
+/**
+ * We can't animate `height: auto`, but we can calculate the height and shim keyframes by replacing it with the
+ * element's scrollHeight before the animation.
+ */
+export function shimKeyframesHeightAuto(
+  keyframes: Keyframe[],
+  calculatedHeight: number,
+) {
+  return keyframes.map((keyframe) => ({
+    ...keyframe,
+    height:
+      keyframe.height === "auto" ? `${calculatedHeight}px` : keyframe.height,
+  }));
+}

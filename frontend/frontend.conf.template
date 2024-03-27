@@ -45,6 +45,7 @@ server {
     # serve replay service worker, RWP_BASE_URL set in Dockerfile
     location /replay/sw.js {
       add_header Content-Type application/javascript;
+      add_header Service-Worker-Allowed /;
       return 200 'importScripts("${RWP_BASE_URL}sw.js");';
     }
 

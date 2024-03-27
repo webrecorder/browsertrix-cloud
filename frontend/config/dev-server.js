@@ -35,6 +35,7 @@ module.exports = {
   onBeforeSetupMiddleware: (server) => {
     server.app.get("/replay/sw.js", (req, res) => {
       res.set("Content-Type", "application/javascript");
+      res.set("Service-Worker-Allowed", "/");
       res.send(`importScripts("${RWP_BASE_URL}sw.js")`);
     });
 

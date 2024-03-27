@@ -9,15 +9,17 @@ import { TailwindElement } from "@/classes/TailwindElement";
 import { tw } from "@/utils/tailwind";
 
 /**
- * Custom styled button
+ * Custom styled button with active state
  *
  * Usage example:
  * ```ts
  * <btrix-navigation-button>Click me</btrix-navigation-button>
  * ```
+ *
+ * @exportparts button
  */
 @customElement("btrix-navigation-button")
-export class Button extends TailwindElement {
+export class NavigationButton extends TailwindElement {
   @property({ type: Boolean })
   active = false;
 
@@ -37,13 +39,20 @@ export class Button extends TailwindElement {
   icon = false;
 
   @property({ type: String, reflect: true })
-  role: ARIAMixin["role"] = "tab";
+  role: ARIAMixin["role"] = null;
 
   @property({ type: String })
   size: "small" | "medium" | "large" = "medium";
 
   @property({ type: String })
   align: "left" | "center" | "right" = "left";
+
+  connectedCallback(): void {
+    if (!this.role && !this.href) {
+      this.role = "tab";
+    }
+    super.connectedCallback();
+  }
 
   protected willUpdate(changedProperties: PropertyValueMap<this>) {
     if (changedProperties.has("active")) {
@@ -66,6 +75,7 @@ export class Button extends TailwindElement {
     const tag = this.href ? literal`a` : literal`button`;
     return html`<${tag}
       type=${this.type === "submit" ? "submit" : "button"}
+      part="button"
       class=${[
         tw`flex w-full cursor-pointer items-center gap-2 rounded font-medium leading-[16px] outline-primary-600 transition hover:transition-none focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-1 disabled:cursor-not-allowed disabled:bg-transparent disabled:opacity-50`,
         this.icon ? tw`min-h-6 min-w-6` : tw``,
@@ -89,6 +99,7 @@ export class Button extends TailwindElement {
       href=${ifDefined(this.href)}
       aria-label=${ifDefined(this.label)}
       @click=${this.handleClick}
+      
     >
       <slot></slot>
     </${tag}>`;
