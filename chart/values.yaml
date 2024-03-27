@@ -91,13 +91,10 @@ backend_pull_policy: "Always"
 
 backend_password_secret: "PASSWORD!"
 
-# number of backend pods
-backend_num_replicas: 1
-
 # number of workers per pod
 backend_workers: 1
 
-backend_cpu: "25m"
+backend_cpu: "100m"
 
 backend_memory: "350Mi"
 
@@ -114,6 +111,17 @@ profile_browser_idle_seconds: 60
 # mostly intended for debugging / testing
 # log_failed_crawl_lines: 200
 
+# Autoscale
+# ---------
+# max number of backend pods to scale to
+# if > 1, will enable HPA for backend
+backend_max_replicas: 1
+
+# scale up if avg cpu utilization exceeds
+backend_avg_cpu_threshold: 80
+
+# scale up if avg memory utilization exceeds
+backend_avg_memory_threshold: 95
 
 # Nginx Image
 # =========================================
@@ -131,6 +139,18 @@ frontend_memory: "64Mi"
 local_service_port: 30870
 
 frontend_alias: "http://browsertrix-cloud-frontend"
+
+# Autoscaling
+# -----------
+# max number of backend pods to scale to
+# if > 1, will enable HPA for frontend
+frontend_max_replicas: 1
+
+# scale up if avg cpu utilization exceeds
+frontend_avg_cpu_threshold: 80
+
+# scale up if avg memory utilization exceeds
+frontend_avg_memory_threshold: 95
 
 
 # MongoDB Image

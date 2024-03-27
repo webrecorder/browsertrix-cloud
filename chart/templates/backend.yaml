@@ -10,7 +10,9 @@ spec:
     matchLabels:
       app: {{ .Values.name }}
       role: backend
-  replicas: {{ .Values.backend_num_replicas }}
+{{- if eq (int .Values.backend_max_replicas) 1 }}
+  replicas: 1
+{{- end }}
   template:
     metadata:
       labels:
@@ -232,3 +234,31 @@ spec:
     - protocol: TCP
       port: {{ .Values.opPort }}
       name: operator
+
+{{- if gt (int .Values.backend_max_replicas) 1 }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Values.name }}-backend
+  minReplicas: 1
+  maxReplicas: {{ .Values.backend_max_replicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.backend_avg_cpu_threshold }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.backend_avg_memory_threshold }}
+{{- end }}

@@ -10,7 +10,9 @@ spec:
     matchLabels:
       app: {{ .Values.name }}
       role: frontend
-  replicas: {{ .Values.frontend_num_replicas | default 1 }}
+  {{- if eq (int .Values.frontend_max_replicas) 1 }}
+  replicas: 1
+  {{- end }}
   template:
     metadata:
       labels:
@@ -110,4 +112,30 @@ spec:
   {{- end }}
 
 
-
+{{- if gt (int .Values.frontend_max_replicas) 1 }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Values.name }}-frontend
+  minReplicas: 1
+  maxReplicas: {{ .Values.frontend_max_replicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.frontend_avg_cpu_threshold }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.frontend_avg_memory_threshold }}
+{{ end }}
