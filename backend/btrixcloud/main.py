@@ -72,11 +72,20 @@ def main():
 
     invites = init_invites(mdb, email)
 
+    crawl_manager = CrawlManager()
+
     user_manager = init_user_manager(mdb, email, invites)
 
     current_active_user = init_users_api(app, user_manager)
 
-    org_ops = init_orgs_api(app, mdb, user_manager, invites, current_active_user)
+    org_ops = init_orgs_api(
+        app,
+        mdb,
+        user_manager,
+        invites,
+        crawl_manager,
+        current_active_user,
+    )
 
     event_webhook_ops = init_event_webhooks_api(mdb, org_ops, app_root)
 
@@ -87,8 +96,6 @@ def main():
              Kubernetes not detected (KUBERNETES_SERVICE_HOST is not set), Exiting"
         )
         sys.exit(1)
-
-    crawl_manager = CrawlManager()
 
     storage_ops = init_storages_api(org_ops, crawl_manager)
 
@@ -150,6 +157,8 @@ def main():
     crawls.set_page_ops(page_ops)
 
     init_uploads_api(*base_crawl_init)
+
+    org_ops.set_base_crawl_ops(base_crawl_ops)
 
     user_manager.set_ops(org_ops, crawl_config_ops, base_crawl_ops)
 

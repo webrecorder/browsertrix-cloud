@@ -1100,6 +1100,40 @@ class Organization(BaseMongoModel):
 
 
 # ============================================================================
+class OrgOutExport(Organization):
+    """Org out for export"""
+
+    # Additional field so export contains user names and emails
+    userDetails: Optional[List[Dict[str, Union[str, int, UUID]]]]
+
+    async def serialize_for_export(self, user_manager):
+        """Serialize result with users for org export"""
+
+        result = self.to_dict()
+        user_details = []
+        keys = list(self.users.keys())
+        user_list = await user_manager.get_user_names_by_ids(keys)
+
+        for org_user in user_list:
+            id_ = str(org_user["id"])
+            role = self.users.get(id_)
+            if not role:
+                continue
+
+            user_details.append(
+                {
+                    "id": id_,
+                    "role": role.value,
+                    "name": org_user.get("name", ""),
+                    "email": org_user.get("email", ""),
+                }
+            )
+
+        result["userDetails"] = user_details
+        return self.from_dict(result)
+
+
+# ============================================================================
 class OrgMetrics(BaseModel):
     """Organization API metrics model"""
 
@@ -1118,6 +1152,19 @@ class OrgMetrics(BaseModel):
     workflowsQueuedCount: int
     collectionsCount: int
     publicCollectionsCount: int
+
+
+# ============================================================================
+class OrgImportExport(BaseModel):
+    """Model for org import/export"""
+
+    org: Dict[str, Any]
+    workflows: List[Dict[str, Any]]
+    workflowRevisions: List[Dict[str, Any]]
+    archivedItems: List[Dict[str, Any]]
+    profiles: List[Dict[str, Any]]
+    collections: List[Dict[str, Any]]
+    dbVersion: str
 
 
 # ============================================================================
@@ -1156,7 +1203,7 @@ class Profile(BaseMongoModel):
     oid: UUID
 
     origins: List[str]
-    resource: Optional[ProfileFile]
+    resource: ProfileFile
 
     created: Optional[datetime]
     baseid: Optional[UUID] = None
@@ -1408,6 +1455,7 @@ class WebhookNotification(BaseMongoModel):
 ### BACKGROUND JOBS ###
 
 
+# ============================================================================
 class BgJobType(str, Enum):
     """Background Job Types"""
 

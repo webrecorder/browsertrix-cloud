@@ -126,7 +126,7 @@ class UserManager:
         # Don't create a new org for registered users.
         user.newOrg = False
 
-        return await self._create(user, request)
+        return await self._create(user, request=request)
 
     async def get_user_info_with_orgs(self, user: User) -> UserOut:
         """return User info"""
@@ -270,10 +270,7 @@ class UserManager:
             print(f"User {email} already exists", flush=True)
 
     async def create_non_super_user(
-        self,
-        email: str,
-        password: str,
-        name: str = "New user",
+        self, email: str, password: str, name: str = "New user", add_to_org: bool = True
     ) -> None:
         """create a regular user with given credentials"""
         if not email:
@@ -293,7 +290,7 @@ class UserManager:
                 is_verified=True,
             )
 
-            await self._create(user_create)
+            await self._create(user_create, add_to_org=add_to_org)
         except HTTPException as exc:
             print(f"User {email} already exists", flush=True)
             raise exc
@@ -332,9 +329,13 @@ class UserManager:
         return result
 
     async def _create(
-        self, create: UserCreateIn, request: Optional[Request] = None
+        self,
+        create: UserCreateIn,
+        add_to_org: bool = True,
+        request: Optional[Request] = None,
     ) -> User:
         """create new user in db"""
+        # pylint: disable=too-many-branches
         await self.validate_password(create.password)
 
         hashed_password = get_password_hash(create.password)
@@ -376,10 +377,15 @@ class UserManager:
             if new_user_invite and not new_user_invite.oid:
                 add_to_default_org = True
 
-        else:
+        elif add_to_org:
             add_to_default_org = True
             if not is_verified:
                 asyncio.create_task(self.request_verify(user, request))
+
+        else:
+            if not is_verified:
+                asyncio.create_task(self.request_verify(user, request))
+            return user
 
         # org to auto-add user to, if any
         auto_add_org: Optional[Organization] = None

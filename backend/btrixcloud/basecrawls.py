@@ -132,7 +132,7 @@ class BaseCrawlOps:
             return []
 
         crawl_files = [CrawlFile(**data) for data in files]
-        return await self._resolve_signed_urls(crawl_files, org, crawlid, qa_run_id)
+        return await self.resolve_signed_urls(crawl_files, org, crawlid, qa_run_id)
 
     async def get_wacz_files(self, crawl_id: str, org: Organization):
         """Return list of WACZ files associated with crawl."""
@@ -410,13 +410,15 @@ class BaseCrawlOps:
 
         return crawl
 
-    async def _resolve_signed_urls(
+    async def resolve_signed_urls(
         self,
         files: List[CrawlFile],
         org: Organization,
         crawl_id: Optional[str] = None,
         qa_run_id: Optional[str] = None,
+        update_presigned_url: bool = False,
     ) -> List[CrawlFileOut]:
+        """Regenerate presigned URLs for files as necessary"""
         if not files:
             print("no files")
             return []
@@ -429,7 +431,7 @@ class BaseCrawlOps:
             presigned_url = file_.presignedUrl
             now = dt_now()
 
-            if not presigned_url or now >= file_.expireAt:
+            if update_presigned_url or not presigned_url or now >= file_.expireAt:
                 exp = now + delta
                 presigned_url = await self.storage_ops.get_presigned_url(
                     org, file_, self.presign_duration_seconds
