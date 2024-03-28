@@ -1043,7 +1043,7 @@ export class WorkflowDetail extends LiteElement {
         class="flex h-56 min-h-max flex-col items-center justify-center rounded-lg border p-4"
       >
         <p class="text-base font-medium">
-          ${msg("Crawl is not currently running.")}
+          ${msg("Crawl workflow is not currently running.")}
         </p>
         <div class="mt-4">
           ${when(
@@ -1053,7 +1053,7 @@ export class WorkflowDetail extends LiteElement {
                 class="mr-2"
                 href=${`${this.orgBasePath}/items/crawl/${
                   this.workflow!.lastCrawlId
-                }?workflowId=${this.workflowId}#replay`}
+                }#replay`}
                 variant="primary"
                 size="small"
                 @click=${this.navLink}
