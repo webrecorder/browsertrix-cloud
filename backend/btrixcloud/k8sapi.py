@@ -288,3 +288,29 @@ class K8sAPI:
         # pylint: disable=broad-exception-caught
         except Exception:
             return False
+
+    async def send_signal_to_pod(self, pod_name, signame) -> bool:
+        """send signal to all pods"""
+        command = ["bash", "-c", f"kill -s {signame} 1"]
+        signaled = False
+
+        try:
+            print(f"Sending {signame} to {pod_name}", flush=True)
+
+            res = await self.core_api_ws.connect_get_namespaced_pod_exec(
+                name=pod_name,
+                namespace=self.namespace,
+                command=command,
+                stdout=True,
+            )
+            if res:
+                print("Result", res, flush=True)
+
+            else:
+                signaled = True
+
+        # pylint: disable=broad-except
+        except Exception as exc:
+            print(f"Send Signal Error: {exc}", flush=True)
+
+        return signaled

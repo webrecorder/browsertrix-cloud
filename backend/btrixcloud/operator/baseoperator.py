@@ -42,28 +42,35 @@ class K8sOpAPI(K8sAPI):
         """compute memory / cpu resources for crawlers"""
         p = self.shared_params
         num = max(int(p["crawler_browser_instances"]) - 1, 0)
+        crawler_cpu: float = 0
+        crawler_memory: int = 0
         print("crawler resources")
         if not p.get("crawler_cpu"):
             base = parse_quantity(p["crawler_cpu_base"])
             extra = parse_quantity(p["crawler_extra_cpu_per_browser"])
 
             # cpu is a floating value of cpu cores
-            p["crawler_cpu"] = float(base + num * extra)
+            crawler_cpu = float(base + num * extra)
 
-            print(f"cpu = {base} + {num} * {extra} = {p['crawler_cpu']}")
+            print(f"cpu = {base} + {num} * {extra} = {crawler_cpu}")
         else:
-            print(f"cpu = {p['crawler_cpu']}")
+            crawler_cpu = float(parse_quantity(p["crawler_cpu"]))
+            print(f"cpu = {crawler_cpu}")
 
         if not p.get("crawler_memory"):
             base = parse_quantity(p["crawler_memory_base"])
             extra = parse_quantity(p["crawler_extra_memory_per_browser"])
 
             # memory is always an int
-            p["crawler_memory"] = int(base + num * extra)
+            crawler_memory = int(base + num * extra)
 
-            print(f"memory = {base} + {num} * {extra} = {p['crawler_memory']}")
+            print(f"memory = {base} + {num} * {extra} = {crawler_memory}")
         else:
-            print(f"memory = {p['crawler_memory']}")
+            crawler_memory = int(parse_quantity(p["crawler_memory"]))
+            print(f"memory = {crawler_memory}")
+
+        p["crawler_cpu"] = crawler_cpu
+        p["crawler_memory"] = crawler_memory
 
     def compute_profile_resources(self):
         """compute memory /cpu resources for a single profile browser"""
