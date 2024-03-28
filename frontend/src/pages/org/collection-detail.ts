@@ -74,7 +74,7 @@ export class CollectionDetail extends LiteElement {
     { icon: { name: string; library: string }; text: string }
   > = {
     replay: {
-      icon: { name: "link-replay", library: "app" },
+      icon: { name: "replaywebpage", library: "app" },
       text: msg("Replay"),
     },
     items: {

@@ -80,8 +80,8 @@ export class Button extends TailwindElement {
           right: "justify-end",
         }[this.align],
         this.active
-          ? tw`bg-blue-100 text-blue-600 shadow-sm shadow-blue-900/20 hover:bg-blue-100`
-          : tw`text-neutral-600 hover:bg-blue-50`,
+          ? tw`bg-primary-100 text-primary-800 shadow-sm shadow-primary-900/20 hover:bg-primary-100`
+          : tw`text-neutral-600 hover:bg-primary-50`,
       ]
         .filter(Boolean)
         .join(" ")}

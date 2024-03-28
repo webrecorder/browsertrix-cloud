@@ -1,22 +1,20 @@
-const Color = require("color");
 const { tailwindTransform } = require("postcss-lit");
 
-const PRIMARY_COLOR = "#4876ff";
-const primaryColor = Color(PRIMARY_COLOR);
+const PRIMARY_COLOR = "#0891B2";
 
 const primary = {
   DEFAULT: PRIMARY_COLOR,
-  50: primaryColor.lighten(0.54).hex(),
-  100: primaryColor.lighten(0.5).hex(),
-  200: primaryColor.lighten(0.4).hex(),
-  300: primaryColor.lighten(0.3).hex(),
-  400: primaryColor.lighten(0.2).hex(),
-  500: primaryColor.lighten(0.1).hex(),
+  50: "#EBFAFE",
+  100: "#D8F6FD",
+  200: "#ACEBFB",
+  300: "#74DBF5",
+  400: "#3FC6E8",
+  500: "#0AAED7",
   600: PRIMARY_COLOR,
-  700: primaryColor.darken(0.1).hex(),
-  800: primaryColor.darken(0.2).hex(),
-  900: primaryColor.darken(0.3).hex(),
-  950: primaryColor.darken(0.4).hex(),
+  700: "#0782A1",
+  800: "#066B84",
+  900: "#044B5D",
+  950: "#033744",
 };
 
 /**

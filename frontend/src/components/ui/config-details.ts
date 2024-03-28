@@ -324,7 +324,7 @@ export class ConfigDetails extends LiteElement {
               (seed: Seed) => html`
                 <li>
                   <a
-                    class="text-primary hover:text-indigo-400"
+                    class="text-blue-600 hover:text-blue-500 hover:underline"
                     href="${seed.url}"
                     target="_blank"
                     rel="noreferrer"
@@ -361,7 +361,7 @@ export class ConfigDetails extends LiteElement {
       ${this.renderSetting(
         msg("Primary Seed URL"),
         html`<a
-          class="text-primary hover:text-indigo-400"
+          class="text-blue-600 hover:text-blue-500 hover:underline"
           href="${primarySeedUrl!}"
           target="_blank"
           rel="noreferrer"

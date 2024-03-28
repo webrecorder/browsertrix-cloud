@@ -60,7 +60,7 @@ export class Tab extends TailwindElement {
   render() {
     return html`
       <li
-        class="cursor-pointer px-3 py-4 font-semibold leading-tight text-neutral-500 transition-colors duration-fast aria-disabled:cursor-default aria-selected:text-blue-600"
+        class="cursor-pointer px-3 py-4 font-semibold leading-tight text-neutral-500 transition-colors duration-fast aria-disabled:cursor-default aria-selected:text-primary-600"
         role="tab"
         aria-selected=${this.active}
         aria-controls=${ifDefined(this.name)}
@@ -164,7 +164,7 @@ export class TabList extends LitElement {
       position: absolute;
       width: var(--track-width);
       border-radius: var(--track-width);
-      background-color: var(--sl-color-blue-500);
+      background-color: var(--sl-color-primary-600);
     }
 
     @media only screen and (min-width: ${TWO_COL_SCREEN_MIN_CSS}) {

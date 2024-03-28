@@ -26,6 +26,7 @@ import appState, { AppStateService, use } from "./utils/state";
 import type { NavigateEventDetail } from "@/controllers/navigate";
 import type { NotifyEventDetail } from "@/controllers/notify";
 import { theme } from "@/theme";
+import brandLockupColor from "~assets/brand/browsertrix-lockup-color.svg";
 
 import "./shoelace";
 import "./components";
@@ -261,6 +262,7 @@ export class App extends LiteElement {
         >
           <div>
             <a
+              aria-label="home"
               class="text-sm font-medium hover:text-neutral-400"
               href=${homeHref}
               @click=${(e: MouseEvent) => {
@@ -270,7 +272,7 @@ export class App extends LiteElement {
                 this.navLink(e);
               }}
             >
-              ${msg("Browsertrix")}
+              <img class="h-6" alt="Browsertrix logo" src=${brandLockupColor} />
             </a>
           </div>
 

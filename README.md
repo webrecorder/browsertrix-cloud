@@ -1,6 +1,8 @@
-<div align="center">
-    <img alt="Browsertrix Logo" src="assets/browsertrix-lockup-color-dynamic.svg" width="90%">
-</div>
+<h1>
+    <div align="center">
+        <img alt="Browsertrix" src="assets/browsertrix-lockup-color-dynamic.svg" width="90%">
+    </div>
+</h1>
 
 &nbsp;
 
