@@ -13,7 +13,12 @@ stringData:
   MONGO_INITDB_ROOT_USERNAME: "{{ .Values.mongo_auth.username }}"
   MONGO_INITDB_ROOT_PASSWORD: "{{ .Values.mongo_auth.password }}"
   MONGO_HOST: "{{ .Values.mongo_host }}"
+
+{{- if .Values.mongo_auth.db_url }}
   MONGO_DB_URL: "{{ .Values.mongo_auth.db_url }}"
+{{- else }}
+  MONGO_DB_URL: "mongodb://{{ urlquery .Values.mongo_auth.username }}:{{ urlquery .Values.mongo_auth.password }}@{{ .Values.mongo_host }}:27017/browsertrixcloud?tls=false&authSource=admin"
+{{- end }}
 
 ---
 apiVersion: v1
@@ -27,7 +32,12 @@ stringData:
   MONGO_INITDB_ROOT_USERNAME: "{{ .Values.mongo_auth.username }}"
   MONGO_INITDB_ROOT_PASSWORD: "{{ .Values.mongo_auth.password }}"
   MONGO_HOST: "{{ .Values.mongo_host }}"
+{{- if .Values.mongo_auth.db_url }}
   MONGO_DB_URL: "{{ .Values.mongo_auth.db_url }}"
+{{- else }}
+  MONGO_DB_URL: "mongodb://{{ urlquery .Values.mongo_auth.username }}:{{ urlquery .Values.mongo_auth.password }}@{{ .Values.mongo_host }}:27017/browsertrixcloud?tls=false&authSource=admin"
+{{- end }}
+
 
 
 {{- if .Values.mongo_local }}

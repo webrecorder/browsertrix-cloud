@@ -305,6 +305,14 @@ storages:
     endpoint_url: "http://local-minio.default:9000/"
 
 
+# if storage is set, mongodb backups will be created in this storage
+# daily under /db-backups
+db_backup:
+  #storage: "default"
+  #schedule: "26 0 * * *"
+  #path: "db-backup"
+
+
 # optional: duration in minutes for WACZ download links to be valid
 # used by webhooks and replay
 # max value = 10079 (one week minus one minute)

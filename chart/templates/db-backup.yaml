@@ -1,0 +1,104 @@
+{{- if (.Values.db_backup).storage -}}
+
+{{ $backup := print "storage-" .Values.db_backup.storage }}
+
+# find matching storage in storages list
+{{ $found := false }}
+{{- range $storage := .Values.storages -}}
+  {{- if eq $storage.name $.Values.db_backup.storage -}}
+    {{- $found = true }}
+  {{- end }}
+{{- end}}
+
+# error here if backup storage doesn't match one of the specified storages
+{{- if not $found }}
+{{ fail (print "Backup storage '" .Values.db_backup.storage "' not found, check the value of 'db_backups.storage' and 'storages' to ensure this is a valid storage name")}}
+{{- end }}
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mongodb-backup
+  namespace: {{ $.Values.crawler_namespace }}
+spec:
+  schedule: "{{ .Values.db_backup.schedule | default "26 0 * * *" }}"
+  failedJobsHistoryLimit: 2
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          restartPolicy: Never
+          initContainers:
+            - name: dump
+              image: {{ .Values.mongo_image }}
+              imagePullPolicy: {{ .Values.mongo_pull_policy }}
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+
+              command:
+                - /bin/bash
+                - -c
+                - mongodump --uri=$MONGO_DB_URL --archive=/backups/backup.archive
+
+              env:
+                - name: MONGO_DB_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: mongo-auth
+                      key: MONGO_DB_URL
+
+          containers:
+            - name: upload
+              image: {{ .Values.minio_mc_image }}
+              imagePullPolicy: {{ .Values.minio_pull_policy }}
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  [[ "$ENDPOINT_URL" =~ (https?://[^/]+/)([^/]+)/(.*)$ ]];
+                  origin=${BASH_REMATCH[1]};
+                  bucket=${BASH_REMATCH[2]};
+                  path=${BASH_REMATCH[3]};
+
+                  echo "endpoint: $ENDPOINT_URL"
+                  echo "origin: $origin"
+                  echo "bucket: $bucket"
+                  echo "path: ${path}${DB_PATH}/"
+                  
+                  mc alias set BACKUP $origin $ACCESS_KEY $SECRET_KEY || exit 1;
+                  mc cp /backups/backup.archive BACKUP/${bucket}/${path}${DB_PATH}/mongodb-$(date +%Y-%m-%dT%H-%M-%S).archive || exit 2;
+              env:
+                - name: ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $backup }}
+                      key: STORE_ACCESS_KEY
+
+                - name: SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $backup }}
+                      key: STORE_SECRET_KEY
+
+                - name: ENDPOINT_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $backup }}
+                      key: STORE_ENDPOINT_URL
+
+                - name: DB_PATH
+                  value: {{ .Values.db_backup.path | default "db-backup" }}
+
+          volumes:
+            - name: backups
+              emptyDir: {}
+
+   {{- end }}
