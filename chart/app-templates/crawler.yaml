@@ -38,6 +38,7 @@ metadata:
   labels:
     crawl: {{ id }}
     role: crawler
+    network-policy: limit-crawler-egress
 
 spec:
   hostname: {{ name }}

@@ -5,7 +5,9 @@ metadata:
   name: crawler-limit-egress
   namespace: {{ .Values.crawler_namespace }}
 spec:
-  podSelector: {} # apply to all pods in the namespace
+  podSelector:
+    matchLabels:
+      network-policy: limit-crawler-egress
   policyTypes:
     - Egress
   egress:
