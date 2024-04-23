@@ -52,7 +52,7 @@ spec:
       - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: {{ .Release.Namespace }}
-      - podSelector:
+        podSelector:
           matchLabels:
             app: local-minio
     {{- end -}}
@@ -63,7 +63,7 @@ spec:
      - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: {{ .Release.Namespace }}
-      - podSelector:
+       podSelector:
           matchLabels:
             app: auth-signer
     {{- end -}}
