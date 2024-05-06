@@ -822,9 +822,9 @@ class OrgOps:
                     {"_id": crawl_config.profileid}
                 )
                 if profile_res:
-                    profile = Profile.from_dict(profile_res)
-                    if profile.resource:  # type: ignore
-                        profile_filename = profile.resource.filename  # type: ignore
+                    profile_obj = Profile.from_dict(profile_res)
+                    if profile_obj.resource:
+                        profile_filename = profile_obj.resource.filename
 
             await self.crawl_manager.add_crawl_config(
                 crawl_config,
