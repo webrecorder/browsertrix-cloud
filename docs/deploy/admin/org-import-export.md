@@ -34,7 +34,7 @@ To move an organization from one Browsertrix Cloud cluster to another, sync the 
 To generate a portable JSON representation of an org's database information, use the `GET /api/orgs/<org-id>/export` API endpoint and save the returned JSON to a file, e.g.:
 
 ```sh
-curl -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" https://browsertrix.cloud/api/orgs/<org-id>/export > org-export.json
+curl -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" https://app.browsertrix.com/api/orgs/<org-id>/export > org-export.json
 ```
 
 This endpoint is available to superusers only.
@@ -54,7 +54,7 @@ aws s3 cp /path/to/local/directory/<org-id> s3://new-bucket/<org-id> --recursive
 To import an organization from a JSON export, use the `POST /api/orgs/import` API endpoint, passing in the contents of the JSON file as the POST data, e.g.:
 
 ```sh
-curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import
+curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://app.browsertrix.com/api/orgs/import
 ```
 
 This endpoint is available to superusers only.
@@ -74,7 +74,7 @@ If the storage name and configuration details are identical in the original and 
 If the primary storage for the new cluster uses a different name than the original cluster, update the storage references during import by passing the `storageName` query parameter to the import API endpont, e.g.:
 
 ```sh
-curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import?storageName=newname
+curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://app.browsertrix.com/api/orgs/import?storageName=newname
 ```
 
 #### Database versions
@@ -84,7 +84,7 @@ By default, the import API endpoint will fail and return a `400` status code if 
 To ignore this check, pass the `ignoreVersion` query parameter with a true value to the import API endpoint, e.g.:
 
 ```sh
-curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://browsertrix.cloud/api/orgs/import?ignoreVersion=true
+curl -X POST -H "Content-type: application/json" -H "Authorization: Bearer <jwt token>" --data-binary "@org-export.json" https://app.browsertrix.com/api/orgs/import?ignoreVersion=true
 ```
 
 If the JSON export is from an earlier database version than the cluster the org is being imported into, re-run migrations from the version in the JSON export after importing the org. To do this, re-install the application with helm, setting `rerun_from_migration` in the helm chart to the database version specified in the JSON export.
