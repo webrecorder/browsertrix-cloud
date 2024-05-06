@@ -823,7 +823,7 @@ class OrgOps:
                 )
                 if profile_res:
                     profile = Profile.from_dict(profile_res)
-                    if profile.resource:
+                    if profile.resource:  # type: ignore
                         profile_filename = profile.resource.filename  # type: ignore
 
             await self.crawl_manager.add_crawl_config(
@@ -851,7 +851,7 @@ class OrgOps:
             if item["type"] == "crawl":
                 item_obj = Crawl.from_dict(item)
             if item["type"] == "upload":
-                item_obj = UploadedCrawl.from_dict(item)
+                item_obj = UploadedCrawl.from_dict(item)  # type: ignore
             if not item_obj:
                 print(f"Archived item {item_id} has no type, skipping", flush=True)
                 continue
