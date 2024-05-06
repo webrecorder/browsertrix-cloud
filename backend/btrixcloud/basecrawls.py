@@ -49,7 +49,7 @@ PRESIGN_MINUTES_DEFAULT = PRESIGN_MINUTES_MAX
 
 
 # ============================================================================
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes, too-many-public-methods
 class BaseCrawlOps:
     """operations that apply to all crawls"""
 

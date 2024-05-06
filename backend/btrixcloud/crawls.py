@@ -939,7 +939,7 @@ class CrawlOps(BaseCrawlOps):
             if not org:
                 raise HTTPException(status_code=400, detail="missing_org")
 
-        resources = await self._resolve_signed_urls(
+        resources = await self.resolve_signed_urls(
             qa_run.files, org, crawl.id, qa_run_id
         )
 
