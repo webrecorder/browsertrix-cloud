@@ -793,13 +793,13 @@ class OrgOps:
         for profile in org_data.profiles:
             profile_obj = Profile.from_dict(profile)
 
-            # Update userid if necessary
+            # Update userid if necessarys
             old_userid = profile.get("userid")
             if old_userid and old_userid in user_id_map:
                 profile_obj.userid = user_id_map[old_userid]
 
             # Update storage ref if necessary
-            if storage_name and new_storage_ref:
+            if profile_obj.resource and storage_name and new_storage_ref:
                 profile_obj.resource.storage = new_storage_ref
 
             await self.profiles_db.insert_one(profile_obj.to_dict())
@@ -823,7 +823,8 @@ class OrgOps:
                 )
                 if profile_res:
                     profile = Profile.from_dict(profile_res)
-                    profile_filename = profile.resource.filename  # type: ignore
+                    if profile.resource:
+                        profile_filename = profile.resource.filename  # type: ignore
 
             await self.crawl_manager.add_crawl_config(
                 crawl_config,
