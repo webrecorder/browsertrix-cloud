@@ -48,6 +48,7 @@ from .models import (
     Profile,
     Collection,
     OrgOutExport,
+    DeleteCrawlList,
 )
 from .pagination import DEFAULT_PAGE_SIZE, paginated_format
 from .utils import slug_from_name
@@ -55,9 +56,11 @@ from .utils import slug_from_name
 if TYPE_CHECKING:
     from .invites import InviteOps
     from .basecrawls import BaseCrawlOps
+    from .colls import CollectionOps
+    from .profiles import ProfileOps
     from .users import UserManager
 else:
-    InviteOps = BaseCrawlOps = UserManager = object
+    InviteOps = BaseCrawlOps = ProfileOps = CollectionOps = UserManager = object
 
 
 DEFAULT_ORG = os.environ.get("DEFAULT_ORG", "My Organization")
@@ -94,9 +97,17 @@ class OrgOps:
         self.crawl_manager = crawl_manager
         self.user_manager = user_manager
 
-    def set_base_crawl_ops(self, base_crawl_ops: BaseCrawlOps) -> None:
+    def set_ops(
+        self,
+        base_crawl_ops: BaseCrawlOps,
+        profile_ops: ProfileOps,
+        coll_ops: CollectionOps,
+    ) -> None:
         """Set base crawl ops"""
+        # pylint: disable=attribute-defined-outside-init
         self.base_crawl_ops = base_crawl_ops
+        self.profile_ops = profile_ops
+        self.coll_ops = coll_ops
 
     def set_default_primary_storage(self, storage: StorageRef):
         """set default primary storage"""
@@ -878,6 +889,56 @@ class OrgOps:
 
         return {"imported": True}
 
+    async def delete_org_and_data(self, org: Organization, user_manager: UserManager):
+        """Delete org and all of its associated data."""
+        # Delete archived items
+        cursor = self.crawls_db.find({"oid": org.id})
+        items = await cursor.to_list(length=100_000)
+        item_ids = [item["_id"] for item in items]
+
+        await self.base_crawl_ops.delete_crawls_all_types(
+            delete_list=DeleteCrawlList(crawl_ids=item_ids), org=org
+        )
+
+        # Delete workflows and revisions
+        cursor = self.crawl_configs_db.find({"oid": org.id})
+        workflows = await cursor.to_list(length=100_000)
+        workflow_ids = [workflow["_id"] for workflow in workflows]
+
+        await self.crawl_configs_db.delete_many({"oid": org.id})
+        await self.configs_revs_db.delete_many({"cid": {"$in": workflow_ids}})
+
+        # Delete profiles
+        cursor = self.profiles_db.find({"oid": org.id})
+        profiles = await cursor.to_list(length=100_000)
+
+        for profile in profiles:
+            await self.profile_ops.delete_profile(profile["_id"], org)
+
+        # Delete collections
+        cursor = self.colls_db.find({"oid": org.id})
+        collections = await cursor.to_list(length=100_000)
+
+        for coll in collections:
+            await self.coll_ops.delete_collection(coll["_id"], org)
+
+        # Delete users that only belong to this org
+        for org_user_id in list(org.users.keys()):
+            user = await user_manager.get_by_id(UUID(org_user_id))
+            if not user:
+                continue
+            orgs, total_orgs = await self.get_orgs_for_user(user)
+            if total_orgs == 1:
+                first_org = orgs[0]
+                if first_org.id != org.id:
+                    continue
+                await self.users_db.delete_one({"id": user.id})
+
+        # Delete org
+        await self.orgs.delete_one({"_id": org.id})
+
+        return {"deleted": True}
+
 
 # ============================================================================
 # pylint: disable=too-many-statements, too-many-arguments
@@ -983,6 +1044,15 @@ def init_orgs_api(app, mdb, user_manager, invites, crawl_manager, user_dep):
         org_out.storageQuotaReached = await ops.storage_quota_reached(org.id)
         org_out.execMinutesQuotaReached = await ops.exec_mins_quota_reached(org.id)
         return org_out
+
+    @router.delete("", tags=["organizations"])
+    async def delete_org(
+        org: Organization = Depends(org_dep), user: User = Depends(user_dep)
+    ):
+        if not user.is_superuser:
+            raise HTTPException(status_code=403, detail="Not Allowed")
+
+        return await ops.delete_org_and_data(org, user_manager)
 
     @router.post("/rename", tags=["organizations"])
     async def rename_org(
