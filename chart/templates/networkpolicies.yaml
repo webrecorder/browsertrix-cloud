@@ -23,6 +23,19 @@ spec:
           - 172.16.0.0/12
           - 192.168.0.0/16
 
+    # allow frontend access for QA runs
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: {{ .Release.Namespace }}
+        podSelector:
+          matchLabels:
+            role: frontend
+
+      ports:
+        - port: 80
+          protocol: TCP
+
       # allow DNS
     - to:
       - namespaceSelector:
@@ -36,6 +49,8 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
+
+
 
     # allow other redis
     - to:
