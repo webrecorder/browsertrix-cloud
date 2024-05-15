@@ -18,6 +18,7 @@ COPY --link lit-localize.json \
   ./
 
 COPY --link src ./src/
+COPY --link plugins ./plugins/
 
 # Build variables used to show current app version
 # in the UI. Note that this will invalidate all
@@ -43,4 +44,3 @@ COPY --link ./frontend.conf.template /etc/nginx/templates/
 COPY --link ./minio.conf /etc/nginx/includes/
 
 ADD --link ./00-browsertrix-nginx-init.sh ./docker-entrypoint.d/
-
