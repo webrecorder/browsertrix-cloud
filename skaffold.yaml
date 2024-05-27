@@ -1,0 +1,36 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: browsertrix
+build:
+  artifacts:
+    - image: docker.io/webrecorder/browsertrix-backend
+      context: backend
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+        - src: 'btrixcloud/**/*'
+          dest: .
+    - image: docker.io/webrecorder/browsertrix-frontend
+      context: frontend
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+        - src: 'src/**/*'
+          dest: .
+deploy:
+  helm:
+    releases:
+      - name: btrix
+        chartPath: chart
+        valuesFiles:
+          - chart/values.yaml
+          # local must come after since it overrides stuff in values.yaml
+          - chart/local.yaml
+        # See https://skaffold.dev/docs/deployers/helm/
+        # must do this to make skaffold use local images with helm
+        setValues:
+          backend_image: docker.io/webrecorder/browsertrix-backend
+          frontend_image: docker.io/webrecorder/browsertrix-frontend
