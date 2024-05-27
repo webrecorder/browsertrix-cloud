@@ -136,4 +136,4 @@ If you are just making changes to the frontend, you can also [deploy the fronten
 
 ## Deploying Backend with Hot Reloading
 
-If you want to iterate faster on the backend, read [deploy the backend with hot reloading](backend-hot-reload.md).
+If you want to iterate faster on the backend, read [deploy the backend with hot reloading and interactive debugging](backend-hot-reload-and-debugger.md).

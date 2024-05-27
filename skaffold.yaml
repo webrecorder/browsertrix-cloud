@@ -15,13 +15,18 @@ build:
         - src: 'btrixcloud/**/*'
           dest: .
 portForward:
+# so you can hit the API on `localhost:8000`
 - resourceType: service
   resourceName: browsertrix-cloud-backend
-  # assumes you are doing local dev in `default` namespace
-  # if you aren't you need to change this manually
   namespace: default
   port: 8000
   localPort: 8000
+# for the debugger
+- resourceType: deployment
+  resourceName: browsertrix-cloud-backend
+  namespace: default
+  port: 5678
+  localPort: 5678
 deploy:
   helm:
     releases:
@@ -29,18 +34,20 @@ deploy:
         chartPath: chart
         valuesFiles:
           - chart/values.yaml
+          # local must come after values since it is expected to override
+          - chart/local.yaml
         # See https://skaffold.dev/docs/deployers/helm/
         # must do this to make skaffold use local images with helm
         setValues:
-          backend_image: docker.io/webrecorder/browsertrix-backend
-          backend_pull_policy: "Never"
           # hot reloading doesn't work with default gunicorn command
           # so need to override to use uvicorn
-          backend_api_command_override: 
-            - uvicorn
-            - btrixcloud.main:app_root
-            - --reload
-            - --host
-            - "0.0.0.0"
-            - --port
-            - "8000"
+          # plus need to start the process with debugpy to debug
+          backend_api_command_override:
+            - sh
+            - -c
+            -  >
+                pip install --no-input debugpy
+                &&
+                python -m debugpy --listen 0.0.0.0:5678
+                -m uvicorn btrixcloud.main:app_root
+                --reload --host 0.0.0.0 --port 8000
