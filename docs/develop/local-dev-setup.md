@@ -116,7 +116,7 @@ helm upgrade --install -f ./chart/values.yaml \
 
     ??? info "MicroK8S"
 
-        If using microk8s, the commend will be:
+        If using microk8s, the command will be:
 
         ```sh
         microk8s helm3 upgrade --install -f ./chart/values.yaml -f ./chart/local.yaml btrix ./chart/
@@ -133,3 +133,7 @@ Changes to settings in `./chart/local.yaml` can be deployed with `helm upgrade .
 ## Deploying Frontend Only
 
 If you are just making changes to the frontend, you can also [deploy the frontend separately](frontend-dev.md) using a dev server for quicker iteration.
+
+## Deploying Backend with Hot Reloading
+
+If you want to iterate faster on the backend, read [deploy the backend with hot reloading](backend-hot-reload.md).
