@@ -10,6 +10,7 @@ import asyncio
 import json
 import re
 import os
+import traceback
 from datetime import datetime
 from uuid import UUID, uuid4
 import urllib.parse
@@ -33,6 +34,8 @@ from .models import (
     FAILED_STATES,
     CrawlerChannel,
     CrawlerChannels,
+    CrawlerSocksProxyServer,
+    CrawlerSocksProxyServers,
 )
 from .utils import dt_now, slug_from_name
 
@@ -115,6 +118,23 @@ class CrawlConfigOps:
                 self.crawler_images_map[channel.id] = channel.image
 
             self.crawler_channels = CrawlerChannels(channels=channels)
+
+        self.crawler_socks_proxy_servers_map = {}
+        with open(os.environ["CRAWLER_SOCKS_PROXY_SERVERS_JSON"], encoding="utf-8") as fh:
+            socks_proxy_server_list: list[dict] = json.loads(fh.read())
+            for socks_proxy_server_data in socks_proxy_server_list:
+                socks_proxy_server = CrawlerSocksProxyServer(
+                    id=socks_proxy_server_data["id"],
+                    country_code=socks_proxy_server_data["country_code"],
+                    hostname=socks_proxy_server_data["hostname"],
+                    port=socks_proxy_server_data.get("port", 22),
+                    username=socks_proxy_server_data["username"])
+
+                self.crawler_socks_proxy_servers_map[socks_proxy_server.id] = socks_proxy_server
+
+            self.crawler_socks_proxy_servers = CrawlerSocksProxyServers(
+                servers=list(self.crawler_socks_proxy_servers_map.values()))
+
 
         if "default" not in self.crawler_images_map:
             raise TypeError("The channel list must include a 'default' channel")
@@ -863,6 +883,7 @@ class CrawlConfigOps:
 
         except Exception as exc:
             # pylint: disable=raise-missing-from
+            print(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Error starting crawl: {exc}")
 
     async def set_config_current_crawl_info(
@@ -911,6 +932,10 @@ class CrawlConfigOps:
     ) -> Optional[str]:
         """Get crawler image name by id"""
         return self.crawler_images_map.get(crawler_channel or "")
+
+    def get_crawler_socks_proxy_server(self, socks_proxy_server_id) -> Optional[CrawlerSocksProxyServer]:
+        """Get CrawlerSocksProxyServer by id"""
+        return self.crawler_socks_proxy_servers_map.get(socks_proxy_server_id)
 
     def get_warc_prefix(self, org: Organization, crawlconfig: CrawlConfig) -> str:
         """Generate WARC prefix slug from org slug, name or url
@@ -1081,6 +1106,15 @@ def init_crawl_config_api(
         org: Organization = Depends(org_crawl_dep),
     ):
         return ops.crawler_channels
+
+    @router.get("/crawler-socks-proxy-servers", response_model=CrawlerSocksProxyServers)
+    async def get_crawler_socks_proxy_servers(
+        # pylint: disable=unused-argument
+        org: Organization = Depends(org_crawl_dep),
+    ):
+        return ops.crawler_socks_proxy_servers
+
+
 
     @router.get("/{cid}/seeds", response_model=PaginatedResponse)
     async def get_crawl_config_seeds(

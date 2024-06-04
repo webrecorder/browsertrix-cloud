@@ -287,6 +287,7 @@ class CrawlConfigIn(BaseModel):
 
     profileid: Union[UUID, EmptyStr, None]
     crawlerChannel: str = "default"
+    crawlerSocksProxyServer: Optional[str]
 
     autoAddCollections: Optional[List[UUID]] = []
     tags: Optional[List[str]] = []
@@ -310,6 +311,7 @@ class ConfigRevision(BaseMongoModel):
 
     profileid: Optional[UUID]
     crawlerChannel: Optional[str]
+    crawlerSocksProxyServer: Optional[str]
 
     crawlTimeout: Optional[int] = 0
     maxCrawlSize: Optional[int] = 0
@@ -340,6 +342,7 @@ class CrawlConfigCore(BaseMongoModel):
 
     profileid: Optional[UUID]
     crawlerChannel: Optional[str] = None
+    crawlerSocksProxyServer: Optional[str] = None
 
 
 # ============================================================================
@@ -433,6 +436,7 @@ class UpdateCrawlConfig(BaseModel):
     schedule: Optional[str] = None
     profileid: Union[UUID, EmptyStr, None] = None
     crawlerChannel: Optional[str] = None
+    crawlerSocksProxyServer: Optional[str] = None
     crawlTimeout: Optional[int] = None
     maxCrawlSize: Optional[int] = None
     scale: Optional[conint(ge=1, le=MAX_CRAWL_SCALE)] = None  # type: ignore
@@ -458,6 +462,22 @@ class CrawlerChannels(BaseModel):
     """List of CrawlerChannel instances for API"""
 
     channels: List[CrawlerChannel] = []
+
+
+# ============================================================================
+class CrawlerSocksProxyServer(BaseModel):
+    id: str
+    country_code: str
+    hostname: str
+    port: int
+    username: str
+
+
+# ============================================================================
+class CrawlerSocksProxyServers(BaseModel):
+    """List of CrawlerChannel instances for API"""
+
+    servers: List[CrawlerSocksProxyServer] = []
 
 
 # ============================================================================
@@ -564,6 +584,8 @@ class CoreCrawlable(BaseModel):
 
     image: Optional[str]
 
+    socksProxyServer: Optional[CrawlerSocksProxyServer] = None
+
     stats: Optional[CrawlStats] = CrawlStats()
 
     files: List[CrawlFile] = []
@@ -655,6 +677,7 @@ class CrawlOut(BaseMongoModel):
     execMinutesQuotaReached: Optional[bool]
 
     crawlerChannel: str = "default"
+    crawlerSocksProxyServer: Optional[str]
     image: Optional[str]
 
     reviewStatus: Optional[conint(ge=1, le=5)] = None  # type: ignore
@@ -1185,6 +1208,7 @@ class Profile(BaseMongoModel):
     created: Optional[datetime]
     baseid: Optional[UUID] = None
     crawlerChannel: Optional[str]
+    crawlerSocksProxyServer: Optional[str]
 
 
 # ============================================================================
@@ -1207,6 +1231,7 @@ class ProfileLaunchBrowserIn(UrlIn):
 
     profileId: Optional[UUID] = None
     crawlerChannel: str = "default"
+    crawlerSocksProxyServer: Optional[str]
 
 
 # ============================================================================
@@ -1224,6 +1249,7 @@ class ProfileCreate(BaseModel):
     name: str
     description: Optional[str] = ""
     crawlerChannel: str = "default"
+    crawlerSocksProxyServer: Optional[str]
 
 
 # ============================================================================

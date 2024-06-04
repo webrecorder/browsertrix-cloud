@@ -2,6 +2,7 @@
 
 import os
 import traceback
+from typing import Optional
 
 import yaml
 
@@ -18,7 +19,7 @@ from fastapi import HTTPException
 from fastapi.templating import Jinja2Templates
 
 from .utils import get_templates_dir, dt_now
-
+from .models import CrawlerSocksProxyServer
 
 # ============================================================================
 # pylint: disable=too-many-instance-attributes
@@ -90,6 +91,7 @@ class K8sAPI:
         crawl_id=None,
         warc_prefix="",
         qa_source="",
+        crawler_socks_proxy_server:Optional[CrawlerSocksProxyServer]=None,
     ):
         """load job template from yaml"""
         if not crawl_id:
@@ -111,6 +113,11 @@ class K8sAPI:
             "warc_prefix": warc_prefix,
             "qa_source": qa_source,
         }
+
+        if crawler_socks_proxy_server:
+            params.update({
+                "socks_server_id": crawler_socks_proxy_server.id,
+            })
 
         data = self.templates.env.get_template("crawl_job.yaml").render(params)
         return crawl_id, data

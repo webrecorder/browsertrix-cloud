@@ -65,6 +65,7 @@ class CrawlSpec(BaseModel):
     timeout: int = 0
     max_crawl_size: int = 0
     qa_source_crawl_id: Optional[str] = ""
+    crawler_socks_proxy_server: Optional[str] = None
 
     @property
     def db_crawl_id(self) -> str:
@@ -184,6 +185,8 @@ class CrawlStatus(BaseModel):
     stopReason: Optional[StopReason] = None
     initRedis: bool = False
     crawlerImage: Optional[str] = None
+    crawlerSocksProxyServer: Optional[str] = None
+
     lastActiveTime: str = ""
     podStatus: DefaultDict[str, PodInfo] = defaultdict(
         lambda: PodInfo()  # pylint: disable=unnecessary-lambda

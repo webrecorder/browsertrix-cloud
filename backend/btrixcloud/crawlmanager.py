@@ -5,7 +5,7 @@ import asyncio
 import secrets
 import json
 
-from typing import Optional, Dict
+from typing import Optional, Dict, TYPE_CHECKING
 from datetime import timedelta
 
 from kubernetes_asyncio.client import V1ConfigMap
@@ -16,15 +16,25 @@ from .utils import dt_now, to_k8s_date
 
 from .models import StorageRef, CrawlConfig, UpdateCrawlConfig, BgJobType
 
+if TYPE_CHECKING:
+    from .crawlconfigs import CrawlConfigOps
+else:
+    CrawlConfigOps = object
 
 # ============================================================================
 class CrawlManager(K8sAPI):
     """abstract crawl manager"""
+    crawlconfig: CrawlConfigOps
 
     def __init__(self):
         super().__init__()
 
         self.loop = asyncio.get_running_loop()
+        self.crawlconfig = None
+
+    def set_crawlconfig(self, crawlconfig):
+        """set crawlconfig ops"""
+        self.crawlconfig = crawlconfig
 
     # pylint: disable=too-many-arguments
     async def run_profile_browser(
@@ -164,6 +174,10 @@ class CrawlManager(K8sAPI):
 
         await self.has_storage_secret(storage_secret)
 
+        crawler_socks_proxy_server=self.crawlconfig.get_crawler_socks_proxy_server(crawlconfig.crawlerSocksProxyServer)
+        if crawlconfig.crawlerSocksProxyServer is not None and len(crawlconfig.crawlerSocksProxyServer) > 0:
+            assert crawler_socks_proxy_server is not None
+
         return await self.new_crawl_job(
             cid,
             userid,
@@ -175,6 +189,7 @@ class CrawlManager(K8sAPI):
             crawlconfig.maxCrawlSize,
             manual=True,
             warc_prefix=warc_prefix,
+            crawler_socks_proxy_server=crawler_socks_proxy_server,
         )
 
     async def create_qa_crawl_job(

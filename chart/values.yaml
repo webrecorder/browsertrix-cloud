@@ -279,13 +279,29 @@ crawler_session_time_limit_seconds: 18000
 crawler_liveness_port: 6065
 
 # optional: use socks5 proxy for crawler and profilebrowser
+# will be overriden by `crawler_socks_proxy_servers`
 # crawler_socks_proxy_host: 192.0.2.1
 # crawler_socks_proxy_port: 9050
 
+crawler_socks_proxy_image: "docker.io/webrecorder/browsertrix-proxy:latest"
+crawler_socks_proxy_image_pull_policy: "IfNotPresent"
+# optional: configure a list of ssh servers to be used as a socks proxy
+crawler_socks_proxy_servers: []
+#  - id: USA # name of the proxy, is shown in the dropdown, has to be lowercase, alphanumeric
+#    label: "US Proxy" # optional: label to show instead of the id in the dropdown
+#    country_code: US # Alpha-2 ISO 3991 country code, https://www.iso.org/obp/ui/#search
+#    hostname: example.com # IP or hostname of ssh server
+#    port: 22
+#    username: proxy
+#    private_key: secretkey # ssh-key needed to connect to server
+#    host_public_key: | # ssh public keys of the ssh server, use output of `ssh-keyscan $hostname -p $port` for best results
+#      # example.invalid:22 SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13
+#      example.invalid ssh-rsa AAA[..]
+
 # optional: set the uid, gid and fsgroup for the crawler and profilebrowser pods
-# crawler_uid: 201400007
-# crawler_gid: 201400007
-# crawler_fsgroup: 201400007
+# crawler_uid: 201407
+# crawler_gid: 201407
+# crawler_fsgroup: 201407
 
 
 

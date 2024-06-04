@@ -157,6 +157,8 @@ def main():
 
     crawl_config_ops.set_coll_ops(coll_ops)
 
+    crawl_manager.set_crawlconfig(crawl_config_ops)
+
     # run only in first worker
     if run_once_lock("btrix-init-db"):
         asyncio.create_task(

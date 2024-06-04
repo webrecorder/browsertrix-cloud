@@ -340,6 +340,7 @@ class CrawlOps(BaseCrawlOps):
                 username = user.name
 
         image = self.crawl_configs.get_channel_crawler_image(crawlconfig.crawlerChannel)
+        socks_proxy_server = self.crawl_configs.get_crawler_socks_proxy_server(crawlconfig.crawlerSocksProxyServer)
 
         crawl = Crawl(
             id=crawl_id,
@@ -361,6 +362,8 @@ class CrawlOps(BaseCrawlOps):
             tags=crawlconfig.tags,
             name=crawlconfig.name,
             crawlerChannel=crawlconfig.crawlerChannel,
+            crawlerSocksProxyServer=crawlconfig.crawlerSocksProxyServer,
+            socksProxyServer=socks_proxy_server.dict() if socks_proxy_server else None,
             image=image,
         )
 
