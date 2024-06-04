@@ -42,6 +42,7 @@ import type {
   SelectCrawlerChangeEvent,
   SelectCrawlerUpdateEvent,
 } from "@/components/ui/select-crawler";
+import type { SelectCrawlerSocksProxyServerChangeEvent } from "@/components/ui/select-crawler-socks-proxy-server";
 import type { Tab } from "@/components/ui/tab-list";
 import type {
   TagInputEvent,
@@ -133,6 +134,7 @@ type FormState = {
   autoscrollBehavior: boolean;
   userAgent: string | null;
   crawlerChannel: string;
+  crawlerSocksProxyServer: string | null;
 };
 
 const DEPTH_SUPPORTED_SCOPES = ["prefix", "host", "domain", "custom", "any"];
@@ -212,6 +214,7 @@ const getDefaultFormState = (): FormState => ({
   autoscrollBehavior: true,
   userAgent: null,
   crawlerChannel: "default",
+  crawlerSocksProxyServer: null,
 });
 
 function getLocalizedWeekDays() {
@@ -619,6 +622,9 @@ export class CrawlConfigEditor extends LiteElement {
         this.initialWorkflow.config.userAgent ?? defaultFormState.userAgent,
       crawlerChannel:
         this.initialWorkflow.crawlerChannel || defaultFormState.crawlerChannel,
+      crawlerSocksProxyServer:
+        this.initialWorkflow.crawlerSocksProxyServer ||
+        defaultFormState.crawlerSocksProxyServer,
       ...formState,
     };
   }
@@ -1759,6 +1765,19 @@ https://archiveweb.page/images/${"logo.svg"}`}
         msg(`Websites that observe the browser’s language setting may serve
         content in that language if available.`),
       )}
+      ${this.renderFormCol(html`
+        <btrix-select-crawler-socks-proxy-server
+          orgId=${this.orgId}
+          .crawlerSocksProxyServer="${this.formState.crawlerSocksProxyServer ||
+          ""}"
+          .authState=${this.authState}
+          @on-change=${(e: SelectCrawlerSocksProxyServerChangeEvent) =>
+            this.updateFormState({
+              crawlerSocksProxyServer: e.detail.value,
+            })}
+        ></btrix-select-crawler-socks-proxy-server>
+      `)}
+      ${this.renderHelpTextCol(msg(`Choose a Browsertrix Socks Proxy Server`))}
     `;
   }
 
@@ -2480,6 +2499,7 @@ https://archiveweb.page/images/${"logo.svg"}`}
         ).join(","),
       },
       crawlerChannel: this.formState.crawlerChannel || "default",
+      crawlerSocksProxyServer: this.formState.crawlerSocksProxyServer,
     };
 
     return config;
