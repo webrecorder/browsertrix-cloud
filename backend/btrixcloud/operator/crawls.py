@@ -282,6 +282,7 @@ class CrawlOperator(BaseOperator):
             params["socks_server_id"] = socks_server.id
             params["socks_server_hostname"] = socks_server.hostname
             params["socks_server_username"] = socks_server.username
+            params["socks_server_port"] = socks_server.port if socks_server.port else 22
             params["crawler_socks_proxy_host"] = "localhost"
             params["crawler_socks_proxy_port"] = "21579" # TODO: should be configurable via helm?
 

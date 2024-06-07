@@ -218,18 +218,23 @@ spec:
               - killall
               - ssh
       command:
-        -   ssh
-        -   {{socks_server_username }}@{{ socks_server_hostname }}
-        -   -D {{ crawler_socks_proxy_port }}
-        -   -i /home/proxy/ssh-id/ssh-privatekey
-        -   -v
-        -   -N
-        -   -T
+        - ssh
+        - "{{socks_server_username }}@{{ socks_server_hostname }}"
+        - -D
+        - "{{ crawler_socks_proxy_port }}"
+        - -i
+        - /home/wr-proxy/ssh-id/ssh-privatekey
+        - -v
+        - -N
+        - -T
+        - -o IdentitiesOnly=yes
+        - -p
+        - "{{ socks_server_port }}"
       volumeMounts:
         - name: proxy-ssh-key
-          mountPath: /home/proxy/ssh-id/
+          mountPath: /home/wr-proxy/ssh-id/
         - name: proxy-known-hosts
-          mountPath: /home/proxy/.ssh/known_hosts
+          mountPath: /home/wr-proxy/.ssh/known_hosts
           subPath: known_hosts
     {% endif %}
 {% endif %}
