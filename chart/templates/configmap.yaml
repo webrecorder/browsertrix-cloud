@@ -53,10 +53,13 @@ data:
   STORAGES_JSON: "/ops-configs/storages.json"
 
   CRAWLER_CHANNELS_JSON: "/ops-configs/crawler_channels.json"
+  CRAWLER_SOCKS_PROXY_SERVERS_JSON: "/ops-configs/crawler_socks_proxy_servers.json"
 
   MIN_QA_CRAWLER_IMAGE: "{{ .Values.min_qa_crawler_image }}"
 
   MAX_CRAWLER_MEMORY: "{{ .Values.max_crawler_memory }}"
+
+  GUNICORN_CMD_ARGS: "{{ .Values.backend_gunicorn_args | default "" }}"
 
 ---
 apiVersion: v1
@@ -122,9 +125,12 @@ data:
     crawler_socks_proxy_host: "{{ .Values.crawler_socks_proxy_host }}"
     crawler_socks_proxy_port: "{{ .Values.crawler_socks_proxy_port }}"
 
-    crawler_uid: "{{ .Values.crawler_uid | default 201400007 }}"
-    crawler_gid: "{{ .Values.crawler_gid | default 201400007 }}"
-    crawler_fsgroup: "{{ .Values.crawler_fsgroup | default 201400007 }}"
+    crawler_socks_proxy_image: "{{ .Values.crawler_socks_proxy_image }}"
+    crawler_socks_proxy_image_pull_policy: "{{ .Values.crawler_socks_proxy_image_pull_policy }}"
+
+    crawler_uid: "{{ .Values.crawler_uid | default 201407 }}"
+    crawler_gid: "{{ .Values.crawler_gid | default 201407 }}"
+    crawler_fsgroup: "{{ .Values.crawler_fsgroup | default 201407 }}"
 
     profile_browser_workdir_size: "{{ .Values.profile_browser_workdir_size | default "4Gi" }}"
 

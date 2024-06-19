@@ -94,6 +94,8 @@ def main():
 
     background_job_ops.set_ops(crawl_ops, profile_ops)
 
+    crawl_manager.set_crawlconfig(crawl_config_ops)
+    
     return init_operator_api(
         app_root,
         crawl_config_ops,

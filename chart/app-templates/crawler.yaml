@@ -70,7 +70,14 @@ spec:
     - name: crawl-data
       persistentVolumeClaim:
         claimName: {{ name }}
-
+    {% if socks_server_id %}
+    - name: proxy-ssh-key
+      secret:
+        secretName: "crawler-proxy-ssh-key-{{ socks_server_id }}"
+    - name: proxy-known-hosts
+      configMap:
+        name: crawler-socks-proxy-ssh-known-hosts
+    {% endif %}
 
   affinity:
 {% if crawler_node_type %}
@@ -178,12 +185,8 @@ spec:
           value: "{{ warc_prefix }}"
 
     {% if crawler_socks_proxy_host %}
-        - name: SOCKS_HOST
-          value: "{{ crawler_socks_proxy_host }}"
-      {% if crawler_socks_proxy_port %}
-        - name: SOCKS_PORT
-          value: "{{ crawler_socks_proxy_port }}"
-      {% endif %}
+        - name: PROXY_SERVER
+          value: "socks5://{{ crawler_socks_proxy_host }}:{{ crawler_socks_proxy_port }}"
     {% endif %}
 
       resources:
@@ -204,5 +207,36 @@ spec:
         periodSeconds: 120
         failureThreshold: 3
       {% endif %}
-
+    {% if socks_server_hostname %}
+  initContainers:
+    - name: proxy
+      image: "{{ crawler_socks_proxy_image }}"
+      restartPolicy: Always
+      imagePullPolicy: "{{ crawler_socks_proxy_image_pull_policy }}"
+      lifecycle:
+        preStop:
+          exec:
+            command:
+              - killall
+              - ssh
+      command:
+        - ssh
+        - "{{socks_server_username }}@{{ socks_server_hostname }}"
+        - -D
+        - "{{ crawler_socks_proxy_port }}"
+        - -i
+        - /home/wr-proxy/ssh-id/ssh-privatekey
+        - -v
+        - -N
+        - -T
+        - -o IdentitiesOnly=yes
+        - -p
+        - "{{ socks_server_port }}"
+      volumeMounts:
+        - name: proxy-ssh-key
+          mountPath: /home/wr-proxy/ssh-id/
+        - name: proxy-known-hosts
+          mountPath: /home/wr-proxy/.ssh/known_hosts
+          subPath: known_hosts
+    {% endif %}
 {% endif %}

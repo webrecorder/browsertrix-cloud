@@ -31,3 +31,6 @@ spec:
 
   storageName: "{{ storage_name }}"
 
+  {% if socks_server_id %}
+  crawlerSocksProxyServer: "{{ socks_server_id }}"
+  {% endif %}

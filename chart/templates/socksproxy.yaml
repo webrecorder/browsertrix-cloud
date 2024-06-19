@@ -1,0 +1,25 @@
+{{- if .Values.crawler_socks_proxy_servers }}
+{{- $crawler_namespace := .Values.crawler_namespace -}}
+{{- range .Values.crawler_socks_proxy_servers }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: crawler-proxy-ssh-key-{{ .id }}
+  namespace: {{ $crawler_namespace | quote }}
+type: kubernetes.io/ssh-auth
+data:
+  ssh-privatekey: {{ .private_key | b64enc | quote }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crawler-socks-proxy-ssh-known-hosts
+  namespace: {{ $crawler_namespace | quote }}
+data:
+  known_hosts: |
+    {{- range .Values.crawler_socks_proxy_servers }}
+    {{ .host_public_key | nindent 4 }}
+    {{- end }}
+{{- end }}

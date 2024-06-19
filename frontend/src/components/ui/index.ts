@@ -30,6 +30,7 @@ import("./relative-duration");
 import("./search-combobox");
 import("./section-heading");
 import("./select-crawler");
+import("./select-crawler-socks-proxy-server");
 import("./tab-group");
 import("./tab-list");
 import("./table");

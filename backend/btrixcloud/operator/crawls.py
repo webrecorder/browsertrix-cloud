@@ -137,6 +137,7 @@ class CrawlOperator(BaseOperator):
             oid=oid,
             storage=StorageRef(spec["storageName"]),
             crawler_channel=spec.get("crawlerChannel"),
+            crawler_socks_proxy_server=spec.get("crawlerSocksProxyServer"),
             scale=spec.get("scale", 1),
             started=data.parent["metadata"]["creationTimestamp"],
             stopping=spec.get("stopping", False),
@@ -276,6 +277,17 @@ class CrawlOperator(BaseOperator):
             )
 
         params["crawler_image"] = status.crawlerImage
+
+        if crawl.crawler_socks_proxy_server:
+            status.crawlerSocksProxyServer = crawl.crawler_socks_proxy_server
+            socks_server = self.crawl_config_ops.get_crawler_socks_proxy_server(status.crawlerSocksProxyServer)
+            assert socks_server is not None
+            params["socks_server_id"] = socks_server.id
+            params["socks_server_hostname"] = socks_server.hostname
+            params["socks_server_username"] = socks_server.username
+            params["socks_server_port"] = socks_server.port if socks_server.port else 22
+            params["crawler_socks_proxy_host"] = "localhost"
+            params["crawler_socks_proxy_port"] = "21579" # TODO: should be configurable via helm?
 
         params["storage_filename"] = configmap["STORE_FILENAME"]
         params["restart_time"] = spec.get("restartTime")
@@ -853,8 +865,23 @@ class CrawlOperator(BaseOperator):
                 if phase in ("Running", "Succeeded"):
                     running = True
 
+                # we want to get the status of this pods "main" container
+                # sometimes a pod has multiple containers, like crawler + socks proxy client
+                # so we assume it's the one where container name == pod role name
                 if "containerStatuses" in pstatus:
-                    cstatus = pstatus["containerStatuses"][0]
+                    cstatus = None
+                    if len(pstatus["containerStatuses"]) == 1:
+                        cstatus = pstatus["containerStatuses"][0]
+                    else:
+                        for possible_cstatus in pstatus["containerStatuses"]:
+                            if possible_cstatus["name"] == role:
+                                cstatus = possible_cstatus
+                                break
+
+                    if cstatus is None:
+                        print("Warning: Unable to determine 'main' container for pod. \
+                               Falling back to first container to determine pod status")
+                        cstatus = pstatus["containerStatuses"][0]
 
                     # consider 'ContainerCreating' as running
                     waiting = cstatus["state"].get("waiting")
