@@ -47,11 +47,29 @@ class InvitePending(BaseMongoModel):
     """An invite for a new user, with an email and invite token as id"""
 
     created: datetime
+    tokenHash: str
     inviterEmail: str
     fromSuperuser: Optional[bool]
     oid: Optional[UUID]
     role: UserRole = UserRole.VIEWER
     email: Optional[str]
+    # set if existing user
+    userid: Optional[UUID]
+
+
+# ============================================================================
+class InviteOut(BaseModel):
+    """Single invite output model"""
+
+    created: datetime
+    inviterEmail: str
+    inviterName: str
+    oid: Optional[UUID]
+    orgName: Optional[str]
+    orgSlug: Optional[str]
+    role: UserRole = UserRole.VIEWER
+    email: Optional[str]
+    firstOrgAdmin: Optional[bool] = None
 
 
 # ============================================================================
@@ -95,7 +113,6 @@ class User(BaseModel):
     is_superuser: bool = False
     is_verified: bool = False
 
-    invites: Dict[str, InvitePending] = {}
     hashed_password: str
 
     def dict(self, *a, **kw):

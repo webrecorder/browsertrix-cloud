@@ -19,6 +19,9 @@ VALID_USER_PW_RESET_AGAIN = "new!password1"
 my_id = None
 valid_user_headers = None
 
+new_user_invite_token = None
+existing_user_invite_token = None
+
 
 def test_create_super_user(admin_auth_headers):
     assert admin_auth_headers
@@ -113,18 +116,7 @@ def test_register_user_invalid_password(admin_auth_headers, default_org_id):
     assert r.status_code == 200
     data = r.json()
     assert data["invited"] == "new_user"
-
-    # Look up token
-    r = requests.get(
-        f"{API_PREFIX}/orgs/{default_org_id}/invites",
-        headers=admin_auth_headers,
-    )
-    assert r.status_code == 200
-    data = r.json()
-    invites_matching_email = [
-        invite for invite in data["items"] if invite["email"] == email
-    ]
-    token = invites_matching_email[0]["id"]
+    token = data["token"]
 
     # Create user with invite
     r = requests.post(
@@ -144,7 +136,7 @@ def test_register_user_invalid_password(admin_auth_headers, default_org_id):
     assert detail == "invalid_password"
 
 
-def test_register_user_valid_password(admin_auth_headers, default_org_id):
+def test_new_user_send_invite(admin_auth_headers, default_org_id):
     # Send invite
     r = requests.post(
         f"{API_PREFIX}/orgs/{default_org_id}/invite",
@@ -155,31 +147,122 @@ def test_register_user_valid_password(admin_auth_headers, default_org_id):
     data = r.json()
     assert data["invited"] == "new_user"
 
-    # Look up token
+    global new_user_invite_token
+    new_user_invite_token = data["token"]
+
+
+def test_new_user_token():
+    # Must include email to validate token
     r = requests.get(
-        f"{API_PREFIX}/orgs/{default_org_id}/invites",
-        headers=admin_auth_headers,
+        f"{API_PREFIX}/users/invite/{new_user_invite_token}",
+    )
+    assert r.status_code == 422
+
+    # Confirm token is valid (no auth needed)
+    r = requests.get(
+        f"{API_PREFIX}/users/invite/{new_user_invite_token}?email={VALID_USER_EMAIL}",
     )
     assert r.status_code == 200
-    data = r.json()
-    invites_matching_email = [
-        invite for invite in data["items"] if invite["email"] == VALID_USER_EMAIL
-    ]
-    token = invites_matching_email[0]["id"]
 
+
+def test_register_user_valid_password():
     # Create user with invite
     r = requests.post(
         f"{API_PREFIX}/auth/register",
-        headers=admin_auth_headers,
         json={
             "name": "valid",
             "email": VALID_USER_EMAIL,
             "password": VALID_USER_PW,
-            "inviteToken": token,
+            "inviteToken": new_user_invite_token,
             "newOrg": False,
         },
     )
     assert r.status_code == 201
+
+
+def test_existing_user_send_invite(admin_auth_headers, non_default_org_id):
+    # Send invite
+    r = requests.post(
+        f"{API_PREFIX}/orgs/{non_default_org_id}/invite",
+        headers=admin_auth_headers,
+        json={"email": VALID_USER_EMAIL, "role": 20},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["invited"] == "existing_user"
+
+    global existing_user_invite_token
+    existing_user_invite_token = data["token"]
+
+
+def test_pending_invite_existing_user(admin_auth_headers, non_default_org_id):
+    r = requests.get(
+        f"{API_PREFIX}/orgs/{non_default_org_id}/invites", headers=admin_auth_headers
+    )
+    assert r.status_code == 200
+    data = r.json()
+    invites = data["items"]
+    assert len(invites) == 1
+
+
+def test_login_existing_user_for_invite():
+    r = requests.post(
+        f"{API_PREFIX}/auth/jwt/login",
+        data={
+            "username": VALID_USER_EMAIL,
+            "password": VALID_USER_PW,
+            "grant_type": "password",
+        },
+    )
+    data = r.json()
+    assert r.status_code == 200
+    login_token = data["access_token"]
+
+    auth_headers = {"Authorization": "bearer " + login_token}
+
+    # Get existing user invite to confirm it is valid
+    r = requests.get(
+        f"{API_PREFIX}/users/me/invite/{existing_user_invite_token}",
+        headers=auth_headers,
+    )
+    assert r.status_code == 200
+
+    # Accept existing user invite
+    r = requests.post(
+        f"{API_PREFIX}/orgs/invite-accept/{existing_user_invite_token}",
+        headers=auth_headers,
+    )
+
+
+def test_user_part_of_two_orgs(default_org_id, non_default_org_id):
+    # User part of two orgs
+    r = requests.post(
+        f"{API_PREFIX}/auth/jwt/login",
+        data={
+            "username": VALID_USER_EMAIL,
+            "password": VALID_USER_PW,
+            "grant_type": "password",
+        },
+    )
+    data = r.json()
+    assert r.status_code == 200
+    login_token = data["access_token"]
+
+    auth_headers = {"Authorization": "bearer " + login_token}
+
+    # Get user info
+    r = requests.get(
+        f"{API_PREFIX}/users/me",
+        headers=auth_headers,
+    )
+    assert r.status_code == 200
+    data = r.json()
+
+    # confirm user is part of the two orgs
+    assert len(data["orgs"]) == 2
+    org_ids = [org["id"] for org in data["orgs"]]
+    assert default_org_id in org_ids
+    assert non_default_org_id in org_ids
 
 
 def test_user_change_role(admin_auth_headers, default_org_id):

@@ -6,7 +6,7 @@ import os
 from uuid import UUID, uuid4
 import asyncio
 
-from typing import Optional, List, TYPE_CHECKING, cast
+from typing import Optional, List, TYPE_CHECKING, cast, Callable
 
 from pydantic import EmailStr
 
@@ -30,6 +30,7 @@ from .models import (
     UserOrgInfoOut,
     UserOut,
     UserRole,
+    InviteOut,
     Organization,
     PaginatedResponse,
     FailedLogin,
@@ -119,10 +120,9 @@ class UserManager:
         if not self.registration_enabled and not user.inviteToken:
             raise HTTPException(status_code=400, detail="invite_token_required")
 
-        if user.inviteToken and not await self.invites.get_valid_invite(
-            user.inviteToken, user.email
-        ):
-            raise HTTPException(status_code=400, detail="invite_token_invalid")
+        if user.inviteToken:
+            # will raise if invite is invalid
+            await self.invites.get_valid_invite(user.inviteToken, user.email)
 
         # Don't create a new org for registered users.
         user.newOrg = False
@@ -315,29 +315,9 @@ class UserManager:
             RESET_VERIFY_TOKEN_LIFETIME_MINUTES,
         )
 
-        self.email.send_user_validation(user.email, token, request and request.headers)
-
-    async def format_invite(self, invite):
-        """format an InvitePending to return via api, resolve name of inviter"""
-        inviter = await self.get_by_email(invite.inviterEmail)
-        if not inviter:
-            raise HTTPException(status_code=400, detail="invalid_invite_code")
-
-        result = invite.serialize()
-        result["inviterName"] = inviter.name
-        if invite.oid:
-            result["oid"] = invite.oid
-
-            org = await self.org_ops.get_org_for_user_by_id(invite.oid, inviter)
-            result["orgName"] = org.name
-            result["orgSlug"] = org.slug
-
-            result["firstOrgAdmin"] = False
-            org_owners = await self.org_ops.get_org_owners(org)
-            if not org_owners:
-                result["firstOrgAdmin"] = True
-
-        return result
+        self.email.send_user_validation(
+            user.email, token, dict(request.headers) if request else None
+        )
 
     async def _create(
         self, create: UserCreateIn, request: Optional[Request] = None
@@ -559,12 +539,6 @@ class UserManager:
             {"id": user.id}, {"$set": {"is_verified": user.is_verified}}
         )
 
-    async def update_invites(self, user: User) -> None:
-        """Update invites list for user"""
-        await self.users.find_one_and_update(
-            {"id": user.id}, {"$set": user.dict(include={"invites"})}
-        )
-
     async def update_email_name(
         self, user: User, email: Optional[EmailStr], name: Optional[str]
     ) -> None:
@@ -728,7 +702,9 @@ def init_auth_router(user_manager: UserManager) -> APIRouter:
 
 
 # ============================================================================
-def init_users_router(current_active_user, user_manager) -> APIRouter:
+def init_users_router(
+    current_active_user: Callable, user_manager: UserManager
+) -> APIRouter:
     """/users routes"""
     users_router = APIRouter()
 
@@ -755,22 +731,21 @@ def init_users_router(current_active_user, user_manager) -> APIRouter:
         await user_manager.change_email_name(user_update, user)
         return {"updated": True}
 
-    @users_router.get("/me/invite/{token}", tags=["invites"])
+    @users_router.get("/me/invite/{token}", tags=["invites"], response_model=InviteOut)
     async def get_existing_user_invite_info(
-        token: str, user: User = Depends(current_active_user)
+        token: UUID, user: User = Depends(current_active_user)
     ):
-        try:
-            invite = user.invites[token]
-        except:
-            # pylint: disable=raise-missing-from
-            raise HTTPException(status_code=400, detail="invalid_invite_code")
+        invite = await user_manager.invites.get_valid_invite(
+            token, email=None, userid=user.id
+        )
 
-        return await user_manager.format_invite(invite)
+        return await user_manager.invites.get_invite_out(invite, user_manager, True)
 
-    @users_router.get("/invite/{token}", tags=["invites"])
+    @users_router.get("/invite/{token}", tags=["invites"], response_model=InviteOut)
     async def get_invite_info(token: UUID, email: str):
         invite = await user_manager.invites.get_valid_invite(token, email)
-        return await user_manager.format_invite(invite)
+
+        return await user_manager.invites.get_invite_out(invite, user_manager, True)
 
     # pylint: disable=invalid-name
     @users_router.get("/invites", tags=["invites"], response_model=PaginatedResponse)
@@ -783,7 +758,7 @@ def init_users_router(current_active_user, user_manager) -> APIRouter:
             raise HTTPException(status_code=403, detail="not_allowed")
 
         pending_invites, total = await user_manager.invites.get_pending_invites(
-            page_size=pageSize, page=page
+            user_manager, page_size=pageSize, page=page
         )
         return paginated_format(pending_invites, total, page, pageSize)
 
