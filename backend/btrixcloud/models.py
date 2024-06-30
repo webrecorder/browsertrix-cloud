@@ -52,6 +52,18 @@ class InvitePending(BaseMongoModel):
     oid: Optional[UUID]
     role: UserRole = UserRole.VIEWER
     email: Optional[str]
+    # set if existing user
+    userid: Optional[UUID]
+
+
+# ============================================================================
+class InviteOut(InvitePending):
+    """Single invite output model"""
+
+    inviterName: str
+    orgName: Optional[str]
+    orgSlug: Optional[str]
+    firstOrgAdmin: Optional[bool]
 
 
 # ============================================================================
@@ -95,7 +107,6 @@ class User(BaseModel):
     is_superuser: bool = False
     is_verified: bool = False
 
-    invites: Dict[str, InvitePending] = {}
     hashed_password: str
 
     def dict(self, *a, **kw):

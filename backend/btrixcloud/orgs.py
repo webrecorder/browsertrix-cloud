@@ -10,7 +10,7 @@ import urllib.parse
 from uuid import UUID, uuid4
 from datetime import datetime
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Callable
 
 from pymongo import ReturnDocument
 from pymongo.errors import AutoReconnect, DuplicateKeyError
@@ -46,8 +46,9 @@ from .utils import slug_from_name, validate_slug
 
 if TYPE_CHECKING:
     from .invites import InviteOps
+    from .users import UserManager
 else:
-    InviteOps = object
+    InviteOps = UserManager = object
 
 
 DEFAULT_ORG = os.environ.get("DEFAULT_ORG", "My Organization")
@@ -725,7 +726,14 @@ class OrgOps:
 
 # ============================================================================
 # pylint: disable=too-many-statements, too-many-arguments
-def init_orgs_api(app, mdb, user_manager, invites, user_dep, user_or_shared_secret_dep):
+def init_orgs_api(
+    app,
+    mdb,
+    user_manager: UserManager,
+    invites: InviteOps,
+    user_dep: Callable,
+    user_or_shared_secret_dep: Callable,
+):
     """Init organizations api router for /orgs"""
     # pylint: disable=too-many-locals,invalid-name
 
@@ -831,21 +839,18 @@ def init_orgs_api(app, mdb, user_manager, invites, user_dep, user_or_shared_secr
         result = {"added": True, "id": id_}
 
         if new_org.firstAdminInviteEmail:
-            new_user, token = await invites.invite_user(
+            if await invites.invite_user(
                 InviteToOrgRequest(
                     email=new_org.firstAdminInviteEmail, role=UserRole.OWNER
                 ),
                 user,
                 user_manager,
                 org=org,
-                allow_existing=True,
-                headers=request.headers,
-            )
-            if new_user:
+                headers=dict(request.headers),
+            ):
                 result["invited"] = "new_user"
             else:
                 result["invited"] = "existing_user"
-            result["token"] = token
 
         return result
 
@@ -944,25 +949,24 @@ def init_orgs_api(app, mdb, user_manager, invites, user_dep, user_or_shared_secr
         org: Organization = Depends(org_owner_dep),
         user: User = Depends(user_dep),
     ):
-        new_user, _ = await invites.invite_user(
+        if await invites.invite_user(
             invite,
             user,
             user_manager,
             org=org,
-            allow_existing=True,
-            headers=request.headers,
-        )
-        if new_user:
+            headers=dict(request.headers),
+        ):
             return {"invited": "new_user"}
 
         return {"invited": "existing_user"}
 
     @app.post("/orgs/invite-accept/{token}", tags=["invites"])
-    async def accept_invite(token: str, user: User = Depends(user_dep)):
-        invite = await invites.accept_user_invite(user, token, user_manager)
+    async def accept_invite(token: UUID, user: User = Depends(user_dep)):
+        # invite = await invites.accept_user_invite(user, token, user_manager)
+        invite = await invites.get_valid_invite(token, email=None, userid=user.id)
 
         org = await ops.add_user_by_invite(invite, user)
-        org_out = await org.serialize_for_user(user, user_manager)
+        org_out = await org.serialize_for_user(user, user_manager) if org else None
         return {"added": True, "org": org_out}
 
     @router.get("/invites", tags=["invites"])
@@ -995,6 +999,8 @@ def init_orgs_api(app, mdb, user_manager, invites, user_dep, user_or_shared_secr
         remove: RemoveFromOrg, org: Organization = Depends(org_owner_dep)
     ) -> dict[str, bool]:
         other_user = await user_manager.get_by_email(remove.email)
+        if not other_user:
+            raise HTTPException(status_code=404, detail="no_such_org_user")
 
         if org.is_owner(other_user):
             org_owners = await ops.get_org_owners(org)

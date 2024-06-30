@@ -101,7 +101,9 @@ class EmailSender:
 
         return scheme + "://" + host
 
-    def send_user_validation(self, receiver_email, token, headers=None):
+    def send_user_validation(
+        self, receiver_email: str, token: str, headers: Optional[dict] = None
+    ):
         """Send email to validate registration email address"""
 
         origin = self.get_origin(headers)
@@ -109,8 +111,12 @@ class EmailSender:
         self._send_encrypted(receiver_email, "validate", origin=origin, token=token)
 
     # pylint: disable=too-many-arguments
-    def send_new_user_invite(
-        self, invite: InvitePending, org_name: str, headers: Optional[dict] = None
+    def send_user_invite(
+        self,
+        invite: InvitePending,
+        org_name: str,
+        is_new: bool,
+        headers: Optional[dict] = None,
     ):
         """Send email to invite new user"""
 
@@ -118,39 +124,20 @@ class EmailSender:
 
         receiver_email = invite.email or ""
 
-        invite_url = f"{origin}/join/{invite.id}?email={receiver_email}"
+        invite_url = (
+            f"{origin}/join/{invite.id}?email={receiver_email}"
+            if is_new
+            else f"{origin}/invite/accept/{invite.id}?email={receiver_email}"
+        )
 
         self._send_encrypted(
             receiver_email,
             "invite",
             invite_url=invite_url,
-            is_new=True,
+            is_new=is_new,
             sender=invite.inviterEmail if not invite.fromSuperuser else "",
             org_name=org_name,
             support_email=self.support_email,
-        )
-
-    # pylint: disable=too-many-arguments
-    def send_existing_user_invite(
-        self,
-        invite: InvitePending,
-        org_name: str,
-        receiver_email: str,
-        token: str,
-        headers: Optional[dict] = None,
-    ):
-        """Send email to invite new user"""
-        origin = self.get_origin(headers)
-
-        invite_url = f"{origin}/invite/accept/{token}?email={receiver_email}"
-
-        self._send_encrypted(
-            receiver_email,
-            "invite",
-            invite_url=invite_url,
-            is_new=False,
-            sender=invite.inviterEmail if not invite.fromSuperuser else "",
-            org_name=org_name,
         )
 
     def send_user_forgot_password(self, receiver_email, token, headers=None):
