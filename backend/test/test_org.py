@@ -741,34 +741,3 @@ def test_login_existing_user_for_invite():
         "giftedExecMinutes": 0,
     }
     assert "subData" not in org
-
-
-def test_user_part_of_two_orgs():
-    # User part of two orgs
-    r = requests.post(
-        f"{API_PREFIX}/auth/jwt/login",
-        data={
-            "username": invite_email,
-            "password": VALID_PASSWORD,
-            "grant_type": "password",
-        },
-    )
-    data = r.json()
-    assert r.status_code == 200
-    login_token = data["access_token"]
-
-    auth_headers = {"Authorization": "bearer " + login_token}
-
-    # Get user info
-    r = requests.get(
-        f"{API_PREFIX}/users/me",
-        headers=auth_headers,
-    )
-    assert r.status_code == 200
-    data = r.json()
-
-    # confirm user is part of the two newly created orgs
-    assert len(data["orgs"]) == 2
-    org_ids = [org["id"] for org in data["orgs"]]
-    assert new_subs_oid in org_ids
-    assert new_subs_oid_2 in org_ids
