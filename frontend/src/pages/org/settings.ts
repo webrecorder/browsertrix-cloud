@@ -1,7 +1,7 @@
 import { localized, msg, str } from "@lit/localize";
 import type { SlInput } from "@shoelace-style/shoelace";
 import { serialize } from "@shoelace-style/shoelace/dist/utilities/form.js";
-import { type PropertyValues } from "lit";
+import { type PropertyValues, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 import { when } from "lit/directives/when.js";
@@ -15,10 +15,10 @@ import type { AuthState } from "@/utils/AuthService";
 import { maxLengthValidator } from "@/utils/form";
 import LiteElement, { html } from "@/utils/LiteElement";
 import { AccessCode, isAdmin, isCrawler, type OrgData } from "@/utils/orgs";
-import { AppStateService } from "@/utils/state";
+import appState, { AppStateService, use } from "@/utils/state";
 import { formatAPIUser } from "@/utils/user";
 
-type Tab = "information" | "members";
+type Tab = "information" | "members" | "billing";
 type User = {
   email: string;
   role: number;
@@ -74,6 +74,9 @@ export class OrgSettings extends LiteElement {
   @property({ type: Boolean })
   isAddingMember = false;
 
+  @use()
+  appState = appState;
+
   @state()
   private isSavingOrgName = false;
 
@@ -93,6 +96,7 @@ export class OrgSettings extends LiteElement {
     return {
       information: msg("General"),
       members: msg("Members"),
+      billing: msg("Billing"),
     };
   }
 
@@ -141,13 +145,19 @@ export class OrgSettings extends LiteElement {
         </header>
         ${this.renderTab("information", "settings")}
         ${this.renderTab("members", "settings/members")}
+        ${when(this.appState.settings?.billingEnabled, () =>
+          this.renderTab("billing", "settings/billing"),
+        )}
 
-        <btrix-tab-panel name="information"
-          >${this.renderInformation()}</btrix-tab-panel
-        >
-        <btrix-tab-panel name="members"
-          >${this.renderMembers()}</btrix-tab-panel
-        >
+        <btrix-tab-panel name="information">
+          ${this.renderInformation()}
+        </btrix-tab-panel>
+        <btrix-tab-panel name="members">
+          ${this.renderMembers()}
+        </btrix-tab-panel>
+        <btrix-tab-panel name="billing">
+          ${this.renderBilling()}
+        </btrix-tab-panel>
       </btrix-tab-list>`;
   }
 
@@ -167,10 +177,10 @@ export class OrgSettings extends LiteElement {
   }
 
   private renderInformation() {
-    return html`<div class="rounded border">
+    return html`<div class="rounded-lg border">
       <form @submit=${this.onOrgInfoSubmit}>
-        <div class="grid grid-cols-5 gap-x-4 p-4">
-          <div class="col-span-5 self-baseline md:col-span-3">
+        <div class="grid grid-cols-5 gap-x-4 p-4 md:gap-y-6">
+          ${this.renderMainCol(html`
             <sl-input
               class="with-max-help-text mb-2"
               name="orgName"
@@ -184,18 +194,13 @@ export class OrgSettings extends LiteElement {
               help-text=${this.validateOrgNameMax.helpText}
               @sl-input=${this.validateOrgNameMax.validate}
             ></sl-input>
-          </div>
-          <div class="col-span-5 flex gap-2 md:col-span-2 md:mt-8">
-            <div class="text-base">
-              <sl-icon name="info-circle"></sl-icon>
-            </div>
-            <div class="mt-0.5 text-xs text-neutral-500">
-              ${msg(
-                "Name of your organization that is visible to all org members.",
-              )}
-            </div>
-          </div>
-          <div class="col-span-5 mt-6 md:col-span-3">
+          `)}
+          ${this.renderInfoCol(
+            msg(
+              "Name of your organization that is visible to all org members.",
+            ),
+          )}
+          ${this.renderMainCol(html`
             <sl-input
               class="mb-2"
               name="orgSlug"
@@ -219,35 +224,22 @@ export class OrgSettings extends LiteElement {
                 this.slugValue = input.value;
               }}
             ></sl-input>
-          </div>
-
-          <div class="col-span-5 flex gap-2 md:col-span-2 md:mt-14">
-            <div class="text-base">
-              <sl-icon name="info-circle"></sl-icon>
-            </div>
-            <div class="mt-0.5 text-xs text-neutral-500">
-              ${msg(
-                "Customize your organization's web address for accessing Browsertrix.",
-              )}
-            </div>
-          </div>
-          <div class="col-span-5 mt-6 md:col-span-3">
+          `)}
+          ${this.renderInfoCol(
+            msg(
+              "Customize your organization's web address for accessing Browsertrix.",
+            ),
+          )}
+          ${this.renderMainCol(html`
             <btrix-copy-field
               class="mb-2"
               label=${msg("Org ID")}
               value=${this.org.id}
             ></btrix-copy-field>
-          </div>
-          <div class="col-span-5 flex gap-2 md:col-span-2 md:mt-14">
-            <div class="text-base">
-              <sl-icon name="info-circle"></sl-icon>
-            </div>
-            <div class="mt-0.5 text-xs text-neutral-500">
-              ${msg(
-                "Use this ID to reference this org in the Browsertrix API.",
-              )}
-            </div>
-          </div>
+          `)}
+          ${this.renderInfoCol(
+            msg("Use this ID to reference this org in the Browsertrix API."),
+          )}
         </div>
         <footer class="flex justify-end border-t px-4 py-3">
           <sl-button
@@ -322,6 +314,45 @@ export class OrgSettings extends LiteElement {
       >
         ${this.isAddMemberFormVisible ? this.renderInviteForm() : ""}
       </btrix-dialog>
+    `;
+  }
+
+  private renderBilling() {
+    return html`
+      <div class="rounded-lg border">
+        <div class="grid grid-cols-5 gap-x-4 p-4 md:gap-y-6">
+          ${this.renderMainCol(html`
+            <h4 class="form-label text-xs text-neutral-800">
+              ${msg("Status")}
+            </h4>
+            <div class="flex justify-between rounded-lg border p-4">
+              <div>TODO</div>
+              <a href="#" class="flex items-center gap-2">
+                ${msg("Manage Plan")}
+                <sl-icon name="arrow-right"></sl-icon>
+              </a>
+            </div>
+          `)}
+          ${this.renderInfoCol(msg("TODO"))}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderMainCol(content: TemplateResult<1>) {
+    return html`
+      <div class="col-span-5 self-baseline md:col-span-3">${content}</div>
+    `;
+  }
+
+  private renderInfoCol(content: string | TemplateResult<1>) {
+    return html`
+      <div class="col-span-5 mb-6 flex gap-2 md:col-span-2 md:mb-0 md:mt-8">
+        <div class="text-base">
+          <sl-icon name="info-circle"></sl-icon>
+        </div>
+        <div class="mt-0.5 text-xs text-neutral-500">${content}</div>
+      </div>
     `;
   }
 
