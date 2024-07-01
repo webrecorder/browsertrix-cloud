@@ -167,7 +167,9 @@ export class OrgSettings extends TailwindElement {
           ${this.renderMembers()}
         </btrix-tab-panel>
         <btrix-tab-panel name="billing">
-          <btrix-org-settings-billing></btrix-org-settings-billing>
+          <btrix-org-settings-billing
+            .quotas=${this.org.quotas}
+          ></btrix-org-settings-billing>
         </btrix-tab-panel>
       </btrix-tab-list>`;
   }

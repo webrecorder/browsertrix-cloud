@@ -1,10 +1,13 @@
 import { localized, msg } from "@lit/localize";
 import { css, html } from "lit";
-import { customElement } from "lit/decorators.js";
+import { customElement, property } from "lit/decorators.js";
+import { when } from "lit/directives/when.js";
 
 import { columns } from "../ui/columns";
 
 import { TailwindElement } from "@/classes/TailwindElement";
+import type { OrgData } from "@/types/org";
+import { formatNumber } from "@/utils/localization";
 
 @localized()
 @customElement("btrix-org-settings-billing")
@@ -14,7 +17,12 @@ export class OrgSettingsBilling extends TailwindElement {
       font-size: var(--sl-input-label-font-size-small);
     }
   `;
+
+  @property({ type: Object })
+  quotas?: OrgData["quotas"];
+
   render() {
+    console.log(this.quotas);
     return html`
       <div class="rounded-lg border">
         ${columns([
@@ -39,12 +47,17 @@ export class OrgSettingsBilling extends TailwindElement {
                     <sl-icon slot="suffix" name="arrow-right"></sl-icon>
                   </a>
                 </div>
-                <ul>
-                  <li>[quota]</li>
-                  <li>[quota]</li>
-                  <li>[quota]</li>
-                  <li>[quota]</li>
-                </ul>
+                ${when(
+                  this.quotas,
+                  (quotas) => html`
+                    <dl>
+                      <div>
+                        <dt>${msg("")}</dt>
+                        <dd>${formatNumber(quotas.extraExecMinutes)}</dd>
+                      </div>
+                    </dl>
+                  `,
+                )}
               </btrix-card>
             `,
             html`

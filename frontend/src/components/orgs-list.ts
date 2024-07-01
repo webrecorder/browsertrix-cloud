@@ -48,7 +48,7 @@ export class OrgsList extends LiteElement {
         .open=${!!this.currOrg}
         @sl-request-close=${() => (this.currOrg = null)}
       >
-        ${Object.entries(this.currOrg.quotas!).map(([key, value]) => {
+        ${Object.entries(this.currOrg.quotas).map(([key, value]) => {
           let label;
           switch (key) {
             case "maxConcurrentCrawls":
@@ -95,12 +95,13 @@ export class OrgsList extends LiteElement {
 
   private onUpdateQuota(e: CustomEvent) {
     const inputEl = e.target as SlInput;
+    const name = inputEl.name as keyof OrgData["quotas"];
     const quotas = this.currOrg?.quotas;
     if (quotas) {
-      if (inputEl.name === "storageQuota") {
-        quotas[inputEl.name] = Number(inputEl.value) * 1e9;
+      if (name === "storageQuota") {
+        quotas[name] = Number(inputEl.value) * 1e9;
       } else {
-        quotas[inputEl.name] = Number(inputEl.value);
+        quotas[name] = Number(inputEl.value);
       }
     }
   }
