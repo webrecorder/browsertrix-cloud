@@ -47,6 +47,7 @@ class InvitePending(BaseMongoModel):
     """An invite for a new user, with an email and invite token as id"""
 
     created: datetime
+    tokenHash: str
     inviterEmail: str
     fromSuperuser: Optional[bool]
     oid: Optional[UUID]
@@ -57,13 +58,19 @@ class InvitePending(BaseMongoModel):
 
 
 # ============================================================================
-class InviteOut(InvitePending):
+class InviteOut(BaseModel):
     """Single invite output model"""
 
+    inviterEmail: str
     inviterName: str
+    oid: Optional[UUID]
     orgName: Optional[str]
     orgSlug: Optional[str]
+    role: UserRole = UserRole.VIEWER
+    email: Optional[str]
     firstOrgAdmin: Optional[bool]
+    # set if existing user
+    userid: Optional[UUID]
 
 
 # ============================================================================

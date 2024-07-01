@@ -8,13 +8,22 @@ import time
 from uuid import UUID, uuid4
 
 from pymongo.errors import AutoReconnect
+import pymongo
 from fastapi import HTTPException
 
 from .pagination import DEFAULT_PAGE_SIZE
-from .models import UserRole, InvitePending, InviteRequest, User, Organization
+from .models import (
+    UserRole,
+    InvitePending,
+    InviteRequest,
+    InviteOut,
+    User,
+    Organization,
+)
 from .users import UserManager
 from .emailsender import EmailSender
 from .utils import is_bool
+from .auth import get_password_hash
 
 
 # ============================================================================
@@ -41,9 +50,11 @@ class InviteOps:
                 expire_after_seconds = int(
                     os.environ.get("INVITE_EXPIRE_SECONDS", "604800")
                 )
-                return await self.invites.create_index(
+                await self.invites.create_index(
                     "created", expireAfterSeconds=expire_after_seconds
                 )
+                break
+
             # pylint: disable=duplicate-code
             except AutoReconnect:
                 print(
@@ -52,9 +63,13 @@ class InviteOps:
                 )
                 time.sleep(5)
 
+            await self.invites.create_index([("oid", pymongo.HASHED)])
+            await self.invites.create_index([("tokenHash", pymongo.HASHED)])
+
     async def add_new_user_invite(
         self,
         new_user_invite: InvitePending,
+        invite_token: UUID,
         org_name: str,
         headers: Optional[dict],
     ) -> None:
@@ -78,12 +93,15 @@ class InviteOps:
 
         await self.invites.insert_one(new_user_invite.to_dict())
 
-        self.email.send_user_invite(new_user_invite, org_name, True, headers)
+        self.email.send_user_invite(
+            new_user_invite, invite_token, org_name, True, headers
+        )
 
     # pylint: disable=too-many-arguments
     async def add_existing_user_invite(
         self,
         existing_user_invite: InvitePending,
+        invite_token: UUID,
         invitee_user: User,
         user: User,
         org: Organization,
@@ -111,13 +129,16 @@ class InviteOps:
 
         await self.invites.insert_one(existing_user_invite.to_dict())
 
-        self.email.send_user_invite(existing_user_invite, org_name, False, headers)
+        self.email.send_user_invite(
+            existing_user_invite, invite_token, org_name, False, headers
+        )
 
     async def get_valid_invite(
         self, invite_token: UUID, email: Optional[str], userid: Optional[UUID] = None
     ) -> InvitePending:
         """Retrieve a valid invite data from db, or throw if invalid"""
-        invite_data = await self.invites.find_one({"_id": invite_token})
+        token_hash = get_password_hash(str(invite_token))
+        invite_data = await self.invites.find_one({"tokenHash": token_hash})
         if not invite_data:
             raise HTTPException(status_code=400, detail="invalid_invite")
 
@@ -169,6 +190,8 @@ class InviteOps:
             oid = default_org["_id"]
             org_name = default_org["name"]
 
+        invite_token = uuid4()
+
         invite_pending = InvitePending(
             id=uuid4(),
             oid=oid,
@@ -178,6 +201,7 @@ class InviteOps:
             email=urllib.parse.unquote(invite.email),
             inviterEmail=user.email,
             fromSuperuser=user.is_superuser,
+            tokenHash=get_password_hash(str(invite_token)),
         )
 
         # user being invited
@@ -186,6 +210,7 @@ class InviteOps:
         if invitee_user:
             await self.add_existing_user_invite(
                 invite_pending,
+                invite_token,
                 invitee_user,
                 user,
                 org,
@@ -196,6 +221,7 @@ class InviteOps:
 
         await self.add_new_user_invite(
             invite_pending,
+            invite_token,
             org_name,
             headers,
         )
@@ -203,10 +229,11 @@ class InviteOps:
 
     async def get_pending_invites(
         self,
+        users: UserManager,
         org: Optional[Organization] = None,
         page_size: int = DEFAULT_PAGE_SIZE,
         page: int = 1,
-    ) -> tuple[list[InvitePending], int]:
+    ) -> tuple[list[InviteOut], int]:
         """return list of pending invites."""
         # Zero-index page for query
         page = page - 1
@@ -221,8 +248,39 @@ class InviteOps:
         cursor = self.invites.find(match_query, skip=skip, limit=page_size)
         results = await cursor.to_list(length=page_size)
         invites = [InvitePending.from_dict(res) for res in results]
+        invite_outs = [await self.get_invite_out(invite, users) for invite in invites]
 
-        return invites, total
+        return invite_outs, total
+
+    async def get_invite_out(
+        self, invite: InvitePending, users: UserManager
+    ) -> InviteOut:
+        """format an InvitePending to return via api, resolve name of inviter"""
+        inviter = await users.get_by_email(invite.inviterEmail)
+        if not inviter:
+            raise HTTPException(status_code=400, detail="invalid_invite")
+
+        invite_out = InviteOut(
+            inviterEmail=invite.inviterEmail,
+            inviterName=inviter.name,
+            oid=invite.oid,
+            role=invite.role,
+            email=invite.email,
+            userid=invite.userid,
+        )
+
+        if not invite.oid:
+            return invite_out
+
+        org = await users.org_ops.get_org_for_user_by_id(invite.oid, inviter)
+        invite_out.orgName = org.name
+        invite_out.orgSlug = org.slug
+
+        org_owners = await users.org_ops.get_org_owners(org)
+        if not org_owners:
+            invite_out.firstOrgAdmin = True
+
+        return invite_out
 
 
 def init_invites(mdb, email: EmailSender) -> InviteOps:

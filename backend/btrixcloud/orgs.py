@@ -976,7 +976,7 @@ def init_orgs_api(
         page: int = 1,
     ):
         pending_invites, total = await user_manager.invites.get_pending_invites(
-            org, page_size=pageSize, page=page
+            user_manager, org, page_size=pageSize, page=page
         )
         return paginated_format(pending_invites, total, page, pageSize)
 

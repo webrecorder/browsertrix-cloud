@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 import smtplib
 import ssl
+from uuid import UUID
 from typing import Optional, Union
 
 from email.message import EmailMessage
@@ -114,6 +115,7 @@ class EmailSender:
     def send_user_invite(
         self,
         invite: InvitePending,
+        token: UUID,
         org_name: str,
         is_new: bool,
         headers: Optional[dict] = None,
@@ -125,9 +127,9 @@ class EmailSender:
         receiver_email = invite.email or ""
 
         invite_url = (
-            f"{origin}/join/{invite.id}?email={receiver_email}"
+            f"{origin}/join/{token}?email={receiver_email}"
             if is_new
-            else f"{origin}/invite/accept/{invite.id}?email={receiver_email}"
+            else f"{origin}/invite/accept/{token}?email={receiver_email}"
         )
 
         self._send_encrypted(

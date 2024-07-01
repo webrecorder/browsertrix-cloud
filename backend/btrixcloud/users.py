@@ -30,7 +30,6 @@ from .models import (
     UserOrgInfoOut,
     UserOut,
     UserRole,
-    InvitePending,
     InviteOut,
     Organization,
     PaginatedResponse,
@@ -319,28 +318,6 @@ class UserManager:
         self.email.send_user_validation(
             user.email, token, dict(request.headers) if request else None
         )
-
-    async def get_invite_out(self, invite: InvitePending) -> InviteOut:
-        """format an InvitePending to return via api, resolve name of inviter"""
-        inviter = await self.get_by_email(invite.inviterEmail)
-        if not inviter:
-            raise HTTPException(status_code=400, detail="invalid_invite")
-
-        results = invite.to_dict()
-        results["inviterName"] = inviter.name
-        invite_out = InviteOut.from_dict(results)
-        if not invite.oid:
-            return invite_out
-
-        org = await self.org_ops.get_org_for_user_by_id(invite.oid, inviter)
-        invite_out.orgName = org.name
-        invite_out.orgSlug = org.slug
-
-        org_owners = await self.org_ops.get_org_owners(org)
-        if not org_owners:
-            invite_out.firstOrgAdmin = True
-
-        return invite_out
 
     async def _create(
         self, create: UserCreateIn, request: Optional[Request] = None
@@ -764,13 +741,13 @@ def init_users_router(
             token, email=None, userid=user.id
         )
 
-        return await user_manager.get_invite_out(invite)
+        return await user_manager.invites.get_invite_out(invite, user_manager)
 
     @users_router.get("/invite/{token}", tags=["invites"], response_model=InviteOut)
     async def get_invite_info(token: UUID, email: str):
         invite = await user_manager.invites.get_valid_invite(token, email)
 
-        return await user_manager.get_invite_out(invite)
+        return await user_manager.invites.get_invite_out(invite, user_manager)
 
     # pylint: disable=invalid-name
     @users_router.get("/invites", tags=["invites"], response_model=PaginatedResponse)
@@ -783,7 +760,7 @@ def init_users_router(
             raise HTTPException(status_code=403, detail="not_allowed")
 
         pending_invites, total = await user_manager.invites.get_pending_invites(
-            page_size=pageSize, page=page
+            user_manager, page_size=pageSize, page=page
         )
         return paginated_format(pending_invites, total, page, pageSize)
 
