@@ -741,13 +741,13 @@ def init_users_router(
             token, email=None, userid=user.id
         )
 
-        return await user_manager.invites.get_invite_out(invite, user_manager)
+        return await user_manager.invites.get_invite_out(invite, user_manager, True)
 
     @users_router.get("/invite/{token}", tags=["invites"], response_model=InviteOut)
     async def get_invite_info(token: UUID, email: str):
         invite = await user_manager.invites.get_valid_invite(token, email)
 
-        return await user_manager.invites.get_invite_out(invite, user_manager)
+        return await user_manager.invites.get_invite_out(invite, user_manager, True)
 
     # pylint: disable=invalid-name
     @users_router.get("/invites", tags=["invites"], response_model=PaginatedResponse)

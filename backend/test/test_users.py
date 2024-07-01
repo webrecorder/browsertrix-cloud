@@ -113,18 +113,7 @@ def test_register_user_invalid_password(admin_auth_headers, default_org_id):
     assert r.status_code == 200
     data = r.json()
     assert data["invited"] == "new_user"
-
-    # Look up token
-    r = requests.get(
-        f"{API_PREFIX}/orgs/{default_org_id}/invites",
-        headers=admin_auth_headers,
-    )
-    assert r.status_code == 200
-    data = r.json()
-    invites_matching_email = [
-        invite for invite in data["items"] if invite["email"] == email
-    ]
-    token = invites_matching_email[0]["id"]
+    token = data["token"]
 
     # Create user with invite
     r = requests.post(
@@ -154,18 +143,7 @@ def test_register_user_valid_password(admin_auth_headers, default_org_id):
     assert r.status_code == 200
     data = r.json()
     assert data["invited"] == "new_user"
-
-    # Look up token
-    r = requests.get(
-        f"{API_PREFIX}/orgs/{default_org_id}/invites",
-        headers=admin_auth_headers,
-    )
-    assert r.status_code == 200
-    data = r.json()
-    invites_matching_email = [
-        invite for invite in data["items"] if invite["email"] == VALID_USER_EMAIL
-    ]
-    token = invites_matching_email[0]["id"]
+    token = data["token"]
 
     # Create user with invite
     r = requests.post(

@@ -5,6 +5,7 @@ from typing import Optional, Any
 import os
 import urllib.parse
 import time
+import hashlib
 from uuid import UUID, uuid4
 
 from pymongo.errors import AutoReconnect
@@ -23,7 +24,6 @@ from .models import (
 from .users import UserManager
 from .emailsender import EmailSender
 from .utils import is_bool
-from .auth import get_password_hash
 
 
 # ============================================================================
@@ -137,17 +137,17 @@ class InviteOps:
         self, invite_token: UUID, email: Optional[str], userid: Optional[UUID] = None
     ) -> InvitePending:
         """Retrieve a valid invite data from db, or throw if invalid"""
-        token_hash = get_password_hash(str(invite_token))
+        token_hash = self.get_hash(invite_token)
         invite_data = await self.invites.find_one({"tokenHash": token_hash})
         if not invite_data:
             raise HTTPException(status_code=400, detail="invalid_invite")
 
         invite = InvitePending.from_dict(invite_data)
 
-        if email and invite.email and email != invite.email:
+        if userid and invite.userid and userid != invite.userid:
             raise HTTPException(status_code=400, detail="invalid_invite")
 
-        if userid and invite.userid and userid != invite.userid:
+        if email and invite.email and email != invite.email:
             raise HTTPException(status_code=400, detail="invalid_invite")
 
         return invite
@@ -175,7 +175,7 @@ class InviteOps:
         user_manager: UserManager,
         org: Organization,
         headers: Optional[dict] = None,
-    ) -> bool:
+    ) -> tuple[bool, UUID]:
         """Invite user to org (if not specified, to default org).
 
         :returns: is_new_user (bool)
@@ -201,7 +201,7 @@ class InviteOps:
             email=urllib.parse.unquote(invite.email),
             inviterEmail=user.email,
             fromSuperuser=user.is_superuser,
-            tokenHash=get_password_hash(str(invite_token)),
+            tokenHash=self.get_hash(invite_token),
         )
 
         # user being invited
@@ -217,7 +217,7 @@ class InviteOps:
                 org_name,
                 headers,
             )
-            return False
+            return False, invite_token
 
         await self.add_new_user_invite(
             invite_pending,
@@ -225,7 +225,10 @@ class InviteOps:
             org_name,
             headers,
         )
-        return True
+        return True, invite_token
+
+    def get_hash(self, token: UUID):
+        return hashlib.sha256(str(token).encode("utf-8")).hexdigest()
 
     async def get_pending_invites(
         self,
@@ -253,7 +256,7 @@ class InviteOps:
         return invite_outs, total
 
     async def get_invite_out(
-        self, invite: InvitePending, users: UserManager
+        self, invite: InvitePending, users: UserManager, include_first_org_admin=False
     ) -> InviteOut:
         """format an InvitePending to return via api, resolve name of inviter"""
         inviter = await users.get_by_email(invite.inviterEmail)
@@ -261,6 +264,7 @@ class InviteOps:
             raise HTTPException(status_code=400, detail="invalid_invite")
 
         invite_out = InviteOut(
+            created=invite.created,
             inviterEmail=invite.inviterEmail,
             inviterName=inviter.name,
             oid=invite.oid,
@@ -276,9 +280,12 @@ class InviteOps:
         invite_out.orgName = org.name
         invite_out.orgSlug = org.slug
 
-        org_owners = await users.org_ops.get_org_owners(org)
-        if not org_owners:
+        if include_first_org_admin:
             invite_out.firstOrgAdmin = True
+            for role in org.users.values():
+                if role == UserRole.OWNER:
+                    invite_out.firstOrgAdmin = False
+                    break
 
         return invite_out
 

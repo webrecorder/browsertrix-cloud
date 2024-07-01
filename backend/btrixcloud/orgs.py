@@ -839,7 +839,7 @@ def init_orgs_api(
         result = {"added": True, "id": id_}
 
         if new_org.firstAdminInviteEmail:
-            if await invites.invite_user(
+            new_user, token = await invites.invite_user(
                 InviteToOrgRequest(
                     email=new_org.firstAdminInviteEmail, role=UserRole.OWNER
                 ),
@@ -847,10 +847,13 @@ def init_orgs_api(
                 user_manager,
                 org=org,
                 headers=dict(request.headers),
-            ):
+            )
+            if new_user:
                 result["invited"] = "new_user"
             else:
                 result["invited"] = "existing_user"
+
+            result["token"] = token
 
         return result
 
@@ -949,16 +952,17 @@ def init_orgs_api(
         org: Organization = Depends(org_owner_dep),
         user: User = Depends(user_dep),
     ):
-        if await invites.invite_user(
+        new_user, token = await invites.invite_user(
             invite,
             user,
             user_manager,
             org=org,
             headers=dict(request.headers),
-        ):
-            return {"invited": "new_user"}
+        )
+        if new_user:
+            return {"invited": "new_user", "token": token}
 
-        return {"invited": "existing_user"}
+        return {"invited": "existing_user", "token": token}
 
     @app.post("/orgs/invite-accept/{token}", tags=["invites"])
     async def accept_invite(token: UUID, user: User = Depends(user_dep)):

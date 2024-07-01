@@ -227,7 +227,6 @@ def test_get_pending_org_invites(
     assert len(invites) == 1
     assert data["total"] == 1
     invite = invites[0]
-    assert invite["id"]
     assert invite["email"] == INVITE_EMAIL
     assert invite["oid"] == non_default_org_id
     assert invite["created"]
@@ -267,18 +266,7 @@ def test_send_and_accept_org_invite(
     assert r.status_code == 200
     data = r.json()
     assert data["invited"] == "new_user"
-
-    # Look up token
-    r = requests.get(
-        f"{API_PREFIX}/orgs/{non_default_org_id}/invites",
-        headers=admin_auth_headers,
-    )
-    assert r.status_code == 200
-    data = r.json()
-    invites_matching_email = [
-        invite for invite in data["items"] if invite["email"] == expected_stored_email
-    ]
-    token = invites_matching_email[0]["id"]
+    token = data["token"]
 
     # Register user
     # Note: This will accept invitation without needing to call the
@@ -590,8 +578,9 @@ def test_create_org_and_invite_new_user(admin_auth_headers):
     org_id = data["id"]
 
     assert data["invited"] == "new_user"
+    token = data["token"]
 
-    # Look up token
+    # Ensure invites
     r = requests.get(
         f"{API_PREFIX}/orgs/{org_id}/invites",
         headers=admin_auth_headers,
@@ -606,7 +595,6 @@ def test_create_org_and_invite_new_user(admin_auth_headers):
     invite = invites[0]
 
     assert invite["email"] == invite_email
-    token = invite["id"]
 
     global new_user_invite_token
     new_user_invite_token = token
@@ -690,6 +678,8 @@ def test_create_org_and_invite_existing_user(admin_auth_headers):
     new_subs_oid_2 = org_id
 
     assert data["invited"] == "existing_user"
+    global existing_user_invite_token
+    existing_user_invite_token = data["token"]
 
     # Look up token
     r = requests.get(
@@ -706,9 +696,6 @@ def test_create_org_and_invite_existing_user(admin_auth_headers):
     invite = invites[0]
 
     assert invite["email"] == invite_email
-
-    global existing_user_invite_token
-    existing_user_invite_token = invite["id"]
 
 
 def test_login_existing_user_for_invite():

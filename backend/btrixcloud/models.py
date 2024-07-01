@@ -61,6 +61,7 @@ class InvitePending(BaseMongoModel):
 class InviteOut(BaseModel):
     """Single invite output model"""
 
+    created: datetime
     inviterEmail: str
     inviterName: str
     oid: Optional[UUID]
@@ -68,9 +69,7 @@ class InviteOut(BaseModel):
     orgSlug: Optional[str]
     role: UserRole = UserRole.VIEWER
     email: Optional[str]
-    firstOrgAdmin: Optional[bool]
-    # set if existing user
-    userid: Optional[UUID]
+    firstOrgAdmin: Optional[bool] = None
 
 
 # ============================================================================
