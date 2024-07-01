@@ -35,6 +35,7 @@ def test_pending_invites(admin_auth_headers, default_org_id):
     assert invite["oid"] == default_org_id
     assert invite["created"]
     assert invite["role"]
+    assert invite["firstOrgAdmin"] == None
 
 
 def test_pending_invites_crawler(crawler_auth_headers, default_org_id):
