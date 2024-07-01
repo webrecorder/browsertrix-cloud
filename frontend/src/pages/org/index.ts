@@ -10,7 +10,7 @@ import type {
   Member,
   OrgRemoveMemberEvent,
   UserRoleChangeEvent,
-} from "./settings";
+} from "./settings/settings";
 
 import type { QuotaUpdateDetail } from "@/controllers/api";
 import type { CollectionSavedEvent } from "@/features/collections/collection-metadata-dialog";
@@ -36,7 +36,7 @@ import "./collection-detail";
 import "./browser-profiles-detail";
 import "./browser-profiles-list";
 import "./browser-profiles-new";
-import "./settings";
+import "./settings/settings";
 import "./dashboard";
 
 const RESOURCE_NAMES = ["workflow", "collection", "browser-profile", "upload"];
