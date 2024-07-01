@@ -19,6 +19,8 @@ VALID_USER_PW_RESET_AGAIN = "new!password1"
 my_id = None
 valid_user_headers = None
 
+new_user_invite_token = None
+
 
 def test_create_super_user(admin_auth_headers):
     assert admin_auth_headers
@@ -133,7 +135,7 @@ def test_register_user_invalid_password(admin_auth_headers, default_org_id):
     assert detail == "invalid_password"
 
 
-def test_register_user_valid_password(admin_auth_headers, default_org_id):
+def test_user_send_invite(admin_auth_headers, default_org_id):
     # Send invite
     r = requests.post(
         f"{API_PREFIX}/orgs/{default_org_id}/invite",
@@ -143,17 +145,34 @@ def test_register_user_valid_password(admin_auth_headers, default_org_id):
     assert r.status_code == 200
     data = r.json()
     assert data["invited"] == "new_user"
-    token = data["token"]
 
+    global new_user_invite_token
+    new_user_invite_token = data["token"]
+
+
+def test_new_user_token():
+    # Must include email to validate token
+    r = requests.get(
+        f"{API_PREFIX}/users/invite/{new_user_invite_token}",
+    )
+    assert r.status_code == 422
+
+    # Confirm token is valid (no auth needed)
+    r = requests.get(
+        f"{API_PREFIX}/users/invite/{new_user_invite_token}?email={VALID_USER_EMAIL}",
+    )
+    assert r.status_code == 200
+
+
+def test_register_user_valid_password():
     # Create user with invite
     r = requests.post(
         f"{API_PREFIX}/auth/register",
-        headers=admin_auth_headers,
         json={
             "name": "valid",
             "email": VALID_USER_EMAIL,
             "password": VALID_USER_PW,
-            "inviteToken": token,
+            "inviteToken": new_user_invite_token,
             "newOrg": False,
         },
     )

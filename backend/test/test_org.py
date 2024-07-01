@@ -604,12 +604,6 @@ def test_create_org_and_invite_new_user(admin_auth_headers):
 
 
 def test_confirm_token_and_register():
-    # Must include email to validate token
-    r = requests.get(
-        f"{API_PREFIX}/users/invite/{new_user_invite_token}",
-    )
-    assert r.status_code == 422
-
     # Confirm token is valid (no auth needed)
     r = requests.get(
         f"{API_PREFIX}/users/invite/{new_user_invite_token}?email={invite_email}",
