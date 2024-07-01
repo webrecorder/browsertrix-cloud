@@ -1,11 +1,13 @@
 import { localized, msg, str } from "@lit/localize";
 import type { SlInput } from "@shoelace-style/shoelace";
 import { serialize } from "@shoelace-style/shoelace/dist/utilities/form.js";
-import { html, type PropertyValues, type TemplateResult } from "lit";
+import { html, type PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 import { when } from "lit/directives/when.js";
 import slugify from "slugify";
+
+import { columns } from "./ui/columns";
 
 import { TailwindElement } from "@/classes/TailwindElement";
 import { APIController } from "@/controllers/api";
@@ -20,6 +22,8 @@ import { maxLengthValidator } from "@/utils/form";
 import { AccessCode, isAdmin, isCrawler, type OrgData } from "@/utils/orgs";
 import appState, { AppStateService, use } from "@/utils/state";
 import { formatAPIUser } from "@/utils/user";
+
+import "./components/billing";
 
 type Tab = "information" | "members" | "billing";
 type User = {
@@ -163,7 +167,7 @@ export class OrgSettings extends TailwindElement {
           ${this.renderMembers()}
         </btrix-tab-panel>
         <btrix-tab-panel name="billing">
-          ${this.renderBilling()}
+          <btrix-org-settings-billing></btrix-org-settings-billing>
         </btrix-tab-panel>
       </btrix-tab-list>`;
   }
@@ -186,68 +190,70 @@ export class OrgSettings extends TailwindElement {
   private renderInformation() {
     return html`<div class="rounded-lg border">
       <form @submit=${this.onOrgInfoSubmit}>
-        <div class="grid grid-cols-5 gap-x-4 p-4 md:gap-y-6">
-          ${this.renderMainCol(html`
-            <sl-input
-              class="with-max-help-text mb-2"
-              name="orgName"
-              size="small"
-              label=${msg("Org Name")}
-              placeholder=${msg("My Organization")}
-              autocomplete="off"
-              value=${this.org.name}
-              minlength="2"
-              required
-              help-text=${this.validateOrgNameMax.helpText}
-              @sl-input=${this.validateOrgNameMax.validate}
-            ></sl-input>
-          `)}
-          ${this.renderInfoCol(
+        ${columns([
+          [
+            html`
+              <sl-input
+                class="with-max-help-text mb-2"
+                name="orgName"
+                size="small"
+                label=${msg("Org Name")}
+                placeholder=${msg("My Organization")}
+                autocomplete="off"
+                value=${this.org.name}
+                minlength="2"
+                required
+                help-text=${this.validateOrgNameMax.helpText}
+                @sl-input=${this.validateOrgNameMax.validate}
+              ></sl-input>
+            `,
             msg(
               "Name of your organization that is visible to all org members.",
             ),
-          )}
-          ${this.renderMainCol(html`
-            <sl-input
-              class="mb-2"
-              name="orgSlug"
-              size="small"
-              label=${msg("Custom URL Identifier")}
-              placeholder="my-organization"
-              autocomplete="off"
-              value=${this.org.slug}
-              minlength="2"
-              maxlength="30"
-              required
-              help-text=${msg(
-                str`Org home page: ${window.location.protocol}//${
-                  window.location.hostname
-                }/orgs/${
-                  this.slugValue ? this.slugify(this.slugValue) : this.org.slug
-                }`,
-              )}
-              @sl-input=${(e: InputEvent) => {
-                const input = e.target as SlInput;
-                this.slugValue = input.value;
-              }}
-            ></sl-input>
-          `)}
-          ${this.renderInfoCol(
+          ],
+          [
+            html`
+              <sl-input
+                class="mb-2"
+                name="orgSlug"
+                size="small"
+                label=${msg("Custom URL Identifier")}
+                placeholder="my-organization"
+                autocomplete="off"
+                value=${this.org.slug}
+                minlength="2"
+                maxlength="30"
+                required
+                help-text=${msg(
+                  str`Org home page: ${window.location.protocol}//${
+                    window.location.hostname
+                  }/orgs/${
+                    this.slugValue
+                      ? this.slugify(this.slugValue)
+                      : this.org.slug
+                  }`,
+                )}
+                @sl-input=${(e: InputEvent) => {
+                  const input = e.target as SlInput;
+                  this.slugValue = input.value;
+                }}
+              ></sl-input>
+            `,
             msg(
               "Customize your organization's web address for accessing Browsertrix.",
             ),
-          )}
-          ${this.renderMainCol(html`
-            <btrix-copy-field
-              class="mb-2"
-              label=${msg("Org ID")}
-              value=${this.org.id}
-            ></btrix-copy-field>
-          `)}
-          ${this.renderInfoCol(
+          ],
+          [
+            html`
+              <btrix-copy-field
+                class="mb-2"
+                label=${msg("Org ID")}
+                value=${this.org.id}
+              ></btrix-copy-field>
+            `,
             msg("Use this ID to reference this org in the Browsertrix API."),
-          )}
-        </div>
+          ],
+        ])}
         <footer class="flex justify-end border-t px-4 py-3">
           <sl-button
             class="inline-control-button"
@@ -321,70 +327,6 @@ export class OrgSettings extends TailwindElement {
       >
         ${this.isAddMemberFormVisible ? this.renderInviteForm() : ""}
       </btrix-dialog>
-    `;
-  }
-
-  private renderBilling() {
-    return html`
-      <div class="rounded-lg border">
-        <div class="grid grid-cols-5 gap-x-4 p-4 md:gap-y-6">
-          ${this.renderMainCol(html`
-            <h4 class="form-label text-xs text-neutral-800">
-              ${msg("Current Plan")}
-            </h4>
-            <btrix-card>
-              <div slot="title" class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <sl-icon class="text-success" name="check-circle"></sl-icon>
-                  ${msg("Active")}
-                </div>
-                <a
-                  class="transition-color flex items-center gap-2 px-2 py-1 text-sm leading-none text-primary hover:text-primary-500"
-                  href="#"
-                  target="_blank"
-                  rel="noopener noreferrer nofollow"
-                >
-                  ${msg("Manage Plan")}
-                  <sl-icon slot="suffix" name="arrow-right"></sl-icon>
-                </a>
-              </div>
-              <ul>
-                <li>[quota]</li>
-                <li>[quota]</li>
-                <li>[quota]</li>
-                <li>[quota]</li>
-              </ul>
-            </btrix-card>
-          `)}
-          ${this.renderInfoCol(html`
-            <p class="mb-3">
-              ${msg("Hosted plan status, quotas, and add-ons, if applicable.")}
-            </p>
-            <p class="leading-normal">
-              ${msg(
-                "You can view plan details, update payment methods, and update billing information by clicking “Manage Plan”. This will redirect you to our payment processor in a new tab.",
-              )}
-            </p>
-          `)}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderMainCol(content: TemplateResult<1>) {
-    return html`
-      <div class="col-span-5 self-baseline md:col-span-3">${content}</div>
-    `;
-  }
-
-  private renderInfoCol(content: string | TemplateResult<1>) {
-    return html`
-      <div class="col-span-5 mb-6 flex gap-2 md:col-span-2 md:mb-0 md:mt-8">
-        <div class="text-base">
-          <sl-icon name="info-circle"></sl-icon>
-        </div>
-        <div class="mt-0.5 text-xs text-neutral-500">${content}</div>
-      </div>
     `;
   }
 
