@@ -5,6 +5,7 @@ import { locked, options, use } from "lit-shared-state";
 
 import { persist } from "./persist";
 
+import type { AppSettings } from "@/types/app";
 import type { CurrentUser } from "@/types/user";
 
 export { use };
@@ -17,6 +18,7 @@ type SlugLookup = Record<string, string>;
 
 @state()
 class AppState {
+  settings: AppSettings | null = null;
   userInfo: CurrentUser | null = null;
 
   @options(persist(window.localStorage))
@@ -45,6 +47,11 @@ const appState = new AppState();
 export default appState;
 
 export class AppStateService {
+  static updateSettings = (settings: AppState["settings"]) => {
+    unlock(() => {
+      appState.settings = settings;
+    });
+  };
   static updateUserInfo = (userInfo: AppState["userInfo"]) => {
     unlock(() => {
       appState.userInfo = userInfo;
@@ -55,7 +62,13 @@ export class AppStateService {
       appState.orgSlug = orgSlug;
     });
   };
-  static reset = () => {
+  static resetAll = () => {
+    unlock(() => {
+      appState.settings = null;
+    });
+    AppStateService.resetUser();
+  };
+  static resetUser = () => {
     unlock(() => {
       appState.userInfo = null;
       appState.orgSlug = null;

@@ -1,6 +1,6 @@
 import { localized, msg } from "@lit/localize";
 import type { SlDialog } from "@shoelace-style/shoelace";
-import { render, type TemplateResult } from "lit";
+import { nothing, render, type TemplateResult } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 import { when } from "lit/directives/when.js";
@@ -27,6 +27,7 @@ import { formatAPIUser } from "./utils/user";
 import type { NavigateEventDetail } from "@/controllers/navigate";
 import type { NotifyEventDetail } from "@/controllers/notify";
 import { theme } from "@/theme";
+import type { AppSettings } from "@/types/app";
 import brandLockupColor from "~assets/brand/browsertrix-lockup-color.svg";
 
 import "./shoelace";
@@ -75,14 +76,6 @@ export class App extends LiteElement {
 
   @query("#globalDialog")
   private readonly globalDialog!: SlDialog;
-
-  @state()
-  private isAppSettingsLoaded = false;
-
-  @state()
-  private isRegistrationEnabled?: boolean;
-
-  private maxScale = DEFAULT_MAX_SCALE;
 
   async connectedCallback() {
     let authState: AuthState = null;
@@ -139,12 +132,7 @@ export class App extends LiteElement {
   private async fetchAppSettings() {
     const settings = await this.getAppSettings();
 
-    if (settings) {
-      this.isRegistrationEnabled = settings.registrationEnabled;
-      this.maxScale = settings.maxScale;
-    }
-
-    this.isAppSettingsLoaded = true;
+    AppStateService.updateSettings(settings);
   }
 
   /**
@@ -179,23 +167,28 @@ export class App extends LiteElement {
     }
   }
 
-  async getAppSettings(): Promise<{
-    registrationEnabled: boolean;
-    maxScale: number;
-  } | void> {
+  async getAppSettings(): Promise<AppSettings> {
     const resp = await fetch("/api/settings", {
       headers: { "Content-Type": "application/json" },
     });
 
     if (resp.status === 200) {
-      const body = (await resp.json()) as {
-        registrationEnabled: boolean;
-        maxScale: number;
-      };
+      const body = (await resp.json()) as AppSettings;
 
       return body;
     } else {
       console.debug(resp);
+
+      return {
+        registrationEnabled: false,
+        jwtTokenLifetime: 0,
+        defaultBehaviorTimeSeconds: 0,
+        defaultPageLoadTimeSeconds: 0,
+        maxPagesPerCrawl: 0,
+        maxScale: 0,
+        billingEnabled: false,
+        salesEmail: "",
+      };
     }
   }
 
@@ -340,7 +333,7 @@ export class App extends LiteElement {
                   </sl-dropdown>`
               : html`
                   <a href="/log-in"> ${msg("Log In")} </a>
-                  ${this.isRegistrationEnabled
+                  ${this.appState.settings?.registrationEnabled
                     ? html`
                         <sl-button
                           variant="text"
@@ -520,12 +513,10 @@ export class App extends LiteElement {
   private renderPage() {
     switch (this.viewState.route) {
       case "signUp": {
-        if (!this.isAppSettingsLoaded) {
-          return html`<div
-            class="flex w-full items-center justify-center md:bg-neutral-50"
-          ></div>`;
+        if (!this.appState.settings) {
+          return nothing;
         }
-        if (this.isRegistrationEnabled) {
+        if (this.appState.settings.registrationEnabled) {
           return html`<btrix-sign-up
             class="flex w-full items-center justify-center md:bg-neutral-50"
             .authState="${this.authService.authState}"
@@ -606,7 +597,7 @@ export class App extends LiteElement {
           .userInfo=${this.appState.userInfo ?? undefined}
           .viewStateData=${this.viewState.data}
           .params=${this.viewState.params}
-          .maxScale=${this.maxScale}
+          .maxScale=${this.appState.settings?.maxScale || DEFAULT_MAX_SCALE}
           slug=${slug}
           orgPath=${orgPath.split(slug)[1]}
           orgTab=${orgTab as OrgTab}
@@ -852,7 +843,7 @@ export class App extends LiteElement {
   private clearUser() {
     this.authService.logout();
     this.authService = new AuthService();
-    AppStateService.reset();
+    AppStateService.resetUser();
   }
 
   private showDialog(content: DialogContent) {
