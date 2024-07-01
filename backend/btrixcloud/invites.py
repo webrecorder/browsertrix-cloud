@@ -228,6 +228,7 @@ class InviteOps:
         return True, invite_token
 
     def get_hash(self, token: UUID):
+        """ get hash for token """
         return hashlib.sha256(str(token).encode("utf-8")).hexdigest()
 
     async def get_pending_invites(
