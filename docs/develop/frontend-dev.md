@@ -72,6 +72,12 @@ If connecting to a local deployment cluster, set `API_BASE_URL` to:
 API_BASE_URL=http://localhost:30870
 ```
 
+If the API is not running at `localhost:30870`, port forward it from your local cluster:
+
+```sh
+kubectl port-forward svc/browsertrix-cloud-backend 30870:8000
+```
+
 ??? info "Port when using Minikube (on macOS)"
 
     When using Minikube on macOS, the port will not be 30870. Instead, Minikube opens a tunnel to a random port,
@@ -85,7 +91,7 @@ Start the frontend development server:
 yarn start
 ```
 
-This will open `localhost:9870` in a new tab in your default browser.
+This will open `localhost:9870` in a new tab in your default browser. It will take a few minutes to finish.
 
 Saving changes to files in `src` will automatically reload your browser window with the latest UI updates.
 
