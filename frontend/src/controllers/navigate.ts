@@ -74,6 +74,12 @@ export class NavigateController implements ReactiveController {
 
     event.preventDefault();
 
+    const el = event.currentTarget as HTMLAnchorElement | null;
+
+    if (el?.ariaDisabled === "true") {
+      return;
+    }
+
     const evt = new CustomEvent<NavigateEventDetail>(NAVIGATE_EVENT_NAME, {
       detail: {
         url: (event.currentTarget as HTMLAnchorElement).href,

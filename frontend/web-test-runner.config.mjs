@@ -49,6 +49,7 @@ export default {
         // web-test-runner expects es modules,
         // include umd/commonjs modules here:
         "node_modules/url-pattern/**/*",
+        "node_modules/lodash/**/*",
       ],
     }),
     importMapsPlugin({

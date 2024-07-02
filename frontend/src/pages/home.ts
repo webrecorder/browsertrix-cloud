@@ -2,6 +2,7 @@ import { localized, msg, str } from "@lit/localize";
 import { serialize } from "@shoelace-style/shoelace/dist/utilities/form.js";
 import { type PropertyValues, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import sortBy from "lodash/fp/sortBy";
 
 import type { InviteSuccessDetail } from "@/features/accounts/invite-form";
 import type { APIPaginatedList } from "@/types/api";
@@ -137,13 +138,13 @@ export class Home extends LiteElement {
         </form>
       </section>
 
-      <div class="grid grid-cols-5 gap-8">
-        <div class="col-span-5 md:col-span-3">
+      <div class="grid grid-cols-3 gap-6">
+        <div class="col-span-3 md:col-span-2">
           <section>
-            <header class="flex items-center justify-between">
-              <h2 class="mb-3 mt-2 text-lg font-medium">
-                ${msg("All Organizations")}
-              </h2>
+            <header
+              class="mb-3 flex items-center justify-between border-b pb-3"
+            >
+              <h2 class="text-lg font-medium">${msg("All Organizations")}</h2>
               <sl-button
                 variant="primary"
                 size="small"
@@ -154,13 +155,14 @@ export class Home extends LiteElement {
               </sl-button>
             </header>
             <btrix-orgs-list
+              .authState=${this.authState}
               .userInfo=${this.userInfo}
               .orgList=${this.orgList}
               @update-quotas=${this.onUpdateOrgQuotas}
             ></btrix-orgs-list>
           </section>
         </div>
-        <div class="col-span-5 md:col-span-2">
+        <div class="col-span-3 md:col-span-1">
           <section class="p-3 md:rounded-lg md:border md:bg-white md:p-8">
             <h2 class="mb-3 text-lg font-medium">
               ${msg("Invite User to Org")}
@@ -276,7 +278,7 @@ export class Home extends LiteElement {
   }
 
   private async fetchOrgs() {
-    this.orgList = await this.getOrgs();
+    this.orgList = sortBy<OrgData>("name")(await this.getOrgs());
   }
 
   private async getOrgs() {
