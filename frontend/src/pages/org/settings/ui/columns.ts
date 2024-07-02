@@ -9,7 +9,7 @@ export function columns(
   cols: [TemplateResult<1>, TemplateResult<1> | string][],
 ) {
   return html`
-    <div class="grid grid-cols-5 gap-x-4 p-4 md:gap-y-6">
+    <div class="grid grid-cols-5 gap-5 p-5">
       ${cols.map(
         ([main, info]) => html`
           <div class=${tw`col-span-5 self-baseline md:col-span-3`}>${main}</div>
