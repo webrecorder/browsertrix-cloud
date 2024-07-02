@@ -1,0 +1,86 @@
+{{- if .Values.crawler_enable_network_policy -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: crawler-limit-egress
+  namespace: {{ .Values.crawler_namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      network-policy: limit-crawler-egress
+  policyTypes:
+    - Egress
+  egress:
+  {{- if .Values.crawler_network_policy_egress | default false -}}
+  {{- .Values.crawler_network_policy_egress | toYaml | nindent 4 -}}
+  {{- else }}
+    # allow WWW
+    - to:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+          except: # Exclude traffic to Kubernetes service IPs and pods
+          - 10.0.0.0/8
+          - 172.16.0.0/12
+          - 192.168.0.0/16
+
+    # allow frontend access for QA runs
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: {{ .Release.Namespace }}
+        podSelector:
+          matchLabels:
+            role: frontend
+
+      ports:
+        - port: 80
+          protocol: TCP
+
+      # allow DNS
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+
+
+
+    # allow other redis
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: {{ .Values.crawler_namespace }}
+        podSelector:
+          matchLabels:
+            role: redis
+
+    {{ if .Values.minio_local }}
+    # allow minio
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: {{ .Release.Namespace }}
+        podSelector:
+          matchLabels:
+            app: local-minio
+    {{- end -}}
+
+    {{ if .Values.signer.enabled }}
+    # allow auth signer
+    - to:
+     - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: {{ .Release.Namespace }}
+       podSelector:
+          matchLabels:
+            app: auth-signer
+    {{- end -}}
+  {{- end -}}
+{{- end -}}

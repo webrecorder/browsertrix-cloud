@@ -19,6 +19,7 @@ COPY --link lit-localize.json \
   ./
 
 COPY --link src ./src/
+COPY --link plugins ./plugins/
 
 # Build variables used to show current app version
 # in the UI. Note that this will invalidate all

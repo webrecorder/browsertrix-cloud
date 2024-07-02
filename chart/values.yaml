@@ -298,6 +298,12 @@ crawler_liveness_port: 6065
 # crawler_fsgroup: 201400007
 
 
+# optional: enable/disable crawler network policy
+crawler_enable_network_policy: true
+
+# optional: replace the default crawler egress policy with your own
+# see chart/templates/networkpolicies.yaml for an example
+# crawler_network_policy_egress: {}
 
 # time to wait for graceful stop
 grace_period: 1000
