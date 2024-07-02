@@ -17,8 +17,12 @@ export type OrgData = {
   id: string;
   name: string;
   slug: string;
+  default: boolean;
   quotas?: Record<string, number>;
   bytesStored: number;
+  bytesStoredCrawls: number;
+  bytesStoredUploads: number;
+  bytesStoredProfiles: number;
   usage: { [key: YearMonth]: number } | null;
   crawlExecSeconds?: { [key: YearMonth]: number };
   monthlyExecSeconds?: { [key: YearMonth]: number };

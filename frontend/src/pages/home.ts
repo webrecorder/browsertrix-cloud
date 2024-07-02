@@ -2,6 +2,7 @@ import { localized, msg, str } from "@lit/localize";
 import { serialize } from "@shoelace-style/shoelace/dist/utilities/form.js";
 import { type PropertyValues, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { sortBy } from "lodash/fp";
 
 import type { InviteSuccessDetail } from "@/features/accounts/invite-form";
 import type { APIPaginatedList } from "@/types/api";
@@ -140,10 +141,10 @@ export class Home extends LiteElement {
       <div class="grid grid-cols-5 gap-8">
         <div class="col-span-5 md:col-span-3">
           <section>
-            <header class="flex items-center justify-between">
-              <h2 class="mb-3 mt-2 text-lg font-medium">
-                ${msg("All Organizations")}
-              </h2>
+            <header
+              class="mb-3 flex items-center justify-between border-b pb-3"
+            >
+              <h2 class="text-lg font-medium">${msg("All Organizations")}</h2>
               <sl-button
                 variant="primary"
                 size="small"
@@ -276,7 +277,7 @@ export class Home extends LiteElement {
   }
 
   private async fetchOrgs() {
-    this.orgList = await this.getOrgs();
+    this.orgList = sortBy<OrgData>("name")(await this.getOrgs());
   }
 
   private async getOrgs() {
