@@ -49,6 +49,9 @@ export default {
         // web-test-runner expects es modules,
         // include umd/commonjs modules here:
         "node_modules/url-pattern/**/*",
+        "node_modules/lodash/**/*",
+        "node_modules/color/**/*",
+        "node_modules/slugify/**/*",
       ],
     }),
     importMapsPlugin({
@@ -64,12 +67,6 @@ export default {
             ),
             "@shoelace-style/shoelace/dist/themes/light.css": fileURLToPath(
               new URL("./src/__mocks__/_empty.js", import.meta.url),
-            ),
-            color: fileURLToPath(
-              new URL("./src/__mocks__/color.js", import.meta.url),
-            ),
-            slugify: fileURLToPath(
-              new URL("./src/__mocks__/slugify.js", import.meta.url),
             ),
           },
         },

@@ -1,5 +1,5 @@
 import { expect, fixture, oneEvent } from "@open-wc/testing";
-import type { SlInput } from "@shoelace-style/shoelace";
+import { serialize, type SlInput } from "@shoelace-style/shoelace";
 import { html } from "lit/static-html.js";
 import { restore, stub } from "sinon";
 
@@ -65,14 +65,22 @@ describe("btrix-org-form", () => {
 
     const form = el.shadowRoot!.querySelector<HTMLFormElement>("form")!;
 
-    form
-      .querySelector('sl-input[name="orgName"]')
-      ?.setAttribute("value", "Fake Org Name");
-    form
-      .querySelector('sl-input[name="orgSlug"]')
-      ?.setAttribute("value", "fake-org-name");
+    const orgName = form.querySelector<SlInput>('sl-input[name="orgName"]')!;
+    const orgSlug = form.querySelector<SlInput>('sl-input[name="orgSlug"]')!;
+
+    orgName.setAttribute("value", "Fake Org Name");
+    orgSlug.setAttribute("value", "fake-org-name");
+
+    await orgName.updateComplete;
+    await orgSlug.updateComplete;
 
     const listener = oneEvent(form, "submit");
+
+    // HACK Not completely sure why this works, but without calling `serialize`
+    // the form will not be serialized in `org-form`.
+    // Maybe due the implementation with `Reflect`?
+    // https://github.com/shoelace-style/shoelace/blob/0aecf6959986817d9315df90c898da55a8a64290/src/utilities/form.ts#L12
+    serialize(form);
 
     form.requestSubmit();
 
