@@ -1,4 +1,5 @@
 import { localized, msg, str } from "@lit/localize";
+import { Task } from "@lit/task";
 import { css, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { when } from "lit/directives/when.js";
@@ -6,8 +7,10 @@ import { when } from "lit/directives/when.js";
 import { columns } from "../ui/columns";
 
 import { TailwindElement } from "@/classes/TailwindElement";
-import { SubscriptionStatus, type Subscription } from "@/types/billing";
+import { APIController } from "@/controllers/api";
+import { SubscriptionStatus, type Plan } from "@/types/billing";
 import type { OrgQuotas } from "@/types/org";
+import type { Auth, AuthState } from "@/utils/AuthService";
 import { formatBytes, formatNumber } from "@/utils/localization";
 
 @localized()
@@ -20,7 +23,10 @@ export class OrgSettingsBilling extends TailwindElement {
   `;
 
   @property({ type: Object })
-  subscription?: Subscription;
+  authState?: AuthState;
+
+  @property({ type: String, noAccessor: true })
+  orgId?: string;
 
   @property({ type: Object })
   quotas?: OrgQuotas;
@@ -28,11 +34,31 @@ export class OrgSettingsBilling extends TailwindElement {
   @property({ type: String, noAccessor: true })
   salesEmail?: string;
 
+  private readonly api = new APIController(this);
+
+  private readonly planTask = new Task(this, {
+    task: async ([orgId, authState]) => {
+      if (!orgId || !authState) throw new Error("Missing args");
+      try {
+        return await this.getPlan({ orgId, auth: authState });
+      } catch (e) {
+        console.debug(e);
+
+        throw new Error(
+          msg("Sorry, couldn't retrieve current plan at this time."),
+        );
+      }
+    },
+    args: () => [this.orgId, this.authState] as const,
+  });
+
   get manageLinkLabel() {
     let label = msg("Contact Sales");
 
-    if (this.subscription?.portalUrl) {
-      switch (this.subscription.status) {
+    const subscription = this.planTask.value?.subscription;
+
+    if (subscription?.portalUrl) {
+      switch (subscription.status) {
         case SubscriptionStatus.PausedPaymentFailed: {
           label = msg("Update Billing");
           break;
@@ -60,55 +86,38 @@ export class OrgSettingsBilling extends TailwindElement {
               <h4 class="form-label text-neutral-800">
                 ${msg("Current Plan")}
               </h4>
-              <btrix-card>
-                <div slot="title" class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    ${when(this.subscription, this.renderPlanDetails)}
-                  </div>
-                  ${when(
-                    this.subscription?.portalUrl ||
-                      (this.salesEmail && `mailto:${this.salesEmail}`),
-                    (href) => html`
-                      <a
-                        class="transition-color flex items-center gap-2 px-2 py-1 text-sm leading-none text-primary hover:text-primary-500"
-                        href=${href}
-                        target="_blank"
-                        rel="noopener noreferrer nofollow"
-                      >
-                        ${this.manageLinkLabel}
-                        <sl-icon slot="suffix" name="arrow-right"></sl-icon>
-                      </a>
-                    `,
-                  )}
-                </div>
-                ${when(
-                  this.quotas,
-                  (quotas) => html`
-                    <ul class="leading-relaxed text-neutral-700">
-                      <li>
-                        ${msg(
-                          str`${quotas.maxPagesPerCrawl ? formatNumber(quotas.maxPagesPerCrawl) : msg("Unlimited")} pages per crawl`,
-                        )}
-                      </li>
-                      <li>
-                        ${msg(
-                          str`${quotas.storageQuota ? formatBytes(quotas.storageQuota) : msg("Unlimited")} base disk space`,
-                        )}
-                      </li>
-                      <li>
-                        ${msg(
-                          str`${quotas.maxConcurrentCrawls ? formatNumber(quotas.maxConcurrentCrawls) : msg("Unlimited")} concurrent crawls`,
-                        )}
-                      </li>
-                      <li>
-                        ${msg(
-                          str`${quotas.maxExecMinutesPerMonth ? formatNumber(quotas.maxExecMinutesPerMonth) : msg("Unlimited")} minutes of base crawling time per month`,
-                        )}
-                      </li>
-                    </ul>
-                  `,
-                )}
-              </btrix-card>
+              ${this.planTask.render({
+                complete: (plan) => html`
+                  <btrix-card>
+                    <div slot="title" class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        ${this.renderPlanDetails(plan)}
+                      </div>
+                      ${when(
+                        plan.subscription?.portalUrl ||
+                          (this.salesEmail && `mailto:${this.salesEmail}`),
+                        (href) => html`
+                          <a
+                            class="transition-color flex items-center gap-2 px-2 py-1 text-sm leading-none text-primary hover:text-primary-500"
+                            href=${href}
+                            target="_blank"
+                            rel="noopener noreferrer nofollow"
+                          >
+                            ${this.manageLinkLabel}
+                            <sl-icon slot="suffix" name="arrow-right"></sl-icon>
+                          </a>
+                        `,
+                      )}
+                    </div>
+                    ${when(this.quotas, this.renderQuotas)}
+                  </btrix-card>
+                `,
+                error: (err) => html`
+                  <btrix-alert variant="danger">
+                    ${err instanceof Error ? err.message : err}
+                  </btrix-alert>
+                `,
+              })}
             `,
             html`
               <p class="mb-3">
@@ -116,20 +125,23 @@ export class OrgSettingsBilling extends TailwindElement {
                   "Hosted plan status, features, and add-ons, if applicable.",
                 )}
               </p>
-              ${when(
-                this.subscription,
-                (sub) => html`
+              ${this.planTask.render({
+                complete: (plan) => html`
                   <p class="leading-normal">
-                    ${sub.status
+                    ${plan.subscription
                       ? msg(
                           str`You can view plan details, update payment methods, and update billing information by clicking “${this.manageLinkLabel}”. This will redirect you to our payment processor in a new tab.`,
                         )
-                      : msg(
-                          str`Contact us at ${this.salesEmail} to make changes to your plan.`,
-                        )}
+                      : this.salesEmail
+                        ? msg(
+                            str`Contact us at ${this.salesEmail} to make changes to your plan.`,
+                          )
+                        : msg(
+                            str`Contact your Browsertrix host administrator to make changes to your plan.`,
+                          )}
                   </p>
                 `,
-              )}
+              })}
             `,
           ],
         ])}
@@ -137,17 +149,17 @@ export class OrgSettingsBilling extends TailwindElement {
     `;
   }
 
-  private readonly renderPlanDetails = (subscription: Subscription) => {
+  private readonly renderPlanDetails = (plan: Plan) => {
     let tierLabel;
     let statusLabel;
 
-    if (subscription.portalUrl) {
+    if (plan.subscription) {
       tierLabel = html`
         <sl-icon class="text-neutral-500" name="nut"></sl-icon>
         ${msg("Starter")}
       `;
 
-      switch (subscription.status) {
+      switch (plan.subscription.status) {
         case SubscriptionStatus.Active: {
           statusLabel = html`
             <span class="text-success-700">${msg("Active")}</span>
@@ -183,4 +195,47 @@ export class OrgSettingsBilling extends TailwindElement {
           <span class="text-sm font-medium">${statusLabel}</span>`
       : nothing}`;
   };
+
+  private readonly renderQuotas = (quotas: OrgQuotas) => html`
+    <ul class="leading-relaxed text-neutral-700">
+      <li>
+        ${msg(
+          str`${quotas.maxPagesPerCrawl ? formatNumber(quotas.maxPagesPerCrawl) : msg("Unlimited")} pages per crawl`,
+        )}
+      </li>
+      <li>
+        ${msg(
+          str`${quotas.storageQuota ? formatBytes(quotas.storageQuota) : msg("Unlimited")} base disk space`,
+        )}
+      </li>
+      <li>
+        ${msg(
+          str`${quotas.maxConcurrentCrawls ? formatNumber(quotas.maxConcurrentCrawls) : msg("Unlimited")} concurrent crawls`,
+        )}
+      </li>
+      <li>
+        ${msg(
+          str`${quotas.maxExecMinutesPerMonth ? formatNumber(quotas.maxExecMinutesPerMonth) : msg("Unlimited")} minutes of base crawling time per month`,
+        )}
+      </li>
+    </ul>
+  `;
+
+  private async getPlan({
+    orgId,
+    auth,
+  }: {
+    orgId: string;
+    auth: Auth;
+  }): Promise<Plan> {
+    // TODO replace with real data
+    console.log(orgId, auth);
+    return Promise.resolve({
+      subscription: {
+        status: SubscriptionStatus.Active,
+        portalUrl: "",
+      },
+    });
+    // return this.api.fetch(`/orgs/${orgId}/billing`, auth);
+  }
 }

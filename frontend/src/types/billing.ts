@@ -5,6 +5,10 @@ export enum SubscriptionStatus {
 }
 
 export type Subscription = {
-  status: SubscriptionStatus | null;
-  portalUrl: string | null;
+  status: SubscriptionStatus;
+  portalUrl: string;
+};
+
+export type Plan = {
+  subscription: Subscription | null;
 };

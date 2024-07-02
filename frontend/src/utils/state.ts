@@ -51,7 +51,7 @@ export class AppStateService {
     unlock(() => {
       appState.settings = {
         ...settings,
-        // TODO remove temp
+        // TODO remove temp data
         billingEnabled: true,
       } as AppState["settings"];
     });

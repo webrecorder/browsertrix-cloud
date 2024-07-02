@@ -15,7 +15,6 @@ import { NavigateController } from "@/controllers/navigate";
 import { NotifyController } from "@/controllers/notify";
 import type { APIUser } from "@/index";
 import type { APIPaginatedList } from "@/types/api";
-import { SubscriptionStatus } from "@/types/billing";
 import type { CurrentUser } from "@/types/user";
 import { isApiError } from "@/utils/api";
 import type { AuthState } from "@/utils/AuthService";
@@ -127,12 +126,6 @@ export class OrgSettings extends TailwindElement {
   }
 
   render() {
-    // TODO replace with actual data
-    console.log(SubscriptionStatus);
-    const subscription = {
-      status: null,
-      portalUrl: "",
-    };
     return html`<header class="mb-5">
         <h1 class="text-xl font-semibold leading-8">${msg("Org Settings")}</h1>
       </header>
@@ -175,7 +168,8 @@ export class OrgSettings extends TailwindElement {
         </btrix-tab-panel>
         <btrix-tab-panel name="billing">
           <btrix-org-settings-billing
-            .subscription=${subscription}
+            .orgId=${this.orgId}
+            .authState=${this.authState}
             .quotas=${this.org.quotas}
             .salesEmail=${this.appState.settings?.salesEmail}
           ></btrix-org-settings-billing>
