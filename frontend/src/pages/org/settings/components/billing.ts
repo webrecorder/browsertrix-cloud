@@ -59,7 +59,7 @@ export class OrgSettingsBilling extends TailwindElement {
 
     const subscription = this.planTask.value?.subscription;
 
-    if (subscription?.portalUrl) {
+    if (subscription) {
       switch (subscription.status) {
         case SubscriptionStatus.PausedPaymentFailed: {
           label = msg("Update Billing");
@@ -96,8 +96,9 @@ export class OrgSettingsBilling extends TailwindElement {
                         ${this.renderPlanDetails(plan)}
                       </div>
                       ${when(
-                        plan.subscription?.portalUrl ||
-                          (this.salesEmail && `mailto:${this.salesEmail}`),
+                        plan.subscription
+                          ? plan.subscription.portalUrl
+                          : this.salesEmail && `mailto:${this.salesEmail}`,
                         (href) => html`
                           <a
                             class="transition-color flex items-center gap-2 px-2 py-1 text-sm leading-none text-primary hover:text-primary-500"
