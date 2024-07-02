@@ -57,14 +57,3 @@ export const formatISODateString = (
       ...options,
     },
   );
-
-export const formatBytes = (
-  number: number,
-  options?: Intl.NumberFormatOptions,
-) =>
-  new Intl.NumberFormat(getLocale(), {
-    unit: "byte",
-    unitDisplay: "narrow",
-    ...options,
-    style: "unit",
-  }).format(number);

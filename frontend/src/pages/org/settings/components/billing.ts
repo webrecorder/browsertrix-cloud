@@ -11,7 +11,9 @@ import { APIController } from "@/controllers/api";
 import { SubscriptionStatus, type Plan } from "@/types/billing";
 import type { OrgQuotas } from "@/types/org";
 import type { Auth, AuthState } from "@/utils/AuthService";
-import { formatBytes, formatNumber } from "@/utils/localization";
+import { humanizeSeconds } from "@/utils/executionTimeFormatter";
+import { formatNumber } from "@/utils/localization";
+import { pluralOf } from "@/utils/pluralize";
 
 @localized()
 @customElement("btrix-org-settings-billing")
@@ -200,22 +202,27 @@ export class OrgSettingsBilling extends TailwindElement {
     <ul class="leading-relaxed text-neutral-700">
       <li>
         ${msg(
-          str`${quotas.maxPagesPerCrawl ? formatNumber(quotas.maxPagesPerCrawl) : msg("Unlimited")} pages per crawl`,
+          str`${quotas.maxPagesPerCrawl ? formatNumber(quotas.maxPagesPerCrawl) : msg("Unlimited")} ${pluralOf("pages", quotas.maxPagesPerCrawl)} per crawl`,
         )}
       </li>
       <li>
         ${msg(
-          str`${quotas.storageQuota ? formatBytes(quotas.storageQuota) : msg("Unlimited")} base disk space`,
+          html`${quotas.storageQuota
+            ? html`<sl-format-bytes
+                value=${quotas.storageQuota}
+              ></sl-format-bytes>`
+            : msg("Unlimited")}
+          base disk space`,
         )}
       </li>
       <li>
         ${msg(
-          str`${quotas.maxConcurrentCrawls ? formatNumber(quotas.maxConcurrentCrawls) : msg("Unlimited")} concurrent crawls`,
+          str`${quotas.maxConcurrentCrawls ? formatNumber(quotas.maxConcurrentCrawls) : msg("Unlimited")} concurrent ${pluralOf("crawls", quotas.maxConcurrentCrawls)}`,
         )}
       </li>
       <li>
         ${msg(
-          str`${quotas.maxExecMinutesPerMonth ? formatNumber(quotas.maxExecMinutesPerMonth) : msg("Unlimited")} minutes of base crawling time per month`,
+          str`${quotas.maxExecMinutesPerMonth ? humanizeSeconds(quotas.maxExecMinutesPerMonth, undefined, undefined, "long") : msg("Unlimited minutes")} of base crawling time per month`,
         )}
       </li>
     </ul>
@@ -231,10 +238,11 @@ export class OrgSettingsBilling extends TailwindElement {
     // TODO replace with real data
     console.log(orgId, auth);
     return Promise.resolve({
-      subscription: {
-        status: SubscriptionStatus.Active,
-        portalUrl: "",
-      },
+      // subscription: {
+      //   status: SubscriptionStatus.Active,
+      //   portalUrl: "",
+      // },
+      subscription: null,
     });
     // return this.api.fetch(`/orgs/${orgId}/billing`, auth);
   }
