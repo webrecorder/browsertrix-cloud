@@ -11,11 +11,27 @@ import sys
 import re
 
 from datetime import datetime
-from typing import Optional, Dict, Union, List
+from typing import Optional, Dict, Union, List, Any
+from uuid import UUID
 
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from slugify import slugify
+
+
+class JSONSerializer(json.JSONEncoder):
+    """Serializer class for json.dumps with UUID and datetime support"""
+
+    def default(self, o: Any) -> str:
+        """JSON serialization conversion function."""
+
+        if isinstance(o, UUID):
+            return str(o)
+
+        if isinstance(o, datetime):
+            return o.isoformat()
+
+        return super().default(o)
 
 
 def get_templates_dir():
