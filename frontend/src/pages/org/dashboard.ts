@@ -357,7 +357,7 @@ export class Dashboard extends LiteElement {
   private renderCrawlingMeter(_metrics: Metrics) {
     let quotaSeconds = 0;
 
-    if (this.org!.quotas?.maxExecMinutesPerMonth) {
+    if (this.org!.quotas.maxExecMinutesPerMonth) {
       quotaSeconds = this.org!.quotas.maxExecMinutesPerMonth * 60;
     }
 
@@ -407,7 +407,7 @@ export class Dashboard extends LiteElement {
         usageSecondsExtra = actualUsageExtra;
       }
     }
-    const maxExecSecsExtra = this.org!.quotas!.extraExecMinutes * 60;
+    const maxExecSecsExtra = this.org!.quotas.extraExecMinutes * 60;
     // Cap usage at quota for display purposes
     if (usageSecondsExtra > maxExecSecsExtra) {
       usageSecondsExtra = maxExecSecsExtra;
@@ -425,7 +425,7 @@ export class Dashboard extends LiteElement {
         usageSecondsGifted = actualUsageGifted;
       }
     }
-    const maxExecSecsGifted = this.org!.quotas!.giftedExecMinutes * 60;
+    const maxExecSecsGifted = this.org!.quotas.giftedExecMinutes * 60;
     // Cap usage at quota for display purposes
     if (usageSecondsGifted > maxExecSecsGifted) {
       usageSecondsGifted = maxExecSecsGifted;
@@ -752,7 +752,7 @@ export class Dashboard extends LiteElement {
       .map(([mY, crawlTime]) => {
         let monthlySecondsUsed = this.org!.monthlyExecSeconds?.[mY] || 0;
         let maxMonthlySeconds = 0;
-        if (this.org!.quotas?.maxExecMinutesPerMonth) {
+        if (this.org!.quotas.maxExecMinutesPerMonth) {
           maxMonthlySeconds = this.org!.quotas.maxExecMinutesPerMonth * 60;
         }
         if (monthlySecondsUsed > maxMonthlySeconds) {
@@ -761,7 +761,7 @@ export class Dashboard extends LiteElement {
 
         let extraSecondsUsed = this.org!.extraExecSeconds?.[mY] || 0;
         let maxExtraSeconds = 0;
-        if (this.org!.quotas?.extraExecMinutes) {
+        if (this.org!.quotas.extraExecMinutes) {
           maxExtraSeconds = this.org!.quotas.extraExecMinutes * 60;
         }
         if (extraSecondsUsed > maxExtraSeconds) {
@@ -770,7 +770,7 @@ export class Dashboard extends LiteElement {
 
         let giftedSecondsUsed = this.org!.giftedExecSeconds?.[mY] || 0;
         let maxGiftedSeconds = 0;
-        if (this.org!.quotas?.giftedExecMinutes) {
+        if (this.org!.quotas.giftedExecMinutes) {
           maxGiftedSeconds = this.org!.quotas.giftedExecMinutes * 60;
         }
         if (giftedSecondsUsed > maxGiftedSeconds) {

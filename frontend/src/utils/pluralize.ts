@@ -4,6 +4,32 @@ import { pluralize } from "./localization";
 
 // Add to this as necessary!
 const plurals = {
+  crawls: {
+    zero: msg("crawls", {
+      desc: 'plural form of "crawl" for zero crawls',
+      id: "crawls.plural.zero",
+    }),
+    one: msg("crawl", {
+      desc: 'singular form for "crawl"',
+      id: "crawls.plural.one",
+    }),
+    two: msg("crawls", {
+      desc: 'plural form of "crawl" for two crawls',
+      id: "crawls.plural.two",
+    }),
+    few: msg("crawls", {
+      desc: 'plural form of "crawl" for few crawls',
+      id: "crawls.plural.few",
+    }),
+    many: msg("crawls", {
+      desc: 'plural form of "crawl" for many crawls',
+      id: "crawls.plural.many",
+    }),
+    other: msg("crawls", {
+      desc: 'plural form of "crawl" for multiple/other crawls',
+      id: "crawls.plural.other",
+    }),
+  },
   pages: {
     zero: msg("pages", {
       desc: 'plural form of "page" for zero pages',

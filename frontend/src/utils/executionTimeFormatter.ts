@@ -16,6 +16,7 @@ export function humanizeSeconds(
   seconds: number,
   locale?: string,
   displaySeconds = false,
+  unitDisplay: "narrow" | "short" | "long" = "narrow",
 ) {
   if (seconds < 0) {
     throw new Error("humanizeSeconds in unimplemented for negative times");
@@ -31,19 +32,19 @@ export function humanizeSeconds(
   const hourFormatter = new Intl.NumberFormat(locale, {
     style: "unit",
     unit: "hour",
-    unitDisplay: "narrow",
+    unitDisplay: unitDisplay,
   });
 
   const minuteFormatter = new Intl.NumberFormat(locale, {
     style: "unit",
     unit: "minute",
-    unitDisplay: "narrow",
+    unitDisplay: unitDisplay,
   });
 
   const secondFormatter = new Intl.NumberFormat(locale, {
     style: "unit",
     unit: "second",
-    unitDisplay: "narrow",
+    unitDisplay: unitDisplay,
   });
 
   return [
