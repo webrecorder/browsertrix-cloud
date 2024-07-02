@@ -46,12 +46,31 @@ class UserRole(IntEnum):
 class InvitePending(BaseMongoModel):
     """An invite for a new user, with an email and invite token as id"""
 
+    id: UUID
     created: datetime
+    tokenHash: str
     inviterEmail: str
     fromSuperuser: Optional[bool]
     oid: Optional[UUID]
     role: UserRole = UserRole.VIEWER
     email: Optional[str]
+    # set if existing user
+    userid: Optional[UUID]
+
+
+# ============================================================================
+class InviteOut(BaseModel):
+    """Single invite output model"""
+
+    created: datetime
+    inviterEmail: str
+    inviterName: str
+    oid: Optional[UUID]
+    orgName: Optional[str]
+    orgSlug: Optional[str]
+    role: UserRole = UserRole.VIEWER
+    email: Optional[str]
+    firstOrgOwner: Optional[bool] = None
 
 
 # ============================================================================
@@ -95,7 +114,6 @@ class User(BaseModel):
     is_superuser: bool = False
     is_verified: bool = False
 
-    invites: Dict[str, InvitePending] = {}
     hashed_password: str
 
     def dict(self, *a, **kw):
@@ -1279,7 +1297,7 @@ class ProfileUpdate(BaseModel):
 
 
 # ============================================================================
-class UserCreateIn(BaseModel):
+class UserCreate(BaseModel):
     """
     User Creation Model exposed to API
     """
@@ -1290,19 +1308,6 @@ class UserCreateIn(BaseModel):
     name: Optional[str] = ""
 
     inviteToken: Optional[UUID] = None
-
-    newOrg: Optional[bool] = False
-    newOrgName: Optional[str] = ""
-
-
-# ============================================================================
-class UserCreate(UserCreateIn):
-    """
-    User Creation Model
-    """
-
-    is_superuser: Optional[bool] = False
-    is_verified: Optional[bool] = False
 
 
 # ============================================================================

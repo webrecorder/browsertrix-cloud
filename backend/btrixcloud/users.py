@@ -6,7 +6,7 @@ import os
 from uuid import UUID, uuid4
 import asyncio
 
-from typing import Optional, List, TYPE_CHECKING, cast
+from typing import Optional, List, TYPE_CHECKING, cast, Callable
 
 from pydantic import EmailStr
 
@@ -23,14 +23,14 @@ from pymongo.collation import Collation
 
 from .models import (
     UserCreate,
-    UserCreateIn,
     UserUpdateEmailName,
     UserUpdatePassword,
     User,
     UserOrgInfoOut,
     UserOut,
     UserRole,
-    Organization,
+    InvitePending,
+    InviteOut,
     PaginatedResponse,
     FailedLogin,
 )
@@ -86,7 +86,6 @@ class UserManager:
         self.email_collation = Collation("en", strength=2)
 
         self.registration_enabled = is_bool(os.environ.get("REGISTRATION_ENABLED"))
-        self.register_to_org_id = os.environ.get("REGISTER_TO_ORG_ID")
 
     # pylint: disable=attribute-defined-outside-init
     def set_ops(self, org_ops, crawl_config_ops, base_crawl_ops):
@@ -110,24 +109,52 @@ class UserManager:
         await self.failed_logins.create_index("attempted", expireAfterSeconds=3600)
 
     async def register(
-        self, user: UserCreateIn, request: Optional[Request] = None
+        self, create: UserCreate, request: Optional[Request] = None
     ) -> User:
         """override user creation to check if invite token is present"""
-        user.name = user.name or user.email
+        create.name = create.name or create.email
 
         # if open registration not enabled, can only register with an invite
-        if not self.registration_enabled and not user.inviteToken:
+        if not self.registration_enabled and not create.inviteToken:
             raise HTTPException(status_code=400, detail="invite_token_required")
 
-        if user.inviteToken and not await self.invites.get_valid_invite(
-            user.inviteToken, user.email
-        ):
-            raise HTTPException(status_code=400, detail="invite_token_invalid")
+        invite: Optional[InvitePending] = None
+        if create.inviteToken:
+            # raises if invite is invalid
+            invite = await self.invites.get_valid_invite(
+                create.inviteToken, email=create.email
+            )
 
-        # Don't create a new org for registered users.
-        user.newOrg = False
+        try:
+            user = await self.create_user(create, is_verified=invite is not None)
 
-        return await self._create(user, request)
+        except DuplicateKeyError:
+            maybe_user = await self.get_by_email(create.email)
+            # shouldn't happen since user should exist if we have duplicate key, but just in case!
+            if not maybe_user:
+                raise HTTPException(status_code=400, detail="user_missing")
+
+            if not await self.check_password(maybe_user, create.password):
+                raise HTTPException(status_code=400, detail="invalid_current_password")
+
+            user = maybe_user
+
+        default_register_org = await self.org_ops.get_default_register_org()
+
+        # if invite, add via invite path
+        if invite:
+            await self.org_ops.add_user_by_invite(
+                invite, user, default_org=default_register_org
+            )
+
+        else:
+            await self.org_ops.add_user_to_org(
+                default_register_org, user.id, UserRole.CRAWLER
+            )
+
+            asyncio.create_task(self.request_verify(user, request))
+
+        return user
 
     async def get_user_info_with_orgs(self, user: User) -> UserOut:
         """return User info"""
@@ -254,49 +281,19 @@ class UserManager:
             return
 
         try:
-            res = await self._create(
+            res = await self.create_user(
                 UserCreate(
                     name=name,
                     email=email,
                     password=password,
-                    is_superuser=True,
-                    newOrg=False,
-                    is_verified=True,
-                )
+                ),
+                is_superuser=True,
             )
             print(f"Super user {email} created", flush=True)
             print(res, flush=True)
-        except HTTPException as exc:
+        except DuplicateKeyError as exc:
             print(exc)
             print(f"User {email} already exists", flush=True)
-
-    async def create_non_super_user(
-        self,
-        email: str,
-        password: str,
-        name: str = "New user",
-    ) -> User:
-        """create a regular user with given credentials"""
-        if not email:
-            raise HTTPException(status_code=400, detail="missing_user_email")
-
-        if not password:
-            password = generate_password()
-
-        try:
-            user_create = UserCreate(
-                name=name,
-                email=email,
-                password=password,
-                is_superuser=False,
-                newOrg=False,
-                is_verified=True,
-            )
-
-            return await self._create(user_create)
-        except HTTPException as exc:
-            print(f"User {email} already exists", flush=True)
-            raise exc
 
     async def request_verify(
         self, user: User, request: Optional[Request] = None
@@ -315,45 +312,27 @@ class UserManager:
             RESET_VERIFY_TOKEN_LIFETIME_MINUTES,
         )
 
-        self.email.send_user_validation(user.email, token, request and request.headers)
+        self.email.send_user_validation(
+            user.email, token, dict(request.headers) if request else None
+        )
 
-    async def format_invite(self, invite):
-        """format an InvitePending to return via api, resolve name of inviter"""
-        inviter = await self.get_by_email(invite.inviterEmail)
-        if not inviter:
-            raise HTTPException(status_code=400, detail="invalid_invite_code")
-
-        result = invite.serialize()
-        result["inviterName"] = inviter.name
-        if invite.oid:
-            result["oid"] = invite.oid
-
-            org = await self.org_ops.get_org_for_user_by_id(invite.oid, inviter)
-            result["orgName"] = org.name
-            result["orgSlug"] = org.slug
-
-            result["firstOrgAdmin"] = False
-            org_owners = await self.org_ops.get_org_owners(org)
-            if not org_owners:
-                result["firstOrgAdmin"] = True
-
-        return result
-
-    async def _create(
-        self, create: UserCreateIn, request: Optional[Request] = None
+    async def create_user(
+        self,
+        create: UserCreate,
+        is_superuser=False,
+        is_verified=False,
     ) -> User:
         """create new user in db"""
-        # pylint: disable=too-many-branches
+
+        if not create.email:
+            raise HTTPException(status_code=400, detail="missing_user_email")
+
+        if not create.password:
+            create.password = generate_password()
+
         await self.validate_password(create.password)
 
         hashed_password = get_password_hash(create.password)
-
-        if isinstance(create, UserCreate):
-            is_superuser = create.is_superuser
-            is_verified = create.is_verified
-        else:
-            is_superuser = False
-            is_verified = create.inviteToken is not None
 
         id_ = uuid4()
 
@@ -366,68 +345,7 @@ class UserManager:
             is_verified=is_verified,
         )
 
-        user_already_exists = False
-
-        try:
-            await self.users.insert_one(user.dict())
-        except DuplicateKeyError:
-            maybe_user = await self.get_by_email(create.email)
-            # shouldn't happen since user should exist if we have duplicate key, but just in case!
-            if not maybe_user:
-                raise HTTPException(status_code=400, detail="user_missing")
-            user = maybe_user
-            user_already_exists = True
-
-        add_to_org = False
-
-        if create.inviteToken:
-            new_user_invite = None
-            try:
-                new_user_invite = await self.org_ops.handle_new_user_invite(
-                    create.inviteToken, user
-                )
-            except HTTPException as exc:
-                print(exc)
-
-            # if no org specified, add to the auto-add org
-            if new_user_invite and not new_user_invite.oid:
-                add_to_org = True
-
-        else:
-            add_to_org = True
-            if not is_verified and not user_already_exists:
-                asyncio.create_task(self.request_verify(user, request))
-
-        # org to auto-add user to, if any
-        auto_add_org: Optional[Organization] = None
-
-        # if user already exists, and not adding to a new org, error
-        if user_already_exists and not add_to_org:
-            raise HTTPException(status_code=400, detail="user_already_exists")
-
-        # if add to default, then get default org
-        if add_to_org:
-            if self.register_to_org_id:
-                auto_add_org = await self.org_ops.get_org_by_id(
-                    UUID(self.register_to_org_id)
-                )
-            else:
-                auto_add_org = await self.org_ops.get_default_org()
-
-        # if creating new org, create here
-        elif create.newOrg is True:
-            print(f"Creating new organization for {user.id}")
-
-            org_name = create.newOrgName or f"{user.name or user.email}'s Organization"
-
-            auto_add_org = await self.org_ops.create_new_org_for_user(
-                org_name=org_name,
-                user=user,
-            )
-
-        # if org set, add user to org
-        if auto_add_org:
-            await self.org_ops.add_user_to_org(auto_add_org, user.id, UserRole.CRAWLER)
+        await self.users.insert_one(user.dict())
 
         return user
 
@@ -559,12 +477,6 @@ class UserManager:
             {"id": user.id}, {"$set": {"is_verified": user.is_verified}}
         )
 
-    async def update_invites(self, user: User) -> None:
-        """Update invites list for user"""
-        await self.users.find_one_and_update(
-            {"id": user.id}, {"$set": user.dict(include={"invites"})}
-        )
-
     async def update_email_name(
         self, user: User, email: Optional[EmailStr], name: Optional[str]
     ) -> None:
@@ -678,7 +590,7 @@ def init_auth_router(user_manager: UserManager) -> APIRouter:
     auth_router = APIRouter()
 
     @auth_router.post("/register", status_code=201, response_model=UserOut)
-    async def register(request: Request, create: UserCreateIn):
+    async def register(request: Request, create: UserCreate):
         user = await user_manager.register(create, request=request)
         return await user_manager.get_user_info_with_orgs(user)
 
@@ -730,7 +642,9 @@ def init_auth_router(user_manager: UserManager) -> APIRouter:
 
 
 # ============================================================================
-def init_users_router(current_active_user, user_manager) -> APIRouter:
+def init_users_router(
+    current_active_user: Callable, user_manager: UserManager
+) -> APIRouter:
     """/users routes"""
     users_router = APIRouter()
 
@@ -757,22 +671,21 @@ def init_users_router(current_active_user, user_manager) -> APIRouter:
         await user_manager.change_email_name(user_update, user)
         return {"updated": True}
 
-    @users_router.get("/me/invite/{token}", tags=["invites"])
+    @users_router.get("/me/invite/{token}", tags=["invites"], response_model=InviteOut)
     async def get_existing_user_invite_info(
-        token: str, user: User = Depends(current_active_user)
+        token: UUID, user: User = Depends(current_active_user)
     ):
-        try:
-            invite = user.invites[token]
-        except:
-            # pylint: disable=raise-missing-from
-            raise HTTPException(status_code=400, detail="invalid_invite_code")
+        invite = await user_manager.invites.get_valid_invite(
+            token, email=None, userid=user.id
+        )
 
-        return await user_manager.format_invite(invite)
+        return await user_manager.invites.get_invite_out(invite, user_manager, True)
 
-    @users_router.get("/invite/{token}", tags=["invites"])
+    @users_router.get("/invite/{token}", tags=["invites"], response_model=InviteOut)
     async def get_invite_info(token: UUID, email: str):
         invite = await user_manager.invites.get_valid_invite(token, email)
-        return await user_manager.format_invite(invite)
+
+        return await user_manager.invites.get_invite_out(invite, user_manager, True)
 
     # pylint: disable=invalid-name
     @users_router.get("/invites", tags=["invites"], response_model=PaginatedResponse)
@@ -785,7 +698,7 @@ def init_users_router(current_active_user, user_manager) -> APIRouter:
             raise HTTPException(status_code=403, detail="not_allowed")
 
         pending_invites, total = await user_manager.invites.get_pending_invites(
-            page_size=pageSize, page=page
+            user_manager, page_size=pageSize, page=page
         )
         return paginated_format(pending_invites, total, page, pageSize)
 

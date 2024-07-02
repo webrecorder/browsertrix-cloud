@@ -55,7 +55,6 @@ def crawler_auth_headers(admin_auth_headers, default_org_id):
             "email": CRAWLER_USERNAME,
             "password": CRAWLER_PW,
             "name": "new-crawler",
-            "description": "crawler test crawl",
             "role": 20,
         },
         headers=admin_auth_headers,

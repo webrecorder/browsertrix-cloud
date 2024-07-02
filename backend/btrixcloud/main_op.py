@@ -39,7 +39,7 @@ def main():
 
     user_manager = init_user_manager(mdb, email, invite_ops)
 
-    org_ops = OrgOps(mdb, invite_ops)
+    org_ops = OrgOps(mdb, invite_ops, user_manager)
 
     event_webhook_ops = EventWebhookOps(mdb, org_ops)
 

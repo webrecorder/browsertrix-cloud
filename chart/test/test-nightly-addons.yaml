@@ -10,6 +10,8 @@ minio_local_access_port: 30090
 
 minio_local_bucket_name: &local_bucket_name "btrix-test-data"
 
+# for checking registration
+registration_enabled: "1"
 
 storages:
   - name: "default"
