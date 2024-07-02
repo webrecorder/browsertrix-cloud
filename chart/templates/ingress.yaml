@@ -10,6 +10,8 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
     nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    # for larger uploads to not timeout
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
     {{- if .Values.ingress.tls }}
     cert-manager.io/cluster-issuer: {{ .Values.ingress.custom_cluster_issuer | default "cert-main" }}

@@ -127,7 +127,7 @@ class UserManager:
         # Don't create a new org for registered users.
         user.newOrg = False
 
-        return await self._create(user, request)
+        return await self._create(user, request=request)
 
     async def get_user_info_with_orgs(self, user: User) -> UserOut:
         """return User info"""
@@ -275,6 +275,7 @@ class UserManager:
         email: str,
         password: str,
         name: str = "New user",
+        prevent_add_to_org: bool = False,
     ) -> User:
         """create a regular user with given credentials"""
         if not email:
@@ -293,7 +294,9 @@ class UserManager:
                 is_verified=True,
             )
 
-            return await self._create(user_create)
+            return await self._create(
+                user_create, prevent_add_to_org=prevent_add_to_org
+            )
         except HTTPException as exc:
             print(f"User {email} already exists", flush=True)
             raise exc
@@ -340,10 +343,13 @@ class UserManager:
         return result
 
     async def _create(
-        self, create: UserCreateIn, request: Optional[Request] = None
+        self,
+        create: UserCreateIn,
+        prevent_add_to_org: bool = False,
+        request: Optional[Request] = None,
     ) -> User:
         """create new user in db"""
-        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-branches,too-many-locals
         await self.validate_password(create.password)
 
         hashed_password = get_password_hash(create.password)
@@ -397,6 +403,11 @@ class UserManager:
             add_to_org = True
             if not is_verified and not user_already_exists:
                 asyncio.create_task(self.request_verify(user, request))
+            return user
+
+        # Override adding to org
+        if prevent_add_to_org:
+            add_to_org = False
 
         # org to auto-add user to, if any
         auto_add_org: Optional[Organization] = None
